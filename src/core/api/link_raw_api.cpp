@@ -38,26 +38,43 @@
 #include "openthread-instance.h"
 #include "common/debug.hpp"
 #include "common/logging.hpp"
+#include "mac/mac.hpp"
 
-#if OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
 
 otError otLinkRawSetEnable(otInstance *aInstance, bool aEnabled)
 {
     otError error = OT_ERROR_NONE;
 
-    VerifyOrExit(!aInstance->mThreadNetif.IsUp(), error = OT_ERROR_INVALID_STATE);
-
     otLogInfoPlat(aInstance, "LinkRaw Enabled=%d", aEnabled ? 1 : 0);
+#if OPENTHREAD_RAW
 
+    if (aEnabled)
+    {
+        otPlatRadioEnable(aInstance);
+    }
+    else
+    {
+        otPlatRadioDisable(aInstance);
+    }
+
+#else
+    VerifyOrExit(!aInstance->mThreadNetif.IsUp(), error = OT_ERROR_INVALID_STATE);
     aInstance->mLinkRaw.SetEnabled(aEnabled);
 
 exit:
+#endif
     return error;
 }
 
 bool otLinkRawIsEnabled(otInstance *aInstance)
 {
+#if OPENTHREAD_RAW
+    OT_UNUSED_VARIABLE(aInstance);
+    return true;
+#else
     return aInstance->mLinkRaw.IsEnabled();
+#endif
 }
 
 otError otLinkRawSetPanId(otInstance *aInstance, uint16_t aPanId)
@@ -67,6 +84,9 @@ otError otLinkRawSetPanId(otInstance *aInstance, uint16_t aPanId)
     VerifyOrExit(aInstance->mLinkRaw.IsEnabled(), error = OT_ERROR_INVALID_STATE);
 
     otPlatRadioSetPanId(aInstance, aPanId);
+#if OPENTHREAD_RAW
+    aInstance->mLinkRaw.SetPanId(aPanId);
+#endif
 
 exit:
     return error;
@@ -75,16 +95,19 @@ exit:
 otError otLinkRawSetExtendedAddress(otInstance *aInstance, const otExtAddress *aExtAddress)
 {
     otError error = OT_ERROR_NONE;
-    otExtAddress address;
+    otExtAddress addr;
 
     VerifyOrExit(aInstance->mLinkRaw.IsEnabled(), error = OT_ERROR_INVALID_STATE);
 
-    for (size_t i = 0; i < sizeof(address); i++)
+    for (size_t i = 0; i < sizeof(addr); i++)
     {
-        address.m8[i] = aExtAddress->m8[7 - i];
+        addr.m8[i] = aExtAddress->m8[7 - i];
     }
 
-    otPlatRadioSetExtendedAddress(aInstance, &address);
+    otPlatRadioSetExtendedAddress(aInstance, &addr);
+#if OPENTHREAD_RAW
+    aInstance->mLinkRaw.SetExtAddress(*aExtAddress);
+#endif
 
 exit:
     return error;
@@ -97,6 +120,9 @@ otError otLinkRawSetShortAddress(otInstance *aInstance, uint16_t aShortAddress)
     VerifyOrExit(aInstance->mLinkRaw.IsEnabled(), error = OT_ERROR_INVALID_STATE);
 
     otPlatRadioSetShortAddress(aInstance, aShortAddress);
+#if OPENTHREAD_RAW
+    aInstance->mLinkRaw.SetShortAddress(aShortAddress);
+#endif
 
 exit:
     return error;
@@ -202,10 +228,16 @@ exit:
 otError otLinkRawSrcMatchAddExtEntry(otInstance *aInstance, const otExtAddress *aExtAddress)
 {
     otError error = OT_ERROR_NONE;
+    otExtAddress addr;
 
     VerifyOrExit(aInstance->mLinkRaw.IsEnabled(), error = OT_ERROR_INVALID_STATE);
 
-    error = otPlatRadioAddSrcMatchExtEntry(aInstance, aExtAddress);
+    for (uint8_t i = 0; i < sizeof(addr); i++)
+    {
+        addr.m8[i] = aExtAddress->m8[sizeof(addr) - 1 - i];
+    }
+
+    error = otPlatRadioAddSrcMatchExtEntry(aInstance, &addr);
 
 exit:
     return error;
@@ -226,10 +258,16 @@ exit:
 otError otLinkRawSrcMatchClearExtEntry(otInstance *aInstance, const otExtAddress *aExtAddress)
 {
     otError error = OT_ERROR_NONE;
+    otExtAddress addr;
 
     VerifyOrExit(aInstance->mLinkRaw.IsEnabled(), error = OT_ERROR_INVALID_STATE);
 
-    error = otPlatRadioClearSrcMatchExtEntry(aInstance, aExtAddress);
+    for (uint8_t i = 0; i < sizeof(addr); i++)
+    {
+        addr.m8[i] = aExtAddress->m8[sizeof(addr) - 1 - i];
+    }
+
+    error = otPlatRadioClearSrcMatchExtEntry(aInstance, &addr);
 
 exit:
     return error;
@@ -259,11 +297,41 @@ exit:
     return error;
 }
 
+#if OPENTHREAD_RAW
+int8_t otLinkRawGetMaxTransmitPower(otInstance *aInstance)
+{
+    return aInstance->mLinkRaw.GetMaxTxPower();
+}
+
+void otLinkRawSetMaxTransmitPower(otInstance *aInstance, int8_t aPower)
+{
+    otPlatRadioSetDefaultTxPower(aInstance, aPower);
+    aInstance->mLinkRaw.SetMaxTxPower(aPower);
+}
+
+uint16_t otLinkRawGetShortAddress(otInstance *aInstance)
+{
+    return aInstance->mLinkRaw.GetShortAddress();
+}
+
+const otExtAddress *otLinkRawGetExtendedAddress(otInstance *aInstance)
+{
+    return &aInstance->mLinkRaw.GetExtAddress();
+}
+
+otPanId otLinkRawGetPanId(otInstance *aInstance)
+{
+    return aInstance->mLinkRaw.GetPanId();
+}
+#endif // OPENTHREAD_RAW
+
 namespace ot {
 
 LinkRaw::LinkRaw(otInstance &aInstance):
     mInstance(aInstance),
+#if !OPENTHREAD_RAW
     mEnabled(false),
+#endif
     mReceiveChannel(OPENTHREAD_CONFIG_DEFAULT_CHANNEL),
     mReceiveDoneCallback(NULL),
     mTransmitDoneCallback(NULL),
@@ -312,7 +380,10 @@ otError LinkRaw::Receive(uint8_t aChannel, otLinkRawReceiveDone aCallback)
 {
     otError error = OT_ERROR_INVALID_STATE;
 
+#if !OPENTHREAD_RAW
+
     if (mEnabled)
+#endif
     {
         mReceiveChannel = aChannel;
         mReceiveDoneCallback = aCallback;
@@ -329,13 +400,12 @@ void LinkRaw::InvokeReceiveDone(otRadioFrame *aFrame, otError aError)
         if (aError == OT_ERROR_NONE)
         {
             otLogInfoPlat(&mInstance, "LinkRaw Invoke Receive Done (%d bytes)", aFrame->mLength);
+            mReceiveDoneCallback(&mInstance, aFrame, aError);
         }
         else
         {
             otLogWarnPlat(&mInstance, "LinkRaw Invoke Receive Done (err=0x%x)", aError);
         }
-
-        mReceiveDoneCallback(&mInstance, aFrame, aError);
     }
 }
 
@@ -343,7 +413,10 @@ otError LinkRaw::Transmit(otRadioFrame *aFrame, otLinkRawTransmitDone aCallback)
 {
     otError error = OT_ERROR_INVALID_STATE;
 
+#if !OPENTHREAD_RAW
+
     if (mEnabled)
+#endif
     {
         mTransmitDoneCallback = aCallback;
 
@@ -357,29 +430,9 @@ otError LinkRaw::Transmit(otRadioFrame *aFrame, otLinkRawTransmitDone aCallback)
         error = OT_ERROR_NONE;
 #else
         // Let the hardware do the transmission logic
-        error = DoTransmit(aFrame);
+        error = otPlatRadioTransmit(&mInstance, aFrame);
 #endif
     }
-
-    return error;
-}
-
-otError LinkRaw::DoTransmit(otRadioFrame *aFrame)
-{
-    otError error = otPlatRadioTransmit(&mInstance, aFrame);
-
-#if OPENTHREAD_CONFIG_ENABLE_SOFTWARE_ACK_TIMEOUT
-
-    // If we are implementing the ACK timeout logic, start a timer here (if ACK request)
-    // to fire if we don't get a transmit done callback in time.
-    if (static_cast<Mac::Frame *>(aFrame)->GetAckRequest())
-    {
-        otLogDebgPlat(aInstance, "LinkRaw Starting AckTimeout Timer");
-        mTimerReason = kTimerReasonAckTimeout;
-        mTimer.Start(Mac::kAckTimeout);
-    }
-
-#endif
 
     return error;
 }
@@ -448,7 +501,10 @@ otError LinkRaw::EnergyScan(uint8_t aScanChannel, uint16_t aScanDuration, otLink
 {
     otError error = OT_ERROR_INVALID_STATE;
 
+#if !OPENTHREAD_RAW
+
     if (mEnabled)
+#endif
     {
         mEnergyScanDoneCallback = aCallback;
 
@@ -477,6 +533,25 @@ void LinkRaw::InvokeEnergyScanDone(int8_t aEnergyScanMaxRssi)
         mEnergyScanDoneCallback(&mInstance, aEnergyScanMaxRssi);
         mEnergyScanDoneCallback = NULL;
     }
+}
+
+void LinkRaw::TransmitStarted(otRadioFrame *aFrame)
+{
+#if OPENTHREAD_CONFIG_ENABLE_SOFTWARE_ACK_TIMEOUT
+
+    // If we are implementing the ACK timeout logic, start a timer here (if ACK request)
+    // to fire if we don't get a transmit done callback in time.
+    if (static_cast<Mac::Frame *>(aFrame)->GetAckRequest())
+    {
+        otLogDebgPlat(aInstance, "LinkRaw Starting AckTimeout Timer");
+        mTimerReason = kTimerReasonAckTimeout;
+        mTimer.Start(Mac::kAckTimeout);
+    }
+
+#else
+    OT_UNUSED_VARIABLE(mInstance);
+    OT_UNUSED_VARIABLE(aFrame);
+#endif
 }
 
 #if OPENTHREAD_LINKRAW_TIMER_REQUIRED
@@ -514,7 +589,7 @@ void LinkRaw::HandleTimer(void)
         otRadioFrame *aFrame = otPlatRadioGetTransmitBuffer(&mInstance);
 
         // Start the  transmit now
-        otError error = DoTransmit(aFrame);
+        otError error = otPlatRadioTransmit(&mInstance, aFrame);
 
         if (error != OT_ERROR_NONE)
         {
@@ -615,4 +690,34 @@ LinkRaw &LinkRaw::GetOwner(const Context &aContext)
 
 } // namespace ot
 
-#endif // OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RAW
+extern "C" void otPlatRadioReceiveDone(otInstance *aInstance, otRadioFrame *aFrame, otError aError)
+{
+    aInstance->mLinkRaw.InvokeReceiveDone(aFrame, aError);
+}
+
+extern "C" void otPlatRadioTxDone(otInstance *aInstance, otRadioFrame *aFrame, otRadioFrame *aAckFrame,
+                                  otError aError)
+{
+    aInstance->mLinkRaw.InvokeTransmitDone(aFrame, aAckFrame, aError);
+}
+
+extern "C" void otPlatRadioTxStarted(otInstance *aInstance, otRadioFrame *aFrame)
+{
+    aInstance->mLinkRaw.TransmitStarted(aFrame);
+}
+
+extern "C" otDeviceRole otThreadGetDeviceRole(otInstance *aInstance)
+{
+    OT_UNUSED_VARIABLE(aInstance);
+    return OT_DEVICE_ROLE_DISABLED;
+}
+
+extern "C" void otPlatRadioEnergyScanDone(otInstance *aInstance, int8_t aEnergyScanMaxRssi)
+{
+    OT_UNUSED_VARIABLE(aInstance);
+    OT_UNUSED_VARIABLE(aEnergyScanMaxRssi);
+}
+#endif // OPENTHREAD_RAW
+
+#endif // OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API

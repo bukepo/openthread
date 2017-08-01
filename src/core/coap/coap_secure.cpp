@@ -36,6 +36,7 @@
 #include "meshcop/dtls.hpp"
 #include "openthread-instance.h"
 #include "thread/thread_netif.hpp"
+#include "openthread-instance.h"
 
 #if OPENTHREAD_ENABLE_DTLS
 

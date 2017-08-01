@@ -76,6 +76,17 @@ otError otLinkRawSetEnable(otInstance *aInstance, bool aEnabled);
 bool otLinkRawIsEnabled(otInstance *aInstance);
 
 /**
+ * Get the IEEE 802.15.4 PAN ID.
+ *
+ * @param[in]  aInstance A pointer to an OpenThread instance.
+ *
+ * @returns The IEEE 802.15.4 PAN ID.
+ *
+ * @sa otLinkSetPanId
+ */
+otPanId otLinkRawGetPanId(otInstance *aInstance);
+
+/**
  * This function set the IEEE 802.15.4 PAN ID.
  *
  * @param[in] aInstance      A pointer to an OpenThread instance.
@@ -86,6 +97,16 @@ bool otLinkRawIsEnabled(otInstance *aInstance);
  *
  */
 otError otLinkRawSetPanId(otInstance *aInstance, uint16_t aPanId);
+
+
+/**
+ * Get the IEEE 802.15.4 Extended Address.
+ *
+ * @param[in]  aInstance A pointer to an OpenThread instance.
+ *
+ * @returns A pointer to the IEEE 802.15.4 Extended Address.
+ */
+const otExtAddress *otLinkRawGetExtendedAddress(otInstance *aInstance);
 
 /**
  * This function sets the IEEE 802.15.4 Extended Address.
@@ -110,6 +131,14 @@ otError otLinkRawSetExtendedAddress(otInstance *aInstance, const otExtAddress *a
  *
  */
 otError otLinkRawSetShortAddress(otInstance *aInstance, uint16_t aShortAddress);
+
+/**
+ * Get the Short Address for address filtering.
+ *
+ * @returns The short address.
+ *
+ */
+uint16_t otLinkRawGetShortAddress(otInstance *aInstance);
 
 /**
  * This function gets the status of promiscuous mode.
@@ -352,6 +381,25 @@ otError otLinkRawSrcMatchClearShortEntries(otInstance *aInstance);
  *
  */
 otError otLinkRawSrcMatchClearExtEntries(otInstance *aInstance);
+
+/**
+ * This function returns the maximum transmit power setting in dBm.
+ *
+ * @param[in]  aInstance   A pointer to an OpenThread instance.
+ *
+ * @returns  The maximum transmit power setting.
+ *
+ */
+int8_t otLinkRawGetMaxTransmitPower(otInstance *aInstance);
+
+/**
+ * This function sets the maximum transmit power in dBm.
+ *
+ * @param[in]  aInstance A pointer to an OpenThread instance.
+ * @param[in]  aPower    The maximum transmit power in dBm.
+ *
+ */
+void otLinkRawSetMaxTransmitPower(otInstance *aInstance, int8_t aPower);
 
 /**
  * @}

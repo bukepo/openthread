@@ -327,7 +327,7 @@ private:
                                                 NcpFrameBuffer::Priority aPriority, NcpFrameBuffer *aNcpBuffer);
     void HandleFrameRemovedFromNcpBuffer(NcpFrameBuffer::FrameTag aFrameTag);
 
-#if OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
 
     static void LinkRawReceiveDone(otInstance *aInstance, otRadioFrame *aFrame, otError aError);
     void LinkRawReceiveDone(otRadioFrame *aFrame, otError aError);
@@ -340,7 +340,7 @@ private:
 
     static void HandleRawFrame(const otRadioFrame *aFrame, void *aContext);
     void HandleRawFrame(const otRadioFrame *aFrame);
-#endif // OPENTHREAD_ENABLE_RAW_LINK_API
+#endif // OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
 
 #if OPENTHREAD_MTD || OPENTHREAD_FTD
     static void HandleNetifStateChanged(uint32_t aFlags, void *aContext);
@@ -363,11 +363,11 @@ private:
 
     otError GetPropertyHandler_ChannelMaskHelper(uint8_t aHeader, spinel_prop_key_t aKey, uint32_t channel_mask);
 #endif // OPENTHREAD_MTD || OPENTHREAD_FTD
-
 #if OPENTHREAD_FTD && OPENTHREAD_ENABLE_TMF_PROXY
     static void HandleTmfProxyStream(otMessage *aMessage, uint16_t aLocator, uint16_t aPort, void *aContext);
     void HandleTmfProxyStream(otMessage *aMessage, uint16_t aLocator, uint16_t aPort);
 #endif // OPENTHREAD_FTD && OPENTHREAD_ENABLE_TMF_PROXY
+
 
     NCP_COMMAND_HANDLER(NOOP);
     NCP_COMMAND_HANDLER(RESET);
@@ -410,7 +410,7 @@ private:
     NCP_GET_PROP_HANDLER(MAC_15_4_LADDR);
     NCP_SET_PROP_HANDLER(MAC_15_4_LADDR);
     NCP_GET_PROP_HANDLER(MAC_15_4_SADDR);
-#if OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
     NCP_SET_PROP_HANDLER(MAC_15_4_SADDR);
 #endif
     NCP_GET_PROP_HANDLER(MAC_PROMISCUOUS_MODE);
@@ -425,7 +425,7 @@ private:
     NCP_INSERT_PROP_HANDLER(UNSOL_UPDATE_FILTER);
     NCP_REMOVE_PROP_HANDLER(UNSOL_UPDATE_FILTER);
 
-#if OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
     NCP_SET_PROP_HANDLER(MAC_SRC_MATCH_ENABLED);
 
     NCP_SET_PROP_HANDLER(MAC_SRC_MATCH_SHORT_ADDRESSES);
@@ -439,7 +439,7 @@ private:
     NCP_GET_PROP_HANDLER(PHY_ENABLED);
     NCP_SET_PROP_HANDLER(PHY_ENABLED);
     NCP_SET_PROP_HANDLER(STREAM_RAW);
-#endif // OPENTHREAD_ENABLE_RAW_LINK_API
+#endif // OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
 
     // FTD or MTD handlers.
 #if OPENTHREAD_MTD || OPENTHREAD_FTD
@@ -600,7 +600,6 @@ private:
     NCP_GET_PROP_HANDLER(THREAD_CHILD_TABLE);
     NCP_GET_PROP_HANDLER(THREAD_CHILD_COUNT_MAX);
     NCP_SET_PROP_HANDLER(THREAD_CHILD_COUNT_MAX);
-    NCP_SET_PROP_HANDLER(THREAD_CHILD_TIMEOUT);
     NCP_GET_PROP_HANDLER(THREAD_CONTEXT_REUSE_DELAY);
     NCP_SET_PROP_HANDLER(THREAD_CONTEXT_REUSE_DELAY);
     NCP_GET_PROP_HANDLER(THREAD_LOCAL_LEADER_WEIGHT);
@@ -615,6 +614,7 @@ private:
     NCP_SET_PROP_HANDLER(THREAD_ROUTER_DOWNGRADE_THRESHOLD);
     NCP_GET_PROP_HANDLER(THREAD_ROUTER_SELECTION_JITTER);
     NCP_SET_PROP_HANDLER(THREAD_ROUTER_SELECTION_JITTER);
+    NCP_SET_PROP_HANDLER(THREAD_CHILD_TIMEOUT);
     NCP_SET_PROP_HANDLER(THREAD_PREFERRED_ROUTER_ID);
 #if OPENTHREAD_CONFIG_ENABLE_STEERING_DATA_SET_OOB
     NCP_SET_PROP_HANDLER(THREAD_STEERING_DATA);
@@ -682,7 +682,7 @@ private:
     bool mIsRawStreamEnabled;
     bool mDisableStreamWrite;
 
-#if OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
     uint8_t mCurTransmitTID;
     uint8_t mCurReceiveChannel;
     int8_t  mCurScanChannel;
