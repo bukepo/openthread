@@ -50,9 +50,11 @@
 #include "common/debug.hpp"
 #include "net/ip6.hpp"
 
-#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
 
 namespace ot {
+namespace Ncp {
+
 // ----------------------------------------------------------------------------
 // MARK: Raw Link-Layer Datapath Glue
 // ----------------------------------------------------------------------------
@@ -622,7 +624,7 @@ otError NcpBase::GetPropertyHandler_MAC_15_4_SADDR(uint8_t aHeader, spinel_prop_
                SPINEL_CMD_PROP_VALUE_IS,
                aKey,
                SPINEL_DATATYPE_UINT16_S,
-#if OPENTHREAD_RAW
+#if OPENTHREAD_RADIO
                otLinkRawGetShortAddress(mInstance)
 #else
                otLinkGetShortAddress(mInstance)
@@ -709,6 +711,7 @@ exit:
     return error;
 }
 
+}  // namespace Ncp
 }  // namespace ot
 
-#endif // OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#endif // OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API

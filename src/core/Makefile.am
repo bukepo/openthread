@@ -31,7 +31,7 @@ include $(abs_top_nlbuild_autotools_dir)/automake/pre.am
 lib_LIBRARIES                       = \
     libopenthread-ftd.a               \
     libopenthread-mtd.a               \
-    libopenthread-raw.a               \
+    libopenthread-radio.a             \
     $(NULL)
 
 CPPFLAGS_COMMON                     = \
@@ -41,9 +41,9 @@ CPPFLAGS_COMMON                     = \
     $(OPENTHREAD_TARGET_DEFINES)      \
     $(NULL)
 
-libopenthread_raw_a_CPPFLAGS        = \
+libopenthread_radio_a_CPPFLAGS      = \
     $(CPPFLAGS_COMMON)                \
-    -DOPENTHREAD_RAW=1                \
+    -DOPENTHREAD_RADIO=1              \
     $(NULL)
 
 libopenthread_ftd_a_CPPFLAGS        = \
@@ -193,7 +193,7 @@ SOURCES_COMMON                      = \
     utils/slaac_address.cpp           \
     $(NULL)
 
-libopenthread_raw_a_SOURCES         = \
+libopenthread_radio_a_SOURCES       = \
     api/instance_api.cpp              \
     api/link_raw_api.cpp              \
     api/message_api.cpp               \

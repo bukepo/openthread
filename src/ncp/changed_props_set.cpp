@@ -29,6 +29,7 @@
 #include "changed_props_set.hpp"
 
 namespace ot {
+namespace Ncp {
 
 // ----------------------------------------------------------------------------
 // MARK: ChangedPropsSet class
@@ -162,4 +163,5 @@ bool ChangedPropsSet::IsPropertyFiltered(spinel_prop_key_t aPropKey) const
     return isFiltered;
 }
 
+} // namespace Ncp
 } // namespace ot

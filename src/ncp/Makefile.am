@@ -37,7 +37,7 @@ EXTRA_DIST                                        = \
 lib_LIBRARIES                                     = \
     libopenthread-ncp-mtd.a                         \
     libopenthread-ncp-ftd.a                         \
-    libopenthread-ncp-raw.a                         \
+    libopenthread-ncp-radio.a                       \
     $(NULL)
 
 
@@ -61,17 +61,17 @@ libopenthread_ncp_ftd_a_CPPFLAGS                  = \
     $(COMMON_CPPFLAGS)                              \
     $(NULL)
 
-libopenthread_ncp_raw_a_CPPFLAGS                  = \
-    -DOPENTHREAD_RAW=1                              \
+libopenthread_ncp_radio_a_CPPFLAGS                = \
+    -DOPENTHREAD_RADIO=1                            \
     $(COMMON_CPPFLAGS)                              \
     $(NULL)
 
 COMMON_SOURCES                                    = \
     ncp_base.hpp                                    \
     ncp_base.cpp                                    \
-    ncp_base_raw.cpp                                \
     ncp_base_mtd.cpp                                \
     ncp_base_ftd.cpp                                \
+    ncp_base_radio.cpp                              \
     changed_props_set.cpp                           \
     changed_props_set.hpp                           \
     ncp_buffer.cpp                                  \
@@ -95,7 +95,7 @@ libopenthread_ncp_ftd_a_SOURCES                   = \
    $(COMMON_SOURCES)                                \
    $(NULL)
 
-libopenthread_ncp_raw_a_SOURCES                   = \
+libopenthread_ncp_radio_a_SOURCES                 = \
    $(COMMON_SOURCES)                                \
    $(NULL)
 

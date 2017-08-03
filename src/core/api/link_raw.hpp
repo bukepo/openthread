@@ -64,7 +64,7 @@ public:
      * @returns true if enabled, false otherwise.
      *
      */
-#if OPENTHREAD_RAW
+#if OPENTHREAD_RADIO
     bool IsEnabled(void) { return true; }
 #else
     bool IsEnabled(void) { return mEnabled; }
@@ -164,7 +164,7 @@ public:
      */
     void TransmitStarted(otRadioFrame *aFrame);
 
-#if OPENTHREAD_RAW
+#if OPENTHREAD_RADIO
     /**
      * This function returns the max TX power.
      *
@@ -234,7 +234,7 @@ private:
     static LinkRaw &GetOwner(const Context &aContext);
 
     otInstance             &mInstance;
-#if OPENTHREAD_RAW
+#if OPENTHREAD_RADIO
     otExtAddress            mExtAddress;
     uint16_t                mPanId;
     uint16_t                mShortAddress;

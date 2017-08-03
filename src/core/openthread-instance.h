@@ -45,7 +45,7 @@
 
 #include "openthread-core-config.h"
 #include "openthread-single-instance.h"
-#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
 #include "api/link_raw.hpp"
 #include "common/message.hpp"
 #endif
@@ -95,9 +95,9 @@ typedef struct otInstance
 
 #endif // OPENTHREAD_FTD || OPENTHREAD_MTD
 
-#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
     ot::LinkRaw mLinkRaw;
-#endif // OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#endif // OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
 #if OPENTHREAD_CONFIG_ENABLE_DYNAMIC_LOG_LEVEL
     otLogLevel mLogLevel;
 #endif // OPENTHREAD_CONFIG_ENABLE_DYNAMIC_LOG_LEVEL

@@ -27,7 +27,7 @@
     <ClCompile Include="..\..\src\ncp\ncp_base_mtd.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\ncp\ncp_base_raw.cpp">
+    <ClCompile Include="..\..\src\ncp\ncp_base_radio.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\ncp\ncp_buffer.cpp">

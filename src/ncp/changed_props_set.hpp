@@ -38,6 +38,7 @@
 #include "spinel.h"
 
 namespace ot {
+namespace Ncp {
 
 /**
  * Defines a class to track a set of property/status changes that require update to host. The properties that can
@@ -201,6 +202,7 @@ private:
     uint32_t mFilterSet;
 };
 
+} // namespace Ncp
 } // namespace ot
 
 #endif // CHANGED_PROPS_SET_HPP

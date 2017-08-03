@@ -57,6 +57,7 @@
 #if OPENTHREAD_MTD || OPENTHREAD_FTD
 
 namespace ot {
+namespace Ncp {
 
 static bool HasOnly1BitSet(uint32_t aValue)
 {
@@ -3833,13 +3834,13 @@ otError NcpBase::SetPropertyHandler_MAC_SCAN_STATE(uint8_t aHeader, spinel_prop_
         break;
 
     case SPINEL_SCAN_STATE_BEACON:
-#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
         if (otLinkRawIsEnabled(mInstance))
         {
             error = OT_ERROR_NOT_IMPLEMENTED;
         }
         else
-#endif // OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#endif // OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
         {
             error = otLinkActiveScan(
                         mInstance,
@@ -3854,7 +3855,7 @@ otError NcpBase::SetPropertyHandler_MAC_SCAN_STATE(uint8_t aHeader, spinel_prop_
         break;
 
     case SPINEL_SCAN_STATE_ENERGY:
-#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
         if (otLinkRawIsEnabled(mInstance))
         {
             uint8_t scanChannel;
@@ -3875,7 +3876,7 @@ otError NcpBase::SetPropertyHandler_MAC_SCAN_STATE(uint8_t aHeader, spinel_prop_
                     );
         }
         else
-#endif // OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#endif // OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
         {
             error = otLinkEnergyScan(
                         mInstance,
@@ -4212,6 +4213,7 @@ exit:
 }
 
 
+}  // namespace Ncp
 }  // namespace ot
 
 // ----------------------------------------------------------------------------
@@ -4221,7 +4223,7 @@ exit:
 void otNcpRegisterLegacyHandlers(const otNcpLegacyHandlers *aHandlers)
 {
 #if OPENTHREAD_ENABLE_LEGACY
-    ot::NcpBase *ncp = ot::NcpBase::GetNcpInstance();
+    ot::Ncp::NcpBase *ncp = ot::Ncp::NcpBase::GetNcpInstance();
 
     if (ncp != NULL)
     {
@@ -4236,7 +4238,7 @@ void otNcpRegisterLegacyHandlers(const otNcpLegacyHandlers *aHandlers)
 void otNcpHandleDidReceiveNewLegacyUlaPrefix(const uint8_t *aUlaPrefix)
 {
 #if OPENTHREAD_ENABLE_LEGACY
-    ot::NcpBase *ncp = ot::NcpBase::GetNcpInstance();
+    ot::Ncp::NcpBase *ncp = ot::Ncp::NcpBase::GetNcpInstance();
 
     if (ncp != NULL)
     {
@@ -4251,7 +4253,7 @@ void otNcpHandleDidReceiveNewLegacyUlaPrefix(const uint8_t *aUlaPrefix)
 void otNcpHandleLegacyNodeDidJoin(const otExtAddress *aExtAddr)
 {
 #if OPENTHREAD_ENABLE_LEGACY
-    ot::NcpBase *ncp = ot::NcpBase::GetNcpInstance();
+    ot::Ncp::NcpBase *ncp = ot::Ncp::NcpBase::GetNcpInstance();
 
     if (ncp != NULL)
     {

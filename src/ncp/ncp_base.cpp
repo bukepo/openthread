@@ -53,6 +53,7 @@
 #include "net/ip6.hpp"
 
 namespace ot {
+namespace Ncp {
 
 
 // ----------------------------------------------------------------------------
@@ -109,7 +110,7 @@ const NcpBase::GetPropertyHandlerEntry NcpBase::mGetPropertyHandlerTable[] =
     NCP_GET_PROP_HANDLER_ENTRY(UNSOL_UPDATE_LIST),
     NCP_GET_PROP_HANDLER_ENTRY(VENDOR_ID),
 
-#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
     NCP_GET_PROP_HANDLER_ENTRY(PHY_ENABLED),
 #endif
 
@@ -267,14 +268,14 @@ const NcpBase::SetPropertyHandlerEntry NcpBase::mSetPropertyHandlerTable[] =
     NCP_SET_PROP_HANDLER_ENTRY(MAC_15_4_PANID),
     NCP_SET_PROP_HANDLER_ENTRY(MAC_15_4_LADDR),
     NCP_SET_PROP_HANDLER_ENTRY(MAC_RAW_STREAM_ENABLED),
-#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
     NCP_SET_PROP_HANDLER_ENTRY(MAC_15_4_SADDR),
     NCP_SET_PROP_HANDLER_ENTRY(MAC_SRC_MATCH_ENABLED),
     NCP_SET_PROP_HANDLER_ENTRY(MAC_SRC_MATCH_SHORT_ADDRESSES),
     NCP_SET_PROP_HANDLER_ENTRY(MAC_SRC_MATCH_EXTENDED_ADDRESSES),
     NCP_SET_PROP_HANDLER_ENTRY(PHY_ENABLED),
     NCP_SET_PROP_HANDLER_ENTRY(STREAM_RAW),
-#endif // OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#endif // OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
 #if OPENTHREAD_MTD || OPENTHREAD_FTD
     NCP_SET_PROP_HANDLER_ENTRY(MAC_DATA_POLL_PERIOD),
     NCP_SET_PROP_HANDLER_ENTRY(MAC_SCAN_MASK),
@@ -354,7 +355,7 @@ const NcpBase::SetPropertyHandlerEntry NcpBase::mSetPropertyHandlerTable[] =
 const NcpBase::InsertPropertyHandlerEntry NcpBase::mInsertPropertyHandlerTable[] =
 {
     NCP_INSERT_PROP_HANDLER_ENTRY(UNSOL_UPDATE_FILTER),
-#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
     NCP_INSERT_PROP_HANDLER_ENTRY(MAC_SRC_MATCH_SHORT_ADDRESSES),
     NCP_INSERT_PROP_HANDLER_ENTRY(MAC_SRC_MATCH_EXTENDED_ADDRESSES),
 #endif
@@ -384,7 +385,7 @@ const NcpBase::InsertPropertyHandlerEntry NcpBase::mInsertPropertyHandlerTable[]
 const NcpBase::RemovePropertyHandlerEntry NcpBase::mRemovePropertyHandlerTable[] =
 {
     NCP_REMOVE_PROP_HANDLER_ENTRY(UNSOL_UPDATE_FILTER),
-#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
     NCP_REMOVE_PROP_HANDLER_ENTRY(MAC_SRC_MATCH_SHORT_ADDRESSES),
     NCP_REMOVE_PROP_HANDLER_ENTRY(MAC_SRC_MATCH_EXTENDED_ADDRESSES),
 #endif
@@ -562,11 +563,11 @@ NcpBase::NcpBase(otInstance *aInstance):
     mRequireJoinExistingNetwork(false),
     mIsRawStreamEnabled(false),
     mDisableStreamWrite(false),
-#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
     mCurTransmitTID(0),
     mCurReceiveChannel(OPENTHREAD_CONFIG_DEFAULT_CHANNEL),
     mCurScanChannel(kInvalidScanChannel),
-#endif // OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#endif // OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
 #if OPENTHREAD_MTD || OPENTHREAD_FTD
     mInboundSecureIpFrameCounter(0),
     mInboundInsecureIpFrameCounter(0),
@@ -1481,7 +1482,7 @@ otError NcpBase::GetPropertyHandler_PHY_CHAN(uint8_t aHeader, spinel_prop_key_t 
                SPINEL_CMD_PROP_VALUE_IS,
                aKey,
                SPINEL_DATATYPE_UINT8_S,
-#if OPENTHREAD_RAW
+#if OPENTHREAD_RADIO
                mCurReceiveChannel
 #else
                otLinkGetChannel(mInstance)
@@ -1509,7 +1510,7 @@ otError NcpBase::SetPropertyHandler_PHY_CHAN(uint8_t aHeader, spinel_prop_key_t 
     error = otLinkSetChannel(mInstance, static_cast<uint8_t>(channel));
 #endif
 
-#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
 
     SuccessOrExit(error);
 
@@ -1525,7 +1526,7 @@ otError NcpBase::SetPropertyHandler_PHY_CHAN(uint8_t aHeader, spinel_prop_key_t 
         error = otLinkRawReceive(mInstance, mCurReceiveChannel, &NcpBase::LinkRawReceiveDone);
     }
 
-#endif // OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#endif // OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
 
 exit:
     return SendSetPropertyResponse(aHeader, aKey, error);
@@ -1587,7 +1588,7 @@ otError NcpBase::GetPropertyHandler_MAC_15_4_PANID(uint8_t aHeader, spinel_prop_
                SPINEL_CMD_PROP_VALUE_IS,
                aKey,
                SPINEL_DATATYPE_UINT16_S,
-#if OPENTHREAD_RAW
+#if OPENTHREAD_RADIO
                otLinkRawGetPanId(mInstance)
 #else
                otLinkGetPanId(mInstance)
@@ -1613,7 +1614,7 @@ otError NcpBase::SetPropertyHandler_MAC_15_4_PANID(uint8_t aHeader, spinel_prop_
 
 #if OPENTHREAD_MTD || OPENTHREAD_FTD
     error = otLinkSetPanId(mInstance, panid);
-#elif OPENTHREAD_RAW
+#elif OPENTHREAD_RADIO
     error = otLinkRawSetPanId(mInstance, panid);
 #endif
 
@@ -1628,7 +1629,7 @@ otError NcpBase::GetPropertyHandler_MAC_15_4_LADDR(uint8_t aHeader, spinel_prop_
                SPINEL_CMD_PROP_VALUE_IS,
                aKey,
                SPINEL_DATATYPE_EUI64_S,
-#if OPENTHREAD_RAW
+#if OPENTHREAD_RADIO
                otLinkRawGetExtendedAddress(mInstance)
 #else
                otLinkGetExtendedAddress(mInstance)
@@ -1652,7 +1653,7 @@ otError NcpBase::SetPropertyHandler_MAC_15_4_LADDR(uint8_t aHeader, spinel_prop_
 
     VerifyOrExit(parsedLength > 0, error = OT_ERROR_PARSE);
 
-#if OPENTHREAD_RAW
+#if OPENTHREAD_RADIO
     {
         otExtAddress address;
         for (size_t i = 0; i < sizeof(otExtAddress); ++i)
@@ -1696,7 +1697,7 @@ otError NcpBase::SetPropertyHandler_MAC_RAW_STREAM_ENABLED(uint8_t aHeader, spin
 
     VerifyOrExit(parsedLength > 0, error = OT_ERROR_PARSE);
 
-#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
 
     if (otLinkRawIsEnabled(mInstance))
     {
@@ -1710,7 +1711,7 @@ otError NcpBase::SetPropertyHandler_MAC_RAW_STREAM_ENABLED(uint8_t aHeader, spin
         }
     }
 
-#endif // OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#endif // OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
 
     mIsRawStreamEnabled = value;
 
@@ -1930,7 +1931,7 @@ otError NcpBase::GetPropertyHandler_CAPS(uint8_t aHeader, spinel_prop_key_t aKey
     SuccessOrExit(error = OutboundFrameFeedPacked(SPINEL_DATATYPE_UINT_PACKED_S, SPINEL_CAP_COUNTERS));
     SuccessOrExit(error = OutboundFrameFeedPacked(SPINEL_DATATYPE_UINT_PACKED_S, SPINEL_CAP_UNSOL_UPDATE_FILTER));
 
-#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
     SuccessOrExit(error = OutboundFrameFeedPacked(SPINEL_DATATYPE_UINT_PACKED_S, SPINEL_CAP_MAC_RAW));
 #endif
 
@@ -2186,7 +2187,7 @@ otError NcpBase::GetPropertyHandler_PHY_TX_POWER(uint8_t aHeader, spinel_prop_ke
                SPINEL_CMD_PROP_VALUE_IS,
                aKey,
                SPINEL_DATATYPE_INT8_S,
-#if OPENTHREAD_RAW
+#if OPENTHREAD_RADIO
                otLinkRawGetMaxTransmitPower(mInstance)
 #else
                otLinkGetMaxTransmitPower(mInstance)
@@ -2210,7 +2211,7 @@ otError NcpBase::SetPropertyHandler_PHY_TX_POWER(uint8_t aHeader, spinel_prop_ke
 
     VerifyOrExit(parsedLength > 0, error = OT_ERROR_PARSE);
 
-#if OPENTHREAD_RAW
+#if OPENTHREAD_RADIO
     otLinkRawSetMaxTransmitPower(mInstance, value);
     otPlatRadioSetDefaultTxPower(mInstance, value);
 #else
@@ -2330,6 +2331,7 @@ exit:
     return SendSetPropertyResponse(aHeader, aKey, error);
 }
 
+}  // namespace Ncp
 }  // namespace ot
 
 // ----------------------------------------------------------------------------
@@ -2342,7 +2344,7 @@ otError otNcpRegisterPeekPokeDelagates(otNcpDelegateAllowPeekPoke aAllowPeekDele
     otError error = OT_ERROR_NONE;
 
 #if OPENTHREAD_CONFIG_NCP_ENABLE_PEEK_POKE
-    ot::NcpBase *ncp = ot::NcpBase::GetNcpInstance();
+    ot::Ncp::NcpBase *ncp = ot::Ncp::NcpBase::GetNcpInstance();
 
     if (ncp != NULL)
     {
@@ -2366,7 +2368,7 @@ otError otNcpRegisterPeekPokeDelagates(otNcpDelegateAllowPeekPoke aAllowPeekDele
 otError otNcpStreamWrite(int aStreamId, const uint8_t *aDataPtr, int aDataLen)
 {
     otError error  = OT_ERROR_INVALID_STATE;
-    ot::NcpBase *ncp = ot::NcpBase::GetNcpInstance();
+    ot::Ncp::NcpBase *ncp = ot::Ncp::NcpBase::GetNcpInstance();
 
     if (ncp != NULL)
     {

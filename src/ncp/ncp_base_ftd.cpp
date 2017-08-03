@@ -54,6 +54,7 @@
 
 #if OPENTHREAD_FTD
 namespace ot {
+namespace Ncp {
 
 otError NcpBase::GetPropertyHandler_THREAD_LOCAL_LEADER_WEIGHT(uint8_t aHeader, spinel_prop_key_t aKey)
 {
@@ -850,6 +851,7 @@ exit:
 }
 #endif // OPENTHREAD_ENABLE_TMF_PROXY
 
+}  // namespace Ncp
 }  // namespace ot
 
 #endif  // OPENTHREAD_FTD

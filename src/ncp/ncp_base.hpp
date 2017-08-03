@@ -51,6 +51,7 @@
 #include "spinel.h"
 
 namespace ot {
+namespace Ncp {
 
 #define NCP_COMMAND_HANDLER(name)                             \
             otError CommandHandler_##name(                    \
@@ -327,7 +328,7 @@ private:
                                                 NcpFrameBuffer::Priority aPriority, NcpFrameBuffer *aNcpBuffer);
     void HandleFrameRemovedFromNcpBuffer(NcpFrameBuffer::FrameTag aFrameTag);
 
-#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
 
     static void LinkRawReceiveDone(otInstance *aInstance, otRadioFrame *aFrame, otError aError);
     void LinkRawReceiveDone(otRadioFrame *aFrame, otError aError);
@@ -340,7 +341,7 @@ private:
 
     static void HandleRawFrame(const otRadioFrame *aFrame, void *aContext);
     void HandleRawFrame(const otRadioFrame *aFrame);
-#endif // OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#endif // OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
 
 #if OPENTHREAD_MTD || OPENTHREAD_FTD
     static void HandleNetifStateChanged(uint32_t aFlags, void *aContext);
@@ -410,7 +411,7 @@ private:
     NCP_GET_PROP_HANDLER(MAC_15_4_LADDR);
     NCP_SET_PROP_HANDLER(MAC_15_4_LADDR);
     NCP_GET_PROP_HANDLER(MAC_15_4_SADDR);
-#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
     NCP_SET_PROP_HANDLER(MAC_15_4_SADDR);
 #endif
     NCP_GET_PROP_HANDLER(MAC_PROMISCUOUS_MODE);
@@ -425,7 +426,7 @@ private:
     NCP_INSERT_PROP_HANDLER(UNSOL_UPDATE_FILTER);
     NCP_REMOVE_PROP_HANDLER(UNSOL_UPDATE_FILTER);
 
-#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
     NCP_SET_PROP_HANDLER(MAC_SRC_MATCH_ENABLED);
 
     NCP_SET_PROP_HANDLER(MAC_SRC_MATCH_SHORT_ADDRESSES);
@@ -439,7 +440,7 @@ private:
     NCP_GET_PROP_HANDLER(PHY_ENABLED);
     NCP_SET_PROP_HANDLER(PHY_ENABLED);
     NCP_SET_PROP_HANDLER(STREAM_RAW);
-#endif // OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#endif // OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
 
     // FTD or MTD handlers.
 #if OPENTHREAD_MTD || OPENTHREAD_FTD
@@ -682,7 +683,7 @@ private:
     bool mIsRawStreamEnabled;
     bool mDisableStreamWrite;
 
-#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
     uint8_t mCurTransmitTID;
     uint8_t mCurReceiveChannel;
     int8_t  mCurScanChannel;
@@ -711,6 +712,7 @@ private:
 
 };
 
+}  // namespace Ncp
 }  // namespace ot
 
 #endif  // NCP_BASE_HPP_

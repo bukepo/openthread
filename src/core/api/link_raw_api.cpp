@@ -40,14 +40,14 @@
 #include "common/logging.hpp"
 #include "mac/mac.hpp"
 
-#if OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
 
 otError otLinkRawSetEnable(otInstance *aInstance, bool aEnabled)
 {
     otError error = OT_ERROR_NONE;
 
     otLogInfoPlat(aInstance, "LinkRaw Enabled=%d", aEnabled ? 1 : 0);
-#if OPENTHREAD_RAW
+#if OPENTHREAD_RADIO
 
     if (aEnabled)
     {
@@ -69,7 +69,7 @@ exit:
 
 bool otLinkRawIsEnabled(otInstance *aInstance)
 {
-#if OPENTHREAD_RAW
+#if OPENTHREAD_RADIO
     OT_UNUSED_VARIABLE(aInstance);
     return true;
 #else
@@ -84,7 +84,7 @@ otError otLinkRawSetPanId(otInstance *aInstance, uint16_t aPanId)
     VerifyOrExit(aInstance->mLinkRaw.IsEnabled(), error = OT_ERROR_INVALID_STATE);
 
     otPlatRadioSetPanId(aInstance, aPanId);
-#if OPENTHREAD_RAW
+#if OPENTHREAD_RADIO
     aInstance->mLinkRaw.SetPanId(aPanId);
 #endif
 
@@ -105,7 +105,7 @@ otError otLinkRawSetExtendedAddress(otInstance *aInstance, const otExtAddress *a
     }
 
     otPlatRadioSetExtendedAddress(aInstance, &addr);
-#if OPENTHREAD_RAW
+#if OPENTHREAD_RADIO
     aInstance->mLinkRaw.SetExtAddress(*aExtAddress);
 #endif
 
@@ -120,7 +120,7 @@ otError otLinkRawSetShortAddress(otInstance *aInstance, uint16_t aShortAddress)
     VerifyOrExit(aInstance->mLinkRaw.IsEnabled(), error = OT_ERROR_INVALID_STATE);
 
     otPlatRadioSetShortAddress(aInstance, aShortAddress);
-#if OPENTHREAD_RAW
+#if OPENTHREAD_RADIO
     aInstance->mLinkRaw.SetShortAddress(aShortAddress);
 #endif
 
@@ -297,7 +297,7 @@ exit:
     return error;
 }
 
-#if OPENTHREAD_RAW
+#if OPENTHREAD_RADIO
 int8_t otLinkRawGetMaxTransmitPower(otInstance *aInstance)
 {
     return aInstance->mLinkRaw.GetMaxTxPower();
@@ -323,13 +323,13 @@ otPanId otLinkRawGetPanId(otInstance *aInstance)
 {
     return aInstance->mLinkRaw.GetPanId();
 }
-#endif // OPENTHREAD_RAW
+#endif // OPENTHREAD_RADIO
 
 namespace ot {
 
 LinkRaw::LinkRaw(otInstance &aInstance):
     mInstance(aInstance),
-#if !OPENTHREAD_RAW
+#if !OPENTHREAD_RADIO
     mEnabled(false),
 #endif
     mReceiveChannel(OPENTHREAD_CONFIG_DEFAULT_CHANNEL),
@@ -380,7 +380,7 @@ otError LinkRaw::Receive(uint8_t aChannel, otLinkRawReceiveDone aCallback)
 {
     otError error = OT_ERROR_INVALID_STATE;
 
-#if !OPENTHREAD_RAW
+#if !OPENTHREAD_RADIO
 
     if (mEnabled)
 #endif
@@ -413,7 +413,7 @@ otError LinkRaw::Transmit(otRadioFrame *aFrame, otLinkRawTransmitDone aCallback)
 {
     otError error = OT_ERROR_INVALID_STATE;
 
-#if !OPENTHREAD_RAW
+#if !OPENTHREAD_RADIO
 
     if (mEnabled)
 #endif
@@ -501,7 +501,7 @@ otError LinkRaw::EnergyScan(uint8_t aScanChannel, uint16_t aScanDuration, otLink
 {
     otError error = OT_ERROR_INVALID_STATE;
 
-#if !OPENTHREAD_RAW
+#if !OPENTHREAD_RADIO
 
     if (mEnabled)
 #endif
@@ -690,7 +690,7 @@ LinkRaw &LinkRaw::GetOwner(const Context &aContext)
 
 } // namespace ot
 
-#if OPENTHREAD_RAW
+#if OPENTHREAD_RADIO
 extern "C" void otPlatRadioReceiveDone(otInstance *aInstance, otRadioFrame *aFrame, otError aError)
 {
     aInstance->mLinkRaw.InvokeReceiveDone(aFrame, aError);
@@ -718,6 +718,6 @@ extern "C" void otPlatRadioEnergyScanDone(otInstance *aInstance, int8_t aEnergyS
     OT_UNUSED_VARIABLE(aInstance);
     OT_UNUSED_VARIABLE(aEnergyScanMaxRssi);
 }
-#endif // OPENTHREAD_RAW
+#endif // OPENTHREAD_RADIO
 
-#endif // OPENTHREAD_RAW || OPENTHREAD_ENABLE_RAW_LINK_API
+#endif // OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
