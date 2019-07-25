@@ -44,6 +44,7 @@ codecov_upload() {
 }
 
 main() {
+    . .travis/size_report post
     codecov_upload
 }
 

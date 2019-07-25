@@ -1,0 +1,91 @@
+#!/bin/bash
+#
+#  Copyright (c) 2016, The OpenThread Authors.
+#  All rights reserved.
+#
+#  Redistribution and use in source and binary forms, with or without
+#  modification, are permitted provided that the following conditions are met:
+#  1. Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+#  2. Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in the
+#     documentation and/or other materials provided with the distribution.
+#  3. Neither the name of the copyright holder nor the #     names of its contributors may be used to endorse or promote products
+#     derived from this software without specific prior written permission.
+#
+#  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+#  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+#  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+#  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+#  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+#  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+#  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+#  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+#  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+#  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+#  POSSIBILITY OF SUCH DAMAGE.
+#
+
+set -e
+
+readonly SIZE_REPORT_FILE=/tmp/size_report
+
+size_report_init()
+{
+    [[ "${TRAVIS_PULL_REQUEST}" != false ]]
+
+    TRAVIS_BRANCH_SHA=$(git -C ${TRAVIS_BUILD_DIR} rev-parse ${TRAVIS_BRANCH})
+
+    cat > "${SIZE_REPORT_FILE}" <<EOF
+# Size Report of $1
+> Merging [#${TRAVIS_PULL_REQUEST}](https://github.com/${TRAVIS_PULL_REQUEST_SLUG}/commit/${TRAVIS_PULL_REQUEST_SHA}) into [${TRAVIS_BRANCH}](https://github.com/${TRAVIS_REPO_SLUG}/commit/${TRAVIS_BRANCH_SHA}).
+name  | branch |  text  | data | bss   | total
+:----: | :-----: | -----: | ---: | ----: | ----:
+EOF
+}
+
+size_report_append()
+{
+    [[ "${TRAVIS_PULL_REQUEST}" != false ]]
+
+    name="$(basename $1)"
+
+    [[ "${name}" = "$(basename $2)" ]] || return
+
+    old=($(size "$1" | tail -n1 | awk '{print $1,$2,$3,$4}'))
+    new=($(size "$2" | tail -n1 | awk '{print $1,$2,$3,$4}'))
+    cat >> "${SIZE_REPORT_FILE}" <<EOF
+${name} | ${TRAVIS_BRANCH} | ${old[0]} | ${old[1]} | ${old[2]} | ${old[3]}
+ | #${TRAVIS_PULL_REQUEST} | ${new[0]} | ${new[1]} | ${new[2]} | ${new[3]}
+ | +/- | $((${new[0]} - ${old[0]})) | $((${new[1]} - ${old[1]})) | $((${new[2]} - ${old[2]})) | $((${new[3]} - ${old[3]}))
+EOF
+}
+
+size_report_post()
+{
+    [[ "${TRAVIS_PULL_REQUEST}" != false ]]
+
+    curl -H "Authorization: token ${GITHUB_TOKEN}" -X POST \
+        -d "{\"body\": \"$(sed -e ':a' -e 'N' -e '$!ba' -e 's/\n/\\n/g' ${SIZE_REPORT_FILE})\"}" \
+        "https://api.github.com/repos/${TRAVIS_REPO_SLUG}/issues/${TRAVIS_PULL_REQUEST}/comments"
+}
+
+main()
+{
+    case $1 in
+        init)
+            size_report_init
+            ;;
+
+        append)
+            shift
+            size_report_append "$@"
+            ;;
+
+        post)
+            size_report_post
+            ;;
+    esac
+}
+
+main "$@"

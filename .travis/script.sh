@@ -450,13 +450,47 @@ build_samr21() {
 }
 
 [ $BUILD_TARGET != osx ] || {
-    git checkout -- . || die
-    git clean -xfd || die
-    ./bootstrap || die
-    make -f examples/Makefile-posix || die
+    mkdir ../output
 
+    # POSIX simulation
     git checkout -- . || die
     git clean -xfd || die
     ./bootstrap || die
-    make -f src/posix/Makefile-posix || die
+    make -f examples/Makefile-posix TargetTuple=posix-sim || die
+    mv output/posix-sim ../output/posix-sim-b
+
+    # POSIX app
+    git checkout -- . || die
+    git clean -xfd || die
+    ./bootstrap || die
+    make -f src/posix/Makefile-posix TargetTuple=posix-app || die
+    mv output/posix/posix-app ../output/posix-app-b
+
+    [ ${TRAVIS_PULL_REQUEST} != false ] || return 0
+
+    git checkout ${TRAVIS_BRANCH}
+
+    # POSIX simulation
+    git checkout -- . || die
+    git clean -xfd || die
+    ./bootstrap || die
+    make -f examples/Makefile-posix TargetTuple=posix-sim || die
+    mv output/posix-sim ../output/posix-sim-a
+
+    # POSIX app
+    git checkout -- . || die
+    git clean -xfd || die
+    ./bootstrap || die
+    make -f src/posix/Makefile-posix TargetTuple=posix-app || die
+    mv output/posix/posix-app ../output/posix-app-a
+
+    .travis/size-report init macOS
+    .travis/size-report append ../output/posix-sim-a/bin/ot-cli-ftd ../output/posix-sim-b/bin/ot-cli-ftd
+    .travis/size-report append ../output/posix-sim-a/bin/ot-cli-mtd ../output/posix-sim-b/bin/ot-cli-mtd
+    .travis/size-report append ../output/posix-sim-a/bin/ot-ncp-ftd ../output/posix-sim-b/bin/ot-ncp-ftd
+    .travis/size-report append ../output/posix-sim-a/bin/ot-ncp-mtd ../output/posix-sim-b/bin/ot-ncp-mtd
+    .travis/size-report append ../output/posix-sim-a/bin/ot-rcp ../output/posix-sim-b/bin/ot-rcp
+
+    .travis/size-report append ../output/posix-app-a/bin/ot-cli ../output/posix-app-b/bin/ot-cli
+    .travis/size-report append ../output/posix-app-a/bin/ot-ncp ../output/posix-app-b/bin/ot-ncp
 }
