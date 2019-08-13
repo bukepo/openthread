@@ -86,7 +86,7 @@
 
 #endif // OT_CLI_UART_LOCK_HDR_FILE
 
-#if OPENTHREAD_ENABLE_DIAG
+#if OPENTHREAD_CONFIG_DIAG_ENABLE
 OT_STATIC_ASSERT(OPENTHREAD_CONFIG_DIAG_OUTPUT_BUFFER_SIZE <= OPENTHREAD_CONFIG_CLI_UART_TX_BUFFER_SIZE,
                  "diag output buffer should be smaller than CLI UART tx buffer");
 OT_STATIC_ASSERT(OPENTHREAD_CONFIG_DIAG_CMD_LINE_BUFFER_SIZE <= OPENTHREAD_CONFIG_CLI_UART_RX_BUFFER_SIZE,
@@ -218,7 +218,7 @@ otError Uart::ProcessCommand(void)
      * Thus this is here to affirmatively LOG exactly when the CLI
      * command is being executed.
      */
-#if OPENTHREAD_ENABLE_MULTIPLE_INSTANCES
+#if OPENTHREAD_CONFIG_MULTIPLE_INSTANCE_ENABLE
     /* TODO: how exactly do we get the instance here? */
 #else
     otLogInfoCli("execute command: %s", mRxBuffer);

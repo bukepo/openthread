@@ -71,7 +71,7 @@ ot::Instance *testInitInstance(void)
 {
     otInstance *instance = NULL;
 
-#if OPENTHREAD_ENABLE_MULTIPLE_INSTANCES
+#if OPENTHREAD_CONFIG_MULTIPLE_INSTANCE_ENABLE
     size_t   instanceBufferLength = 0;
     uint8_t *instanceBuffer       = NULL;
 
@@ -96,7 +96,7 @@ void testFreeInstance(otInstance *aInstance)
 {
     otInstanceFinalize(aInstance);
 
-#if OPENTHREAD_ENABLE_MULTIPLE_INSTANCES
+#if OPENTHREAD_CONFIG_MULTIPLE_INSTANCE_ENABLE
     free(aInstance);
 #endif
 }
@@ -105,7 +105,7 @@ bool sDiagMode = false;
 
 extern "C" {
 
-#if OPENTHREAD_ENABLE_MULTIPLE_INSTANCES
+#if OPENTHREAD_CONFIG_MULTIPLE_INSTANCE_ENABLE
 void *otPlatCAlloc(size_t aNum, size_t aSize)
 {
     return calloc(aNum, aSize);
@@ -543,7 +543,7 @@ void otPlatSettingsWipe(otInstance *aInstance)
     OT_UNUSED_VARIABLE(aInstance);
 }
 
-#if OPENTHREAD_CONFIG_ENABLE_TIME_SYNC
+#if OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
 uint64_t otPlatTimeGet(void)
 {
     struct timeval tv;
@@ -557,6 +557,6 @@ uint16_t otPlatTimeGetXtalAccuracy(void)
 {
     return 0;
 }
-#endif // OPENTHREAD_CONFIG_ENABLE_TIME_SYNC
+#endif // OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
 
 } // extern "C"

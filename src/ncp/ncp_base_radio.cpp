@@ -42,7 +42,7 @@
 #include "common/instance.hpp"
 #include "mac/mac_frame.hpp"
 
-#if OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
+#if OPENTHREAD_RADIO || OPENTHREAD_CONFIG_LINK_RAW_ENABLE
 
 namespace ot {
 namespace Ncp {
@@ -90,10 +90,7 @@ void NcpBase::LinkRawReceiveDone(otRadioFrame *aFrame, otError aError)
     SuccessOrExit(mEncoder.WriteUint8(aFrame->mChannel));           // 802.15.4 channel (Receive channel)
     SuccessOrExit(mEncoder.WriteUint8(aFrame->mInfo.mRxInfo.mLqi)); // 802.15.4 LQI
 
-    SuccessOrExit(mEncoder.WriteUint32(
-        static_cast<uint32_t>(aFrame->mInfo.mRxInfo.mTimestamp / 1000))); // The timestamp milliseconds
-    SuccessOrExit(
-        mEncoder.WriteUint16(aFrame->mInfo.mRxInfo.mTimestamp % 1000)); // The timestamp microseconds, offset to mMsec
+    SuccessOrExit(mEncoder.WriteUint64(aFrame->mInfo.mRxInfo.mTimestamp)); // The timestamp in microseconds
 
     SuccessOrExit(mEncoder.CloseStruct());
 
@@ -119,7 +116,7 @@ void NcpBase::LinkRawTransmitDone(otRadioFrame *aFrame, otRadioFrame *aAckFrame,
     if (mCurTransmitTID)
     {
         uint8_t header       = SPINEL_HEADER_FLAG | SPINEL_HEADER_IID_0 | mCurTransmitTID;
-        bool    framePending = (aAckFrame != NULL && static_cast<Mac::Frame *>(aAckFrame)->GetFramePending());
+        bool    framePending = (aAckFrame != NULL && static_cast<Mac::RxFrame *>(aAckFrame)->GetFramePending());
 
         // Clear cached transmit TID
         mCurTransmitTID = 0;
@@ -137,13 +134,10 @@ void NcpBase::LinkRawTransmitDone(otRadioFrame *aFrame, otRadioFrame *aAckFrame,
             SuccessOrExit(mEncoder.WriteInt8(-128));                           // Noise Floor (Currently unused)
             SuccessOrExit(mEncoder.WriteUint16(0));                            // Flags
 
-            SuccessOrExit(mEncoder.OpenStruct());                              // PHY-data
-            SuccessOrExit(mEncoder.WriteUint8(aAckFrame->mChannel));           // Receive channel
-            SuccessOrExit(mEncoder.WriteUint8(aAckFrame->mInfo.mRxInfo.mLqi)); // Link Quality Indicator
-            SuccessOrExit(mEncoder.WriteUint32(
-                static_cast<uint32_t>(aAckFrame->mInfo.mRxInfo.mTimestamp / 1000))); // The timestamp milliseconds
-            SuccessOrExit(mEncoder.WriteUint16(aAckFrame->mInfo.mRxInfo.mTimestamp %
-                                               1000)); // The timestamp microseconds, offset to mMsec
+            SuccessOrExit(mEncoder.OpenStruct());                                     // PHY-data
+            SuccessOrExit(mEncoder.WriteUint8(aAckFrame->mChannel));                  // Receive channel
+            SuccessOrExit(mEncoder.WriteUint8(aAckFrame->mInfo.mRxInfo.mLqi));        // Link Quality Indicator
+            SuccessOrExit(mEncoder.WriteUint64(aAckFrame->mInfo.mRxInfo.mTimestamp)); // The timestamp in microseconds
 
             SuccessOrExit(mEncoder.CloseStruct());
 
@@ -430,4 +424,4 @@ exit:
 } // namespace Ncp
 } // namespace ot
 
-#endif // OPENTHREAD_RADIO || OPENTHREAD_ENABLE_RAW_LINK_API
+#endif // OPENTHREAD_RADIO || OPENTHREAD_CONFIG_LINK_RAW_ENABLE

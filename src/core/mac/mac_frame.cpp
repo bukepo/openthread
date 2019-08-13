@@ -361,7 +361,7 @@ bool Frame::IsSrcPanIdPresent(uint16_t aFcf) const
 
     if ((aFcf & kFcfSrcAddrMask) != kFcfSrcAddrNone && (aFcf & kFcfPanidCompression) == 0)
     {
-#if OPENTHREAD_CONFIG_HEADER_IE_SUPPORT
+#if OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT
         // Handle a special case in IEEE 802.15.4-2015, when Pan ID Compression is 0, but Src Pan ID is not present:
         //  Dest Address:       Extended
         //  Source Address:     Extended
@@ -875,14 +875,14 @@ exit:
 uint8_t Frame::FindPayloadIndex(void) const
 {
     uint8_t index = SkipSecurityHeaderIndex();
-#if OPENTHREAD_CONFIG_HEADER_IE_SUPPORT
+#if OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT
     const uint8_t *cur    = NULL;
     const uint8_t *footer = GetFooter();
 #endif
 
     VerifyOrExit(index != kInvalidIndex);
 
-#if OPENTHREAD_CONFIG_HEADER_IE_SUPPORT
+#if OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT
     cur = GetPsdu() + index;
 
     if (IsIePresent())
@@ -936,7 +936,7 @@ const uint8_t *Frame::GetFooter(void) const
     return GetPsdu() + GetPsduLength() - GetFooterLength();
 }
 
-#if OPENTHREAD_CONFIG_HEADER_IE_SUPPORT
+#if OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT
 uint8_t Frame::FindHeaderIeIndex(void) const
 {
     uint8_t index;
@@ -1008,9 +1008,9 @@ const uint8_t *Frame::GetHeaderIe(uint8_t aIeId) const
 exit:
     return cur;
 }
-#endif // OPENTHREAD_CONFIG_HEADER_IE_SUPPORT
+#endif // OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT
 
-#if OPENTHREAD_CONFIG_ENABLE_TIME_SYNC
+#if OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
 const TimeIe *Frame::GetTimeIe(void) const
 {
     const TimeIe * timeIe                              = NULL;
@@ -1031,9 +1031,9 @@ const TimeIe *Frame::GetTimeIe(void) const
 exit:
     return timeIe;
 }
-#endif // OPENTHREAD_CONFIG_ENABLE_TIME_SYNC
+#endif // OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
 
-void Frame::CopyFrom(const Frame &aFromFrame)
+void TxFrame::CopyFrom(const TxFrame &aFromFrame)
 {
     uint8_t *      psduBuffer   = mPsdu;
     otRadioIeInfo *ieInfoBuffer = mInfo.mTxInfo.mIeInfo;
@@ -1049,7 +1049,7 @@ void Frame::CopyFrom(const Frame &aFromFrame)
     memcpy(mPsdu, aFromFrame.mPsdu, aFromFrame.GetPsduLength());
 
     // mIeInfo may be null when TIME_SYNC is not enabled.
-#if OPENTHREAD_CONFIG_ENABLE_TIME_SYNC
+#if OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
     memcpy(mInfo.mTxInfo.mIeInfo, aFromFrame.mInfo.mTxInfo.mIeInfo, sizeof(otRadioIeInfo));
 #endif
 }

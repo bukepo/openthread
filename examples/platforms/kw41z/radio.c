@@ -770,7 +770,7 @@ static bool rf_process_rx_frame(void)
     /* Check if frame is valid */
     otEXPECT_ACTION((IEEE802154_MIN_LENGTH <= temp) && (temp <= IEEE802154_MAX_LENGTH), status = false);
 
-#if OPENTHREAD_CONFIG_ENABLE_TIME_SYNC
+#if OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
 #error Time sync requires the timestamp of SFD rather than that of rx done!
 #else
     if (otPlatRadioGetPromiscuous(sInstance))
@@ -994,7 +994,7 @@ void kw41zRadioProcess(otInstance *aInstance)
         // See https://github.com/openthread/openthread/pull/3785
         sRxFrame.mInfo.mRxInfo.mAckedWithFramePending = true;
 
-#if OPENTHREAD_ENABLE_DIAG
+#if OPENTHREAD_CONFIG_DIAG_ENABLE
 
         if (otPlatDiagModeGet())
         {

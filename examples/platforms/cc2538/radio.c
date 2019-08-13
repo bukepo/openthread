@@ -662,7 +662,7 @@ void readFrame(otInstance *aInstance)
     length = HWREG(RFCORE_SFR_RFDATA);
     otEXPECT(IEEE802154_MIN_LENGTH <= length && length <= IEEE802154_MAX_LENGTH);
 
-#if OPENTHREAD_CONFIG_ENABLE_TIME_SYNC
+#if OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
 #error Time sync requires the timestamp of SFD rather than that of rx done!
 #else
     // Timestamp
@@ -718,7 +718,7 @@ void cc2538RadioProcess(otInstance *aInstance)
         // TODO Set this flag only when the packet is really acknowledged with frame pending set.
         // See https://github.com/openthread/openthread/pull/3785
         sReceiveFrame.mInfo.mRxInfo.mAckedWithFramePending = true;
-#if OPENTHREAD_ENABLE_DIAG
+#if OPENTHREAD_CONFIG_DIAG_ENABLE
 
         if (otPlatDiagModeGet())
         {
@@ -749,7 +749,7 @@ void cc2538RadioProcess(otInstance *aInstance)
 
             sState = OT_RADIO_STATE_RECEIVE;
 
-#if OPENTHREAD_ENABLE_DIAG
+#if OPENTHREAD_CONFIG_DIAG_ENABLE
 
             if (otPlatDiagModeGet())
             {

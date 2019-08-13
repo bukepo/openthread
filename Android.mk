@@ -40,26 +40,26 @@ OPENTHREAD_COMMON_FLAGS                                          := \
     -DPACKAGE_TARNAME=\"openthread\"                                \
     -DVERSION=\"$(OPENTHREAD_DEFAULT_VERSION)\"                     \
     -DPACKAGE_URL=\"http://github.com/openthread/openthread\"       \
-    -DOPENTHREAD_ENABLE_MAC_FILTER=1                                \
+    -DOPENTHREAD_CONFIG_MAC_FILTER_ENABLE=1                         \
     $(NULL)
 
 # Enable required features for on-device tests.
 ifeq ($(TARGET_BUILD_VARIANT),eng)
 OPENTHREAD_COMMON_FLAGS                                          += \
-    -DOPENTHREAD_ENABLE_DIAG=1                                      \
+    -DOPENTHREAD_CONFIG_DIAG_ENABLE=1                               \
     $(NULL)
 endif
 
 # Enable all optional features for CI tests.
 ifeq ($(TARGET_PRODUCT),generic)
 OPENTHREAD_COMMON_FLAGS                                          += \
-    -DOPENTHREAD_ENABLE_APPLICATION_COAP=1                          \
-    -DOPENTHREAD_ENABLE_COMMISSIONER=1                              \
-    -DOPENTHREAD_ENABLE_DHCP6_CLIENT=1                              \
-    -DOPENTHREAD_ENABLE_DHCP6_SERVER=1                              \
-    -DOPENTHREAD_ENABLE_DNS_CLIENT=1                                \
-    -DOPENTHREAD_ENABLE_MTD_NETWORK_DIAGNOSTIC=1                    \
-    -DOPENTHREAD_ENABLE_REFERENCE_DEVICE=0                          \
+    -DOPENTHREAD_CONFIG_COAP_API_ENABLE=1                           \
+    -DOPENTHREAD_CONFIG_COMMISSIONER_ENABLE=1                       \
+    -DOPENTHREAD_CONFIG_DHCP6_CLIENT_ENABLE=1                       \
+    -DOPENTHREAD_CONFIG_DHCP6_SERVER_ENABLE=1                       \
+    -DOPENTHREAD_CONFIG_DNS_CLIENT_ENABLE=1                         \
+    -DOPENTHREAD_CONFIG_REFERENCE_DEVICE_ENABLE=0                   \
+    -DOPENTHREAD_CONFIG_TMF_NETWORK_DIAG_MTD_ENABLE=1               \
     $(NULL)
 endif
 
@@ -188,11 +188,13 @@ LOCAL_SRC_FILES                                          := \
     src/core/net/ip6_mpl.cpp                                \
     src/core/net/netif.cpp                                  \
     src/core/net/udp6.cpp                                   \
-    src/core/phy/radio_weak.cpp                             \
+    src/core/radio/radio_callbacks.cpp                      \
+    src/core/radio/radio_platform.cpp                       \
     src/core/thread/address_resolver.cpp                    \
     src/core/thread/announce_begin_server.cpp               \
     src/core/thread/announce_sender.cpp                     \
     src/core/thread/child_table.cpp                         \
+    src/core/thread/device_mode.cpp                         \
     src/core/thread/energy_scan_server.cpp                  \
     src/core/thread/indirect_sender.cpp                     \
     src/core/thread/key_manager.cpp                         \

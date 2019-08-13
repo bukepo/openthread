@@ -514,9 +514,15 @@ otError otPlatRadioTransmit(otInstance *aInstance, otRadioFrame *aFrame)
         status = RAIL_StartTx(sTxBandConfig->mRailHandle, aFrame->mChannel, txOptions, &schedulerInfo);
     }
 
-    assert(status == RAIL_STATUS_NO_ERROR);
-
-    otPlatRadioTxStarted(aInstance, aFrame);
+    if (status == RAIL_STATUS_NO_ERROR)
+    {
+        otPlatRadioTxStarted(aInstance, aFrame);
+    }
+    else
+    {
+        sTransmitError = OT_ERROR_CHANNEL_ACCESS_FAILURE;
+        sTransmitBusy  = false;
+    }
 
 exit:
     return error;
@@ -663,7 +669,7 @@ static void processNextRxPacket(otInstance *aInstance, RAIL_Handle_t aRailHandle
 
         sReceiveError = OT_ERROR_NONE;
 
-#if OPENTHREAD_ENABLE_DIAG
+#if OPENTHREAD_CONFIG_DIAG_ENABLE
 
         if (otPlatDiagModeGet())
         {
@@ -810,7 +816,7 @@ void efr32RadioProcess(otInstance *aInstance)
 
         sState = OT_RADIO_STATE_RECEIVE;
 
-#if OPENTHREAD_ENABLE_DIAG
+#if OPENTHREAD_CONFIG_DIAG_ENABLE
         if (otPlatDiagModeGet())
         {
             otPlatDiagRadioTransmitDone(aInstance, &sTransmitFrame, sTransmitError);

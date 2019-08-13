@@ -538,9 +538,15 @@ otError otPlatRadioTransmit(otInstance *aInstance, otRadioFrame *aFrame)
         status = RAIL_StartTx(gRailHandle, aFrame->mChannel, txOptions, NULL);
     }
 
-    assert(status == RAIL_STATUS_NO_ERROR);
-
-    otPlatRadioTxStarted(aInstance, aFrame);
+    if (status == RAIL_STATUS_NO_ERROR)
+    {
+        otPlatRadioTxStarted(aInstance, aFrame);
+    }
+    else
+    {
+        sTransmitError = OT_ERROR_CHANNEL_ACCESS_FAILURE;
+        sTransmitBusy  = false;
+    }
 
 exit:
     return error;
@@ -685,7 +691,7 @@ static void processNextRxPacket(otInstance *aInstance)
         // See https://github.com/openthread/openthread/pull/3785
         sReceiveFrame.mInfo.mRxInfo.mAckedWithFramePending = true;
 
-#if OPENTHREAD_ENABLE_DIAG
+#if OPENTHREAD_CONFIG_DIAG_ENABLE
 
         if (otPlatDiagModeGet())
         {
@@ -824,7 +830,7 @@ void efr32RadioProcess(otInstance *aInstance)
         }
 
         sState = OT_RADIO_STATE_RECEIVE;
-#if OPENTHREAD_ENABLE_DIAG
+#if OPENTHREAD_CONFIG_DIAG_ENABLE
         if (otPlatDiagModeGet())
         {
             otPlatDiagRadioTransmitDone(aInstance, &sTransmitFrame, sTransmitError);

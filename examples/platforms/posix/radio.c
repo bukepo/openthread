@@ -86,7 +86,7 @@ enum
 enum
 {
     POSIX_RECEIVE_SENSITIVITY   = -100, // dBm
-    POSIX_MAX_SRC_MATCH_ENTRIES = OPENTHREAD_CONFIG_MAX_CHILDREN,
+    POSIX_MAX_SRC_MATCH_ENTRIES = OPENTHREAD_CONFIG_MLE_MAX_CHILDREN,
 
     POSIX_HIGH_RSSI_SAMPLE               = -30, // dBm
     POSIX_LOW_RSSI_SAMPLE                = -98, // dBm
@@ -128,7 +128,7 @@ static otRadioFrame        sReceiveFrame;
 static otRadioFrame        sTransmitFrame;
 static otRadioFrame        sAckFrame;
 
-#if OPENTHREAD_CONFIG_HEADER_IE_SUPPORT
+#if OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT
 static otRadioIeInfo sTransmitIeInfo;
 #endif
 
@@ -495,7 +495,7 @@ void platformRadioInit(void)
     sTransmitFrame.mPsdu = sTransmitMessage.mPsdu;
     sAckFrame.mPsdu      = sAckMessage.mPsdu;
 
-#if OPENTHREAD_CONFIG_HEADER_IE_SUPPORT
+#if OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT
     sTransmitFrame.mInfo.mTxInfo.mIeInfo = &sTransmitIeInfo;
 #else
     sTransmitFrame.mInfo.mTxInfo.mIeInfo = NULL;
@@ -634,11 +634,8 @@ static void radioReceive(otInstance *aInstance)
     otEXPECT(sReceiveFrame.mChannel == sReceiveMessage.mChannel);
     otEXPECT(sState == OT_RADIO_STATE_RECEIVE || sState == OT_RADIO_STATE_TRANSMIT);
 
-    if (otPlatRadioGetPromiscuous(aInstance))
-    {
-        // Unable to simulate SFD, so use the rx done timestamp instead.
-        sReceiveFrame.mInfo.mRxInfo.mTimestamp = otPlatTimeGet();
-    }
+    // Unable to simulate SFD, so use the rx done timestamp instead.
+    sReceiveFrame.mInfo.mRxInfo.mTimestamp = otPlatTimeGet();
 
     if (sTxWait)
     {
@@ -661,7 +658,7 @@ static void radioReceive(otInstance *aInstance)
         sState  = OT_RADIO_STATE_RECEIVE;
         sTxWait = false;
 
-#if OPENTHREAD_ENABLE_DIAG
+#if OPENTHREAD_CONFIG_DIAG_ENABLE
 
         if (otPlatDiagModeGet())
         {
@@ -698,10 +695,10 @@ static void radioComputeCrc(struct RadioMessage *aMessage, uint16_t aLength)
 
 void radioSendMessage(otInstance *aInstance)
 {
-#if OPENTHREAD_CONFIG_HEADER_IE_SUPPORT
+#if OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT
     bool notifyFrameUpdated = false;
 
-#if OPENTHREAD_CONFIG_ENABLE_TIME_SYNC
+#if OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
     if (sTransmitFrame.mInfo.mTxInfo.mIeInfo->mTimeIeOffset != 0)
     {
         uint8_t *timeIe = sTransmitFrame.mPsdu + sTransmitFrame.mInfo.mTxInfo.mIeInfo->mTimeIeOffset;
@@ -718,13 +715,13 @@ void radioSendMessage(otInstance *aInstance)
 
         notifyFrameUpdated = true;
     }
-#endif // OPENTHREAD_CONFIG_ENABLE_TIME_SYNC
+#endif // OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
 
     if (notifyFrameUpdated)
     {
         otPlatRadioFrameUpdated(aInstance, &sTransmitFrame);
     }
-#endif // OPENTHREAD_CONFIG_HEADER_IE_SUPPORT
+#endif // OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT
 
     sTransmitMessage.mChannel = sTransmitFrame.mChannel;
 
@@ -739,7 +736,7 @@ void radioSendMessage(otInstance *aInstance)
     {
         sState = OT_RADIO_STATE_RECEIVE;
 
-#if OPENTHREAD_ENABLE_DIAG
+#if OPENTHREAD_CONFIG_DIAG_ENABLE
 
         if (otPlatDiagModeGet())
         {
@@ -940,7 +937,7 @@ exit:
 
     if (error != OT_ERROR_ABORT)
     {
-#if OPENTHREAD_ENABLE_DIAG
+#if OPENTHREAD_CONFIG_DIAG_ENABLE
         if (otPlatDiagModeGet())
         {
             otPlatDiagRadioReceiveDone(aInstance, error == OT_ERROR_NONE ? &sReceiveFrame : NULL, error);
