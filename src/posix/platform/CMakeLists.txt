@@ -28,6 +28,14 @@
 
 set(OT_PLATFORM_LIB "openthread-posix" PARENT_SCOPE)
 
+set(OT_RADIO_DRIVER "" CACHE STRING "set radio protocol: spinel")
+if(OT_RADIO_DRIVER)
+    target_compile_definitions(ot-config
+        PUBLIC
+            OPENTHREAD_CONFIG_RADIO_DRIVER="${OT_RADIO_DRIVER}"
+    )
+endif()
+
 option(OT_DAEMON "Enable daemon mode" OFF)
 if(OT_DAEMON)
     list(APPEND OT_PLATFORM_DEFINES "OPENTHREAD_POSIX_CONFIG_DAEMON_ENABLE=1")
@@ -62,17 +70,19 @@ add_library(openthread-posix
     backbone.cpp
     daemon.cpp
     entropy.cpp
-    hdlc_interface.cpp
     infra_if.cpp
     logging.cpp
     memory.cpp
     misc.cpp
+    module_fd.cpp
+    module_forkpty.cpp
+    module_hdlc.cpp
+    module_hdlc.hpp
     multicast_routing.cpp
     netif.cpp
     radio.cpp
     radio_url.cpp
     settings.cpp
-    spi_interface.cpp
     system.cpp
     trel_udp6.cpp
     udp.cpp
@@ -110,3 +120,26 @@ target_include_directories(openthread-posix PRIVATE
     PUBLIC
         ${PROJECT_SOURCE_DIR}/src/posix/platform/include
 )
+
+if (OT_UNIT_TEST)
+    add_executable(test-radio-url radio_url.cpp)
+    target_include_directories(test-radio-url
+        PRIVATE
+            $<TARGET_PROPERTY:openthread-posix,INCLUDE_DIRECTORIES>)
+    target_compile_definitions(test-radio-url
+        PRIVATE
+            "OT_UNIT_TEST_RADIO_URL=1"
+    )
+
+    add_executable(test-module-manager
+        radio_url.cpp
+        module_manager.cpp
+    )
+    target_include_directories(test-module-manager
+        PRIVATE
+            $<TARGET_PROPERTY:openthread-posix,INCLUDE_DIRECTORIES>)
+    target_compile_definitions(test-module-manager
+        PRIVATE
+            "OT_UNIT_TEST_MODULE_MANAGER=1"
+    )
+endif()

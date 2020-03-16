@@ -53,7 +53,7 @@ namespace Posix {
  * This class defines an SPI interface to the Radio Co-processor (RCP).
  *
  */
-class SpiInterface
+class SpiInterface : public BottomDriver, public LowerDriver
 {
 public:
     /**
@@ -106,7 +106,7 @@ public:
      * @retval OT_ERROR_FAILED   Failed to call the SPI driver to send the frame.
      *
      */
-    otError SendFrame(const uint8_t *aFrame, uint16_t aLength);
+    otError Output(const uint8_t *aFrame, uint16_t aLength);
 
     /**
      * This method waits for receiving part or all of spinel frame within specified interval.
@@ -128,7 +128,7 @@ public:
      * @param[inout]  aTimeout     A reference to the timeout.
      *
      */
-    void UpdateFdSet(fd_set &aReadFdSet, fd_set &aWriteFdSet, int &aMaxFd, struct timeval &aTimeout);
+    void Poll(otSysMainloopContext &aMainloop);
 
     /**
      * This method performs radio driver processing.

@@ -402,7 +402,7 @@ static void UpdateUnicast(otInstance *aInstance, const otIp6AddressInfo &aAddres
 
 #if defined(__APPLE__)
         ifr6.ifra_lifetime.ia6t_expire    = ND6_INFINITE_LIFETIME;
-        ifr6.ifra_lifetime.ia6t_preferred = ND6_INFINITE_LIFETIME;
+        ifr6.ifra_lifetime.ia6t_preferred = 0;
 #endif
 
         rval = ioctl(sIpFd, aIsAdded ? SIOCAIFADDR_IN6 : SIOCDIFADDR_IN6, &ifr6);

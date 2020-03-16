@@ -57,8 +57,9 @@ libopenthread_posix_a_SOURCES             = \
     netif.cpp                               \
     radio.cpp                               \
     radio_url.cpp                           \
+    radio_spinel.cpp                        \
     settings.cpp                            \
-    spi_interface.cpp                       \
+    spi.cpp                                 \
     system.cpp                              \
     trel_udp6.cpp                           \
     udp.cpp                                 \
@@ -76,6 +77,9 @@ noinst_HEADERS                            = \
     openthread-posix-config.h               \
     platform-posix.h                        \
     radio_url.hpp                           \
+    radio.hpp                               \
+    radio_spinel.hpp                        \
+    spinel_interface.hpp                    \
     $(NULL)
 
 openthread_HEADERS                        = \

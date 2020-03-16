@@ -59,6 +59,8 @@ set(COMMON_SOURCES
     spinel_buffer.cpp
     spinel_decoder.cpp
     spinel_encoder.cpp
+    radio_spinel.hpp
+    radio_spinel.cpp
 )
 
 target_include_directories(openthread-spinel-ncp PUBLIC ${OT_PUBLIC_INCLUDES} PRIVATE ${COMMON_INCLUDES})

@@ -179,9 +179,16 @@ otError SpiInterface::Init(const Url::Url &aRadioUrl)
         // If the interrupt pin is not set, SPI interface will use polling mode.
         InitIntPin(spiGpioIntDevice, spiGpioIntLine);
     }
-    else
+
     {
-        otLogNotePlat("SPI interface enters polling mode.");
+        const char *value = aArguments.GetValue("spi-cs-delay");
+
+        mSpiCsDelayUs = atoi(value);
+    }
+
+    {
+        const char *value   = aArguments.GetValue("spi-small-packet-size");
+        mSpiSmallPacketSize = atoi(value);
     }
 
     InitResetPin(spiGpioResetDevice, spiGpioResetLine);
@@ -640,12 +647,10 @@ bool SpiInterface::CheckInterrupt(void)
     return (mIntGpioValueFd >= 0) ? (GetGpioValue(mIntGpioValueFd) == kGpioIntAssertState) : true;
 }
 
-void SpiInterface::UpdateFdSet(fd_set &aReadFdSet, fd_set &aWriteFdSet, int &aMaxFd, struct timeval &aTimeout)
+void SpiInterface::Poll(otSysMainloopContext &aMainloop)
 {
     struct timeval timeout        = {kSecPerDay, 0};
     struct timeval pollingTimeout = {0, kSpiPollPeriodUs};
-
-    OT_UNUSED_VARIABLE(aWriteFdSet);
 
     if (mSpiTxIsReady)
     {
@@ -656,9 +661,9 @@ void SpiInterface::UpdateFdSet(fd_set &aReadFdSet, fd_set &aWriteFdSet, int &aMa
 
     if (mIntGpioValueFd >= 0)
     {
-        if (aMaxFd < mIntGpioValueFd)
+        if (aMainloop.mMaxFd < mIntGpioValueFd)
         {
-            aMaxFd = mIntGpioValueFd;
+            aMainloop.mMaxFd = mIntGpioValueFd;
         }
 
         if (CheckInterrupt())
@@ -672,7 +677,7 @@ void SpiInterface::UpdateFdSet(fd_set &aReadFdSet, fd_set &aWriteFdSet, int &aMa
         {
             // The interrupt pin was not asserted, so we wait for the interrupt pin to be asserted by adding it to the
             // read set.
-            FD_SET(mIntGpioValueFd, &aReadFdSet);
+            FD_SET(mIntGpioValueFd, &aMainloop.mReadFdSet);
         }
     }
     else if (timercmp(&pollingTimeout, &timeout, <))
@@ -732,9 +737,9 @@ void SpiInterface::UpdateFdSet(fd_set &aReadFdSet, fd_set &aWriteFdSet, int &aMa
         mDidPrintRateLimitLog = false;
     }
 
-    if (timercmp(&timeout, &aTimeout, <))
+    if (timercmp(&timeout, &aMainloop.mTimeout, <))
     {
-        aTimeout = timeout;
+        aMainloop.mTimeout = timeout;
     }
 }
 
@@ -766,6 +771,7 @@ otError SpiInterface::WaitForFrame(uint64_t aTimeoutUs)
     fd_set         readFdSet;
     int            ret;
     bool           isDataReady = false;
+    struct timeval timeout     = {aTimeout / 1000, (aTimeout % 1000) * 1000};
 
     timeout.tv_sec  = static_cast<time_t>(aTimeoutUs / US_PER_S);
     timeout.tv_usec = static_cast<suseconds_t>(aTimeoutUs % US_PER_S);
@@ -827,7 +833,7 @@ exit:
     return error;
 }
 
-otError SpiInterface::SendFrame(const uint8_t *aFrame, uint16_t aLength)
+otError SpiInterface::Output(const uint8_t *aFrame, uint16_t aLength)
 {
     otError error = OT_ERROR_NONE;
 
@@ -864,6 +870,18 @@ void SpiInterface::LogStats(void)
     otLogInfoPlat("INFO: mSpiTxFrameCount=%" PRIu64, mSpiTxFrameCount);
     otLogInfoPlat("INFO: mSpiTxFrameByteCount=%" PRIu64, mSpiTxFrameByteCount);
 }
+
+template <> Driver *Driver::Create<kDriverSpi>(const char *aDevice, Arguments &aArguments, LowerDriver *aLower)
+{
+    OT_UNUSED_VARIABLE(aLower);
+
+    SpiInterface *driver = new SpiInterface();
+
+    driver->Init(aDevice, aArguments);
+
+    return driver;
+}
+
 } // namespace Posix
 } // namespace ot
 

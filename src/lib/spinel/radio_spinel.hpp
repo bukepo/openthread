@@ -38,8 +38,8 @@
 
 #include "openthread-spinel-config.h"
 #include "spinel.h"
-#include "spinel_interface.hpp"
 #include "core/radio/max_power_table.hpp"
+#include "lib/modules/radio.hpp"
 #include "ncp/ncp_config.h"
 
 namespace ot {
@@ -101,14 +101,14 @@ namespace Spinel {
  *    void Deinit(void);
  * };
  */
-template <typename InterfaceType, typename ProcessContextType> class RadioSpinel
+
+class RadioSpinel : public Modules::StaticRadioDriver<RadioSpinel>
 {
 public:
-    /**
-     * This constructor initializes the spinel based OpenThread transceiver.
-     *
-     */
-    RadioSpinel(void);
+    static Modules::RadioDriver *CreateDriverInstance(const char *           aProtocol,
+                                                      const Url::Url &       aUrl,
+                                                      Modules::StreamDriver *aUnderlying);
+    RadioSpinel(Modules::StreamDriver &aStreamDriver);
 
     /**
      * Initialize this radio transceiver.
@@ -120,7 +120,7 @@ public:
      * @param[in]  aSkipRcpCompatibilityCheck  TRUE to skip RCP compatibility check, FALSE to perform the check.
      *
      */
-    void Init(bool aResetRadio, bool aRestoreDataSetFromNcp, bool aSkipRcpCompatibilityCheck);
+    otError Init(const Url::Url &aUrl);
 
     /**
      * Deinitialize this radio transceiver.
@@ -509,7 +509,7 @@ public:
      * @retval OT_ERROR_FAILED   The radio could not be enabled.
      *
      */
-    otError Enable(otInstance *aInstance);
+    otError Enable(void);
 
     /**
      * Disable the radio.
@@ -744,7 +744,7 @@ public:
 private:
     enum
     {
-        kMaxSpinelFrame        = SpinelInterface::kMaxFrameSize,
+        kMaxSpinelFrame        = 2000,
         kMaxWaitTime           = 2000, ///< Max time to wait for response in milliseconds.
         kVersionStringSize     = 128,  ///< Max size of version string.
         kCapsBufferSize        = 100,  ///< Max buffer size used to store `SPINEL_PROP_CAPS` value.
@@ -886,6 +886,19 @@ private:
     otError ParseRadioFrame(otRadioFrame &aFrame, const uint8_t *aBuffer, uint16_t aLength, spinel_ssize_t &aUnpacked);
     otError ThreadDatasetHandler(const uint8_t *aBuffer, uint16_t aLength);
 
+    static otError Input(void *aContext, const uint8_t *aBuffer, uint16_t aLength)
+    {
+        return static_cast<RadioSpinel *>(aContext)->Input(aBuffer, aLength);
+    }
+
+    /**
+     * This method processes a received Spinel frame.
+     *
+     * The newly received frame is available in `RxFrameBuffer` from `SpinelInterface::GetRxFrameBuffer()`.
+     *
+     */
+    otError Input(const uint8_t *aBuffer, uint16_t aLength);
+
     /**
      * This method returns if the property changed event is safe to be handled now.
      *
@@ -902,9 +915,9 @@ private:
         return !(aKey == SPINEL_PROP_STREAM_RAW || aKey == SPINEL_PROP_MAC_ENERGY_SCAN_RESULT);
     }
 
-    void HandleNotification(SpinelInterface::RxFrameBuffer &aFrameBuffer);
-    void HandleNotification(const uint8_t *aBuffer, uint16_t aLength);
-    void HandleValueIs(spinel_prop_key_t aKey, const uint8_t *aBuffer, uint16_t aLength);
+    otError TryHandleNotification(const uint8_t *aBuffer, uint16_t aLength);
+    void    HandleNotification(const uint8_t *aBuffer, uint16_t aLength);
+    void    HandleValueIs(spinel_prop_key_t aKey, const uint8_t *aBuffer, uint16_t aLength);
 
     void HandleResponse(const uint8_t *aBuffer, uint16_t aLength);
     void HandleTransmitDone(uint32_t aCommand, spinel_prop_key_t aKey, const uint8_t *aBuffer, uint16_t aLength);
@@ -925,10 +938,6 @@ private:
 #endif
 
     otInstance *mInstance;
-
-    SpinelInterface::RxFrameBuffer mRxFrameBuffer;
-
-    InterfaceType mSpinelInterface;
 
     uint16_t          mCmdTidsInUse;    ///< Used transaction ids.
     spinel_tid_t      mCmdNextTid;      ///< Next available transaction id.
@@ -1007,6 +1016,23 @@ private:
     int64_t  mRadioTimeOffset;      ///< Time difference with estimated RCP time minus host time.
 
     MaxPowerTable mMaxPowerTable;
+
+    enum
+    {
+        kMaxFrameSize = 2048, ///< Maximum frame size (number of bytes).
+    };
+    ot::Hdlc::MultiFrameBuffer<kMaxFrameSize> mRxFrameBuffer;
+
+    otPosixRadioInstance *mNext;
+
+    static otPosixRadioOperations sRadioOperations;
+    static otPosixRadioPollFuncs  sPollFuncs;
+
+    static DriverInstance *CreateDriverInstance(const char *aProtocol const Url::Url &aUrl,
+                                                StreamInstance *                      aUnderlying);
+
+private:
+    StreamInstance &mUnderlying;
 };
 
 } // namespace Spinel

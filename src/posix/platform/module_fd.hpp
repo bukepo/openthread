@@ -34,18 +34,12 @@
 #ifndef POSIX_APP_HDLC_INTERFACE_HPP_
 #define POSIX_APP_HDLC_INTERFACE_HPP_
 
-#include "openthread-posix-config.h"
-#include "platform-posix.h"
-#include "posix/platform/radio.hpp"
-
-#include <openthread/radio_driver.h>
-
-#if OPENTHREAD_POSIX_CONFIG_RCP_UART_ENABLE
+#include "lib/modules/radio.hpp"
 
 namespace ot {
-namespace Spinel {
+namespace Modules {
 
-class FileDescriptor : public otPosixRadioInstance
+class FileDescriptor : public StreamDriver
 {
 public:
     FileDescriptor(int aFd);
@@ -73,17 +67,18 @@ public:
 
     otError Write(const uint8_t *aBuffer, uint16_t aLength);
 
-    static otPosixRadioDataFuncs sDataFuncs;
-    static otPosixRadioPollFuncs sPollFuncs;
+    // static otPosixRadioDataFuncs sDataFuncs;
+    // static otPosixRadioPollFuncs sPollFuncs;
 
 private:
     enum
     {
-        kMaxFrameSize = OPENTHREAD_CONFIG_PLATFORM_RADIO_SPINEL_RX_FRAME_BUFFER_SIZE, ///< Maximum buffer size.
+        kMaxFrameSize = 2048, ///< Maximum frame size (number of bytes).
+        kMaxWaitTime  = 2000, ///< Maximum wait time in Milliseconds for socket to become writable (see `SendFrame`).
     };
 
-    otPosixDataCallback mDataCallback;
-    void *              mDataContext;
+    // otPosixDataCallback mDataCallback;
+    void *mDataContext;
 
     /**
      * This method instructs `HdlcInterface` to read and decode data from radio over the socket.
@@ -97,8 +92,7 @@ private:
 
     int mSockFd;
 };
-} // namespace Spinel
+} // namespace Modules
 } // namespace ot
 
-#endif // OPENTHREAD_POSIX_CONFIG_RCP_UART_ENABLE
 #endif // POSIX_APP_HDLC_INTERFACE_HPP_
