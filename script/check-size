@@ -104,11 +104,28 @@ markdown()
     esac
 }
 
-nm_size()
+elf_diff()
 {
-    arm-none-eabi-nm --print-size --defined-only -C "$1" | cut -d' ' -f2- >nmsize_old
-    arm-none-eabi-nm --print-size --defined-only -C "$2" | cut -d' ' -f2- >nmsize_new
-    diff -Nuar nmsize_old nmsize_new || true
+    echo '-----------------'
+    echo '    Symbol       '
+    echo '-----------------'
+    arm-none-eabi-nm --print-size --defined-only -C "$1" | cut -d' ' -f2- > old
+    arm-none-eabi-nm --print-size --defined-only -C "$2" | cut -d' ' -f2- > new
+
+    diff -Nuar old new || true
+
+    echo '-----------------'
+    echo '   Constants     '
+    echo '-----------------'
+    local section
+
+    section=$(arm-none-eabi-readelf -S "$1" | awk '/.rodata/{print $1}' | tr -d '] [')
+    arm-none-eabi-readelf -p "${section}" "$1" | cut -d']' -f2- | sort > old
+
+    section=$(arm-none-eabi-readelf -S "$2" | awk '/.rodata/{print $1}' | tr -d '] [')
+    arm-none-eabi-readelf -p "${section}" "$2" | cut -d']' -f2- | sort > old
+
+    diff -Nuar old new || true
 }
 
 size_nrf52840_version()
@@ -220,14 +237,14 @@ size_nrf52840_version()
 
     for file in "${bins[@]}"; do
         "${reporter}" size "${OT_TMP_DIR}"/a/"${build_dir}"/bin/"${file}"_"${thread_version}" "${OT_TMP_DIR}"/b/"${build_dir}"/bin/"${file}"_"${thread_version}"
-        echo nm_size "${OT_TMP_DIR}"/a/"${build_dir}"/bin/"${file}"_"${thread_version}" "${OT_TMP_DIR}"/b/"${build_dir}"/bin/"${file}"_"${thread_version}"
-        nm_size "${OT_TMP_DIR}"/a/"${build_dir}"/bin/"${file}"_"${thread_version}" "${OT_TMP_DIR}"/b/"${build_dir}"/bin/"${file}"_"${thread_version}"
+        echo elf_diff "${OT_TMP_DIR}"/a/"${build_dir}"/bin/"${file}"_"${thread_version}" "${OT_TMP_DIR}"/b/"${build_dir}"/bin/"${file}"_"${thread_version}"
+        elf_diff "${OT_TMP_DIR}"/a/"${build_dir}"/bin/"${file}"_"${thread_version}" "${OT_TMP_DIR}"/b/"${build_dir}"/bin/"${file}"_"${thread_version}"
     done
 
     for file in "${libs[@]}"; do
         "${reporter}" size "${OT_TMP_DIR}"/a/"${build_dir}"/lib/"${file}"_"${thread_version}" "${OT_TMP_DIR}"/b/"${build_dir}"/lib/"${file}"_"${thread_version}"
-        echo nm_size "${OT_TMP_DIR}"/a/"${build_dir}"/lib/"${file}"_"${thread_version}" "${OT_TMP_DIR}"/b/"${build_dir}"/lib/"${file}"_"${thread_version}"
-        nm_size "${OT_TMP_DIR}"/a/"${build_dir}"/lib/"${file}"_"${thread_version}" "${OT_TMP_DIR}"/b/"${build_dir}"/lib/"${file}"_"${thread_version}"
+        echo elf_diff "${OT_TMP_DIR}"/a/"${build_dir}"/lib/"${file}"_"${thread_version}" "${OT_TMP_DIR}"/b/"${build_dir}"/lib/"${file}"_"${thread_version}"
+        elf_diff "${OT_TMP_DIR}"/a/"${build_dir}"/lib/"${file}"_"${thread_version}" "${OT_TMP_DIR}"/b/"${build_dir}"/lib/"${file}"_"${thread_version}"
     done
 }
 
