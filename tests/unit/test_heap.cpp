@@ -62,9 +62,11 @@ void TestAllocateSingle(void)
 
     for (size_t size = 1; size <= heap.GetCapacity(); ++size)
     {
-        printf("%s allocating %zu bytes...\n", __func__, size);
+        fprintf(stderr, "%s allocating %zu bytes...\n", __func__, size);
         void *p = heap.CAlloc(1, size);
-        VerifyOrQuit(p != nullptr && !heap.IsClean() && heap.GetFreeSize() + size <= totalSize, "allocating failed!");
+        VerifyOrQuit(p != nullptr, "allocating failed!");
+        VerifyOrQuit(!heap.IsClean(), "heap is clean after allocation!");
+        VerifyOrQuit(heap.GetFreeSize() + size <= totalSize, "size overflow after allocation!");
         memset(p, 0xff, size);
         heap.Free(p);
         VerifyOrQuit(heap.IsClean() && heap.GetFreeSize() == totalSize, "freeing failed!\n");

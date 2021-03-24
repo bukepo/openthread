@@ -238,7 +238,7 @@ private:
 #else
         kMemorySize = OPENTHREAD_CONFIG_HEAP_INTERNAL_SIZE_NO_DTLS, ///< Size of memory buffer (bytes).
 #endif
-        kAlignSize          = sizeof(void *),                                     ///< The alignment size.
+        kAlignSize          = sizeof(max_align_t),                                ///< The alignment size.
         kBlockRemainderSize = kAlignSize - sizeof(uint16_t) * 2,                  ///< Block unit remainder size.
         kSuperBlockSize     = kAlignSize - sizeof(Block),                         ///< Super block size.
         kFirstBlockSize     = kMemorySize - kAlignSize * 3 + kBlockRemainderSize, ///< First block size.
