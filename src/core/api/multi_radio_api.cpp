@@ -53,7 +53,7 @@ otError otMultiRadioGetNeighborInfo(otInstance *              aInstance,
     Instance &instance = *static_cast<Instance *>(aInstance);
     Neighbor *neighbor;
 
-    neighbor = instance.Get<NeighborTable>().FindNeighbor(*static_cast<const Mac::ExtAddress *>(aExtAddress),
+    neighbor = instance.Get<NeighborTable>().FindNeighbor(*ot_api_cast<const Mac::ExtAddress *>(aExtAddress),
                                                           Neighbor::kInStateAnyExceptInvalid);
     VerifyOrExit(neighbor != NULL, error = kErrorNotFound);
 

@@ -35,6 +35,7 @@
 
 #include <openthread/netdiag.h>
 
+#include "common/cast.hpp"
 #include "common/instance.hpp"
 
 using namespace ot;
@@ -59,7 +60,7 @@ otError otThreadSendDiagnosticGet(otInstance *                   aInstance,
     Instance &instance = *static_cast<Instance *>(aInstance);
 
     return instance.Get<NetworkDiagnostic::NetworkDiagnostic>().SendDiagnosticGet(
-        *static_cast<const Ip6::Address *>(aDestination), aTlvTypes, aCount, aCallback, aCallbackContext);
+        *ot_api_cast<const Ip6::Address *>(aDestination), aTlvTypes, aCount, aCallback, aCallbackContext);
 }
 
 otError otThreadSendDiagnosticReset(otInstance *        aInstance,
@@ -70,7 +71,7 @@ otError otThreadSendDiagnosticReset(otInstance *        aInstance,
     Instance &instance = *static_cast<Instance *>(aInstance);
 
     return instance.Get<NetworkDiagnostic::NetworkDiagnostic>().SendDiagnosticReset(
-        *static_cast<const Ip6::Address *>(aDestination), aTlvTypes, aCount);
+        *ot_api_cast<const Ip6::Address *>(aDestination), aTlvTypes, aCount);
 }
 
 #endif // OPENTHREAD_FTD || OPENTHREAD_CONFIG_TMF_NETWORK_DIAG_MTD_ENABLE

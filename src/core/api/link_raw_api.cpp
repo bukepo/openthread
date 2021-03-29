@@ -39,6 +39,7 @@
 #include <openthread/platform/diag.h>
 #include <openthread/platform/time.h>
 
+#include "common/cast.hpp"
 #include "common/debug.hpp"
 #include "common/instance.hpp"
 #include "common/locator-getters.hpp"
@@ -229,8 +230,8 @@ otError otLinkRawSetMacKey(otInstance *    aInstance,
                            const otMacKey *aNextKey)
 {
     return static_cast<Instance *>(aInstance)->Get<Mac::LinkRaw>().SetMacKey(
-        aKeyIdMode, aKeyId, *static_cast<const Mac::Key *>(aPrevKey), *static_cast<const Mac::Key *>(aCurrKey),
-        *static_cast<const Mac::Key *>(aNextKey));
+        aKeyIdMode, aKeyId, *ot_api_cast<const Mac::Key *>(aPrevKey), *ot_api_cast<const Mac::Key *>(aCurrKey),
+        *ot_api_cast<const Mac::Key *>(aNextKey));
 }
 
 otError otLinkRawSetMacFrameCounter(otInstance *aInstance, uint32_t aMacFrameCounter)
@@ -280,7 +281,7 @@ const otExtAddress *otLinkGetExtendedAddress(otInstance *aInstance)
 otError otLinkSetExtendedAddress(otInstance *aInstance, const otExtAddress *aExtAddress)
 {
     return static_cast<Instance *>(aInstance)->Get<Mac::LinkRaw>().SetExtAddress(
-        *static_cast<const Mac::ExtAddress *>(aExtAddress));
+        *ot_api_cast<const Mac::ExtAddress *>(aExtAddress));
 }
 
 uint16_t otLinkGetShortAddress(otInstance *aInstance)

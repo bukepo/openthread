@@ -42,6 +42,8 @@
 #include "utils/slaac_address.hpp"
 #endif
 
+#include "common/cast.hpp"
+
 using namespace ot;
 
 otError otIp6SetEnabled(otInstance *aInstance, bool aEnabled)
@@ -87,14 +89,14 @@ otError otIp6AddUnicastAddress(otInstance *aInstance, const otNetifAddress *aAdd
     Instance &instance = *static_cast<Instance *>(aInstance);
 
     return instance.Get<ThreadNetif>().AddExternalUnicastAddress(
-        *static_cast<const Ip6::NetifUnicastAddress *>(aAddress));
+        *ot_api_cast<const Ip6::NetifUnicastAddress *>(aAddress));
 }
 
 otError otIp6RemoveUnicastAddress(otInstance *aInstance, const otIp6Address *aAddress)
 {
     Instance &instance = *static_cast<Instance *>(aInstance);
 
-    return instance.Get<ThreadNetif>().RemoveExternalUnicastAddress(*static_cast<const Ip6::Address *>(aAddress));
+    return instance.Get<ThreadNetif>().RemoveExternalUnicastAddress(*ot_api_cast<const Ip6::Address *>(aAddress));
 }
 
 const otNetifMulticastAddress *otIp6GetMulticastAddresses(otInstance *aInstance)
@@ -108,14 +110,14 @@ otError otIp6SubscribeMulticastAddress(otInstance *aInstance, const otIp6Address
 {
     Instance &instance = *static_cast<Instance *>(aInstance);
 
-    return instance.Get<ThreadNetif>().SubscribeExternalMulticast(*static_cast<const Ip6::Address *>(aAddress));
+    return instance.Get<ThreadNetif>().SubscribeExternalMulticast(*ot_api_cast<const Ip6::Address *>(aAddress));
 }
 
 otError otIp6UnsubscribeMulticastAddress(otInstance *aInstance, const otIp6Address *aAddress)
 {
     Instance &instance = *static_cast<Instance *>(aInstance);
 
-    return instance.Get<ThreadNetif>().UnsubscribeExternalMulticast(*static_cast<const Ip6::Address *>(aAddress));
+    return instance.Get<ThreadNetif>().UnsubscribeExternalMulticast(*ot_api_cast<const Ip6::Address *>(aAddress));
 }
 
 bool otIp6IsMulticastPromiscuousEnabled(otInstance *aInstance)
@@ -224,24 +226,24 @@ const uint16_t *otIp6GetUnsecurePorts(otInstance *aInstance, uint8_t *aNumEntrie
 
 bool otIp6IsAddressEqual(const otIp6Address *aFirst, const otIp6Address *aSecond)
 {
-    return *static_cast<const Ip6::Address *>(aFirst) == *static_cast<const Ip6::Address *>(aSecond);
+    return *ot_api_cast<const Ip6::Address *>(aFirst) == *ot_api_cast<const Ip6::Address *>(aSecond);
 }
 
 otError otIp6AddressFromString(const char *aString, otIp6Address *aAddress)
 {
-    return static_cast<Ip6::Address *>(aAddress)->FromString(aString);
+    return ot_api_cast<Ip6::Address *>(aAddress)->FromString(aString);
 }
 
 uint8_t otIp6PrefixMatch(const otIp6Address *aFirst, const otIp6Address *aSecond)
 {
     OT_ASSERT(aFirst != nullptr && aSecond != nullptr);
 
-    return static_cast<const Ip6::Address *>(aFirst)->PrefixMatch(*static_cast<const Ip6::Address *>(aSecond));
+    return ot_api_cast<const Ip6::Address *>(aFirst)->PrefixMatch(*ot_api_cast<const Ip6::Address *>(aSecond));
 }
 
 bool otIp6IsAddressUnspecified(const otIp6Address *aAddress)
 {
-    return static_cast<const Ip6::Address *>(aAddress)->IsUnspecified();
+    return ot_api_cast<const Ip6::Address *>(aAddress)->IsUnspecified();
 }
 
 otError otIp6SelectSourceAddress(otInstance *aInstance, otMessageInfo *aMessageInfo)
@@ -250,7 +252,7 @@ otError otIp6SelectSourceAddress(otInstance *aInstance, otMessageInfo *aMessageI
     Instance &                      instance = *static_cast<Instance *>(aInstance);
     const Ip6::NetifUnicastAddress *netifAddr;
 
-    netifAddr = instance.Get<Ip6::Ip6>().SelectSourceAddress(*static_cast<Ip6::MessageInfo *>(aMessageInfo));
+    netifAddr = instance.Get<Ip6::Ip6>().SelectSourceAddress(*ot_api_cast<Ip6::MessageInfo *>(aMessageInfo));
     VerifyOrExit(netifAddr != nullptr, error = kErrorNotFound);
     aMessageInfo->mSockAddr = netifAddr->GetAddress();
 

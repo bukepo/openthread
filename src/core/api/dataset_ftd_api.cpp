@@ -37,6 +37,7 @@
 
 #include <openthread/dataset_ftd.h>
 
+#include "common/cast.hpp"
 #include "common/instance.hpp"
 #include "common/locator-getters.hpp"
 
@@ -46,7 +47,7 @@ otError otDatasetCreateNewNetwork(otInstance *aInstance, otOperationalDataset *a
 {
     Instance &instance = *static_cast<Instance *>(aInstance);
 
-    return instance.Get<MeshCoP::ActiveDataset>().CreateNewNetwork(*static_cast<MeshCoP::Dataset::Info *>(aDataset));
+    return instance.Get<MeshCoP::ActiveDataset>().CreateNewNetwork(*ot_api_cast<MeshCoP::Dataset::Info *>(aDataset));
 }
 
 uint32_t otDatasetGetDelayTimerMinimal(otInstance *aInstance)

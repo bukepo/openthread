@@ -35,6 +35,7 @@
 #include <openthread/crypto.h>
 #include <openthread/error.h>
 
+#include "common/cast.hpp"
 #include "common/code_utils.hpp"
 #include "common/debug.hpp"
 #include "common/locator-getters.hpp"
@@ -56,7 +57,7 @@ void otCryptoHmacSha256(const uint8_t *     aKey,
 
     hmac.Start(aKey, aKeyLength);
     hmac.Update(aBuf, aBufLength);
-    hmac.Finish(*static_cast<HmacSha256::Hash *>(aHash));
+    hmac.Finish(*ot_api_cast<HmacSha256::Hash *>(aHash));
 }
 
 void otCryptoAesCcm(const uint8_t *aKey,

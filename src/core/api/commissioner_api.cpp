@@ -35,6 +35,7 @@
 
 #include <openthread/commissioner.h>
 
+#include "common/cast.hpp"
 #include "common/instance.hpp"
 #include "common/locator-getters.hpp"
 
@@ -69,7 +70,7 @@ otError otCommissionerAddJoiner(otInstance *aInstance, const otExtAddress *aEui6
         ExitNow();
     }
 
-    error = commissioner.AddJoiner(*static_cast<const Mac::ExtAddress *>(aEui64), aPskd, aTimeout);
+    error = commissioner.AddJoiner(*ot_api_cast<const Mac::ExtAddress *>(aEui64), aPskd, aTimeout);
 
 exit:
     return error;
@@ -82,7 +83,7 @@ otError otCommissionerAddJoinerWithDiscerner(otInstance *             aInstance,
 {
     Instance &instance = *static_cast<Instance *>(aInstance);
 
-    return instance.Get<MeshCoP::Commissioner>().AddJoiner(*static_cast<const MeshCoP::JoinerDiscerner *>(aDiscerner),
+    return instance.Get<MeshCoP::Commissioner>().AddJoiner(*ot_api_cast<const MeshCoP::JoinerDiscerner *>(aDiscerner),
                                                            aPskd, aTimeout);
 }
 
@@ -104,7 +105,7 @@ otError otCommissionerRemoveJoiner(otInstance *aInstance, const otExtAddress *aE
         ExitNow();
     }
 
-    error = commissioner.RemoveJoiner(*static_cast<const Mac::ExtAddress *>(aEui64), /* aTimeout */ 0);
+    error = commissioner.RemoveJoiner(*ot_api_cast<const Mac::ExtAddress *>(aEui64), /* aTimeout */ 0);
 
 exit:
     return error;
@@ -115,7 +116,7 @@ otError otCommissionerRemoveJoinerWithDiscerner(otInstance *aInstance, const otJ
     Instance &instance = *static_cast<Instance *>(aInstance);
 
     return instance.Get<MeshCoP::Commissioner>().RemoveJoiner(
-        *static_cast<const MeshCoP::JoinerDiscerner *>(aDiscerner), 0);
+        *ot_api_cast<const MeshCoP::JoinerDiscerner *>(aDiscerner), 0);
 }
 
 otError otCommissionerSetProvisioningUrl(otInstance *aInstance, const char *aProvisioningUrl)
@@ -141,7 +142,7 @@ otError otCommissionerAnnounceBegin(otInstance *        aInstance,
     Instance &instance = *static_cast<Instance *>(aInstance);
 
     return instance.Get<MeshCoP::Commissioner>().GetAnnounceBeginClient().SendRequest(
-        aChannelMask, aCount, aPeriod, *static_cast<const Ip6::Address *>(aAddress));
+        aChannelMask, aCount, aPeriod, *ot_api_cast<const Ip6::Address *>(aAddress));
 }
 
 otError otCommissionerEnergyScan(otInstance *                       aInstance,
@@ -156,7 +157,7 @@ otError otCommissionerEnergyScan(otInstance *                       aInstance,
     Instance &instance = *static_cast<Instance *>(aInstance);
 
     return instance.Get<MeshCoP::Commissioner>().GetEnergyScanClient().SendQuery(
-        aChannelMask, aCount, aPeriod, aScanDuration, *static_cast<const Ip6::Address *>(aAddress), aCallback,
+        aChannelMask, aCount, aPeriod, aScanDuration, *ot_api_cast<const Ip6::Address *>(aAddress), aCallback,
         aContext);
 }
 
@@ -170,7 +171,7 @@ otError otCommissionerPanIdQuery(otInstance *                        aInstance,
     Instance &instance = *static_cast<Instance *>(aInstance);
 
     return instance.Get<MeshCoP::Commissioner>().GetPanIdQueryClient().SendQuery(
-        aPanId, aChannelMask, *static_cast<const Ip6::Address *>(aAddress), aCallback, aContext);
+        aPanId, aChannelMask, *ot_api_cast<const Ip6::Address *>(aAddress), aCallback, aContext);
 }
 
 otError otCommissionerSendMgmtGet(otInstance *aInstance, const uint8_t *aTlvs, uint8_t aLength)

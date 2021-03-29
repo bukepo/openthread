@@ -35,6 +35,7 @@
 
 #include <openthread/icmp6.h>
 
+#include "common/cast.hpp"
 #include "common/instance.hpp"
 #include "common/locator-getters.hpp"
 
@@ -58,7 +59,7 @@ otError otIcmp6RegisterHandler(otInstance *aInstance, otIcmp6Handler *aHandler)
 {
     Instance &instance = *static_cast<Instance *>(aInstance);
 
-    return instance.Get<Ip6::Icmp>().RegisterHandler(*static_cast<Ip6::Icmp::Handler *>(aHandler));
+    return instance.Get<Ip6::Icmp>().RegisterHandler(*ot_api_cast<Ip6::Icmp::Handler *>(aHandler));
 }
 
 otError otIcmp6SendEchoRequest(otInstance *         aInstance,
@@ -69,5 +70,5 @@ otError otIcmp6SendEchoRequest(otInstance *         aInstance,
     Instance &instance = *static_cast<Instance *>(aInstance);
 
     return instance.Get<Ip6::Icmp>().SendEchoRequest(*static_cast<Message *>(aMessage),
-                                                     *static_cast<const Ip6::MessageInfo *>(aMessageInfo), aIdentifier);
+                                                     *ot_api_cast<const Ip6::MessageInfo *>(aMessageInfo), aIdentifier);
 }

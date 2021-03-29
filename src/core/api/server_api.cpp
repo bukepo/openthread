@@ -37,6 +37,7 @@
 
 #include <openthread/server.h>
 
+#include "common/cast.hpp"
 #include "common/instance.hpp"
 #include "common/locator-getters.hpp"
 
@@ -79,7 +80,7 @@ otError otServerGetNextService(otInstance *aInstance, otNetworkDataIterator *aIt
     VerifyOrExit(aIterator && aConfig, error = kErrorInvalidArgs);
 
     error = instance.Get<NetworkData::Local>().GetNextService(*aIterator,
-                                                              *static_cast<NetworkData::ServiceConfig *>(aConfig));
+                                                              *ot_api_cast<NetworkData::ServiceConfig *>(aConfig));
 
 exit:
     return error;

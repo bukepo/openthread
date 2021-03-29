@@ -35,6 +35,7 @@
 
 #include <openthread/netdata.h>
 
+#include "common/cast.hpp"
 #include "common/instance.hpp"
 #include "common/locator-getters.hpp"
 
@@ -55,7 +56,7 @@ otError otNetDataGetNextOnMeshPrefix(otInstance *           aInstance,
 {
     Error                            error    = kErrorNone;
     Instance &                       instance = *static_cast<Instance *>(aInstance);
-    NetworkData::OnMeshPrefixConfig *config   = static_cast<NetworkData::OnMeshPrefixConfig *>(aConfig);
+    NetworkData::OnMeshPrefixConfig *config   = ot_api_cast<NetworkData::OnMeshPrefixConfig *>(aConfig);
 
     VerifyOrExit(aIterator && aConfig, error = kErrorInvalidArgs);
 
@@ -73,7 +74,7 @@ otError otNetDataGetNextRoute(otInstance *aInstance, otNetworkDataIterator *aIte
     VerifyOrExit(aIterator && aConfig, error = kErrorInvalidArgs);
 
     error = instance.Get<NetworkData::Leader>().GetNextExternalRoute(
-        *aIterator, *static_cast<NetworkData::ExternalRouteConfig *>(aConfig));
+        *aIterator, *ot_api_cast<NetworkData::ExternalRouteConfig *>(aConfig));
 
 exit:
     return error;
@@ -87,7 +88,7 @@ otError otNetDataGetNextService(otInstance *aInstance, otNetworkDataIterator *aI
     VerifyOrExit(aIterator && aConfig, error = kErrorInvalidArgs);
 
     error = instance.Get<NetworkData::Leader>().GetNextService(*aIterator,
-                                                               *static_cast<NetworkData::ServiceConfig *>(aConfig));
+                                                               *ot_api_cast<NetworkData::ServiceConfig *>(aConfig));
 
 exit:
     return error;
@@ -110,11 +111,11 @@ uint8_t otNetDataGetStableVersion(otInstance *aInstance)
 otError otNetDataSteeringDataCheckJoiner(otInstance *aInstance, const otExtAddress *aEui64)
 {
     return static_cast<Instance *>(aInstance)->Get<NetworkData::Leader>().SteeringDataCheckJoiner(
-        *static_cast<const Mac::ExtAddress *>(aEui64));
+        *ot_api_cast<const Mac::ExtAddress *>(aEui64));
 }
 
 otError otNetDataSteeringDataCheckJoinerWithDiscerner(otInstance *aInstance, const otJoinerDiscerner *aDiscerner)
 {
     return static_cast<Instance *>(aInstance)->Get<NetworkData::Leader>().SteeringDataCheckJoiner(
-        *static_cast<const MeshCoP::JoinerDiscerner *>(aDiscerner));
+        *ot_api_cast<const MeshCoP::JoinerDiscerner *>(aDiscerner));
 }

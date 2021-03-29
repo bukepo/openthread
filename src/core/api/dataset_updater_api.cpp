@@ -35,6 +35,7 @@
 
 #include <openthread/dataset_updater.h>
 
+#include "common/cast.hpp"
 #include "common/instance.hpp"
 #include "common/locator-getters.hpp"
 #include "meshcop/dataset_updater.hpp"
@@ -50,7 +51,7 @@ otError otDatasetUpdaterRequestUpdate(otInstance *                aInstance,
 {
     Instance &instance = *static_cast<Instance *>(aInstance);
 
-    return instance.Get<MeshCoP::DatasetUpdater>().RequestUpdate(*static_cast<const MeshCoP::Dataset::Info *>(aDataset),
+    return instance.Get<MeshCoP::DatasetUpdater>().RequestUpdate(*ot_api_cast<const MeshCoP::Dataset::Info *>(aDataset),
                                                                  aCallback, aContext);
 }
 

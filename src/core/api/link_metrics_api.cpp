@@ -35,6 +35,7 @@
 
 #include <openthread/link_metrics.h>
 
+#include "common/cast.hpp"
 #include "common/instance.hpp"
 #include "net/ip6_address.hpp"
 
@@ -54,7 +55,7 @@ otError otLinkMetricsQuery(otInstance *                aInstance,
     static_cast<Instance *>(aInstance)->Get<LinkMetrics>().SetLinkMetricsReportCallback(aCallback, aCallbackContext);
 
     return static_cast<Instance *>(aInstance)->Get<LinkMetrics>().LinkMetricsQuery(
-        static_cast<const Ip6::Address &>(*aDestination), aSeriesId, aLinkMetricsFlags);
+        *ot_api_cast<const Ip6::Address *>(aDestination), aSeriesId, aLinkMetricsFlags);
 }
 
 otError otLinkMetricsConfigForwardTrackingSeries(otInstance *                      aInstance,
@@ -71,7 +72,7 @@ otError otLinkMetricsConfigForwardTrackingSeries(otInstance *                   
                                                                                               aCallbackContext);
 
     return static_cast<Instance *>(aInstance)->Get<LinkMetrics>().SendMgmtRequestForwardTrackingSeries(
-        static_cast<const Ip6::Address &>(*aDestination), aSeriesId, aSeriesFlags, aLinkMetricsFlags);
+        *ot_api_cast<const Ip6::Address *>(aDestination), aSeriesId, aSeriesFlags, aLinkMetricsFlags);
 }
 
 otError otLinkMetricsConfigEnhAckProbing(otInstance *                               aInstance,
@@ -91,7 +92,7 @@ otError otLinkMetricsConfigEnhAckProbing(otInstance *                           
                                                                                                aEnhAckCallbackContext);
 
     return static_cast<Instance *>(aInstance)->Get<LinkMetrics>().SendMgmtRequestEnhAckProbing(
-        static_cast<const Ip6::Address &>(*aDestination), aEnhAckFlags, aLinkMetricsFlags);
+        *ot_api_cast<const Ip6::Address *>(aDestination), aEnhAckFlags, aLinkMetricsFlags);
 }
 
 otError otLinkMetricsSendLinkProbe(otInstance *        aInstance,
@@ -102,7 +103,7 @@ otError otLinkMetricsSendLinkProbe(otInstance *        aInstance,
     OT_ASSERT(aDestination != nullptr);
 
     return static_cast<Instance *>(aInstance)->Get<LinkMetrics>().SendLinkProbe(
-        static_cast<const Ip6::Address &>(*aDestination), aSeriesId, aLength);
+        *ot_api_cast<const Ip6::Address *>(aDestination), aSeriesId, aLength);
 }
 
 #endif // OPENTHREAD_CONFIG_MLE_LINK_METRICS_ENABLE

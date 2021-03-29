@@ -35,6 +35,7 @@
 
 #include <openthread/srp_client.h>
 
+#include "common/cast.hpp"
 #include "common/instance.hpp"
 #include "common/locator-getters.hpp"
 #include "net/srp_client.hpp"
@@ -47,7 +48,7 @@ otError otSrpClientStart(otInstance *aInstance, const otSockAddr *aServerSockAdd
 {
     Instance &instance = *static_cast<Instance *>(aInstance);
 
-    return instance.Get<Srp::Client>().Start(*static_cast<const Ip6::SockAddr *>(aServerSockAddr));
+    return instance.Get<Srp::Client>().Start(*ot_api_cast<const Ip6::SockAddr *>(aServerSockAddr));
 }
 
 void otSrpClientStop(otInstance *aInstance)
@@ -147,7 +148,7 @@ otError otSrpClientSetHostAddresses(otInstance *aInstance, const otIp6Address *a
 {
     Instance &instance = *static_cast<Instance *>(aInstance);
 
-    return instance.Get<Srp::Client>().SetHostAddresses(static_cast<const Ip6::Address *>(aIp6Addresses),
+    return instance.Get<Srp::Client>().SetHostAddresses(ot_api_cast<const Ip6::Address *>(aIp6Addresses),
                                                         aNumAddresses);
 }
 
@@ -155,14 +156,14 @@ otError otSrpClientAddService(otInstance *aInstance, otSrpClientService *aServic
 {
     Instance &instance = *static_cast<Instance *>(aInstance);
 
-    return instance.Get<Srp::Client>().AddService(*static_cast<Srp::Client::Service *>(aService));
+    return instance.Get<Srp::Client>().AddService(*ot_api_cast<Srp::Client::Service *>(aService));
 }
 
 otError otSrpClientRemoveService(otInstance *aInstance, otSrpClientService *aService)
 {
     Instance &instance = *static_cast<Instance *>(aInstance);
 
-    return instance.Get<Srp::Client>().RemoveService(*static_cast<Srp::Client::Service *>(aService));
+    return instance.Get<Srp::Client>().RemoveService(*ot_api_cast<Srp::Client::Service *>(aService));
 }
 
 const otSrpClientService *otSrpClientGetServices(otInstance *aInstance)

@@ -38,6 +38,7 @@
 #include <openthread/border_router.h>
 
 #include "border_router/routing_manager.hpp"
+#include "common/cast.hpp"
 #include "common/debug.hpp"
 #include "common/instance.hpp"
 
@@ -52,7 +53,7 @@ otError otBorderRoutingInit(otInstance *        aInstance,
     Instance &instance = *static_cast<Instance *>(aInstance);
 
     return instance.Get<BorderRouter::RoutingManager>().Init(
-        aInfraIfIndex, aInfraIfIsRunning, static_cast<const Ip6::Address *>(aInfraIfLinkLocalAddress));
+        aInfraIfIndex, aInfraIfIsRunning, ot_api_cast<const Ip6::Address *>(aInfraIfLinkLocalAddress));
 }
 
 otError otBorderRoutingSetEnabled(otInstance *aInstance, bool aEnabled)
@@ -76,7 +77,7 @@ otError otBorderRouterAddOnMeshPrefix(otInstance *aInstance, const otBorderRoute
 {
     Error                                  error;
     Instance &                             instance = *static_cast<Instance *>(aInstance);
-    const NetworkData::OnMeshPrefixConfig *config   = static_cast<const NetworkData::OnMeshPrefixConfig *>(aConfig);
+    const NetworkData::OnMeshPrefixConfig *config   = ot_api_cast<const NetworkData::OnMeshPrefixConfig *>(aConfig);
 
     OT_ASSERT(aConfig != nullptr);
 
@@ -101,7 +102,7 @@ otError otBorderRouterRemoveOnMeshPrefix(otInstance *aInstance, const otIp6Prefi
 {
     Error              error    = kErrorNone;
     Instance &         instance = *static_cast<Instance *>(aInstance);
-    const Ip6::Prefix *prefix   = static_cast<const Ip6::Prefix *>(aPrefix);
+    const Ip6::Prefix *prefix   = ot_api_cast<const Ip6::Prefix *>(aPrefix);
 
     OT_ASSERT(aPrefix != nullptr);
 
@@ -122,7 +123,7 @@ otError otBorderRouterGetNextOnMeshPrefix(otInstance *           aInstance,
                                           otBorderRouterConfig * aConfig)
 {
     Instance &                       instance = *static_cast<Instance *>(aInstance);
-    NetworkData::OnMeshPrefixConfig *config   = static_cast<NetworkData::OnMeshPrefixConfig *>(aConfig);
+    NetworkData::OnMeshPrefixConfig *config   = ot_api_cast<NetworkData::OnMeshPrefixConfig *>(aConfig);
 
     OT_ASSERT(aIterator != nullptr && aConfig != nullptr);
 
@@ -136,7 +137,7 @@ otError otBorderRouterAddRoute(otInstance *aInstance, const otExternalRouteConfi
     OT_ASSERT(aConfig != nullptr);
 
     return instance.Get<NetworkData::Local>().AddHasRoutePrefix(
-        *static_cast<const NetworkData::ExternalRouteConfig *>(aConfig));
+        *ot_api_cast<const NetworkData::ExternalRouteConfig *>(aConfig));
 }
 
 otError otBorderRouterRemoveRoute(otInstance *aInstance, const otIp6Prefix *aPrefix)
@@ -145,7 +146,7 @@ otError otBorderRouterRemoveRoute(otInstance *aInstance, const otIp6Prefix *aPre
 
     OT_ASSERT(aPrefix != nullptr);
 
-    return instance.Get<NetworkData::Local>().RemoveHasRoutePrefix(*static_cast<const Ip6::Prefix *>(aPrefix));
+    return instance.Get<NetworkData::Local>().RemoveHasRoutePrefix(*ot_api_cast<const Ip6::Prefix *>(aPrefix));
 }
 
 otError otBorderRouterGetNextRoute(otInstance *           aInstance,
@@ -157,7 +158,7 @@ otError otBorderRouterGetNextRoute(otInstance *           aInstance,
     OT_ASSERT(aIterator != nullptr && aConfig != nullptr);
 
     return instance.Get<NetworkData::Local>().GetNextExternalRoute(
-        *aIterator, *static_cast<NetworkData::ExternalRouteConfig *>(aConfig));
+        *aIterator, *ot_api_cast<NetworkData::ExternalRouteConfig *>(aConfig));
 }
 
 otError otBorderRouterRegister(otInstance *aInstance)

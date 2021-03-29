@@ -35,6 +35,7 @@
 
 #include <openthread/link.h>
 
+#include "common/cast.hpp"
 #include "common/instance.hpp"
 #include "common/locator-getters.hpp"
 #include "mac/mac.hpp"
@@ -119,7 +120,7 @@ otError otLinkSetExtendedAddress(otInstance *aInstance, const otExtAddress *aExt
     OT_ASSERT(aExtAddress != nullptr);
     VerifyOrExit(instance.Get<Mle::MleRouter>().IsDisabled(), error = kErrorInvalidState);
 
-    instance.Get<Mac::Mac>().SetExtAddress(*static_cast<const Mac::ExtAddress *>(aExtAddress));
+    instance.Get<Mac::Mac>().SetExtAddress(*ot_api_cast<const Mac::ExtAddress *>(aExtAddress));
 
     instance.Get<Mle::MleRouter>().UpdateLinkLocalAddress();
 
@@ -131,7 +132,7 @@ void otLinkGetFactoryAssignedIeeeEui64(otInstance *aInstance, otExtAddress *aEui
 {
     Instance &instance = *static_cast<Instance *>(aInstance);
 
-    instance.Get<Radio>().GetIeeeEui64(*static_cast<Mac::ExtAddress *>(aEui64));
+    instance.Get<Radio>().GetIeeeEui64(*ot_api_cast<Mac::ExtAddress *>(aEui64));
 }
 
 otPanId otLinkGetPanId(otInstance *aInstance)
@@ -238,7 +239,7 @@ otError otLinkFilterAddAddress(otInstance *aInstance, const otExtAddress *aExtAd
 
     OT_ASSERT(aExtAddress != nullptr);
 
-    return instance.Get<Mac::Filter>().AddAddress(*static_cast<const Mac::ExtAddress *>(aExtAddress));
+    return instance.Get<Mac::Filter>().AddAddress(*ot_api_cast<const Mac::ExtAddress *>(aExtAddress));
 }
 
 void otLinkFilterRemoveAddress(otInstance *aInstance, const otExtAddress *aExtAddress)
@@ -247,7 +248,7 @@ void otLinkFilterRemoveAddress(otInstance *aInstance, const otExtAddress *aExtAd
 
     OT_ASSERT(aExtAddress != nullptr);
 
-    instance.Get<Mac::Filter>().RemoveAddress(*static_cast<const Mac::ExtAddress *>(aExtAddress));
+    instance.Get<Mac::Filter>().RemoveAddress(*ot_api_cast<const Mac::ExtAddress *>(aExtAddress));
 }
 
 void otLinkFilterClearAddresses(otInstance *aInstance)
@@ -272,7 +273,7 @@ otError otLinkFilterAddRssIn(otInstance *aInstance, const otExtAddress *aExtAddr
 
     OT_ASSERT(aExtAddress != nullptr);
 
-    return instance.Get<Mac::Filter>().AddRssIn(*static_cast<const Mac::ExtAddress *>(aExtAddress), aRss);
+    return instance.Get<Mac::Filter>().AddRssIn(*ot_api_cast<const Mac::ExtAddress *>(aExtAddress), aRss);
 }
 
 void otLinkFilterRemoveRssIn(otInstance *aInstance, const otExtAddress *aExtAddress)
@@ -281,7 +282,7 @@ void otLinkFilterRemoveRssIn(otInstance *aInstance, const otExtAddress *aExtAddr
 
     OT_ASSERT(aExtAddress != nullptr);
 
-    instance.Get<Mac::Filter>().RemoveRssIn(*static_cast<const Mac::ExtAddress *>(aExtAddress));
+    instance.Get<Mac::Filter>().RemoveRssIn(*ot_api_cast<const Mac::ExtAddress *>(aExtAddress));
 }
 
 void otLinkFilterSetDefaultRssIn(otInstance *aInstance, int8_t aRss)

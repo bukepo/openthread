@@ -37,6 +37,7 @@
 
 #include <openthread/srp_server.h>
 
+#include "common/cast.hpp"
 #include "common/instance.hpp"
 #include "common/locator-getters.hpp"
 

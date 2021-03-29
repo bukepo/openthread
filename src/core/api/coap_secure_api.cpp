@@ -38,6 +38,7 @@
 
 #include "coap/coap_message.hpp"
 #include "coap/coap_secure.hpp"
+#include "common/cast.hpp"
 #include "common/instance.hpp"
 #include "common/locator-getters.hpp"
 
@@ -119,7 +120,7 @@ otError otCoapSecureConnect(otInstance *                    aInstance,
 {
     Instance &instance = *static_cast<Instance *>(aInstance);
 
-    return instance.GetApplicationCoapSecure().Connect(*static_cast<const Ip6::SockAddr *>(aSockAddr), aHandler,
+    return instance.GetApplicationCoapSecure().Connect(*ot_api_cast<const Ip6::SockAddr *>(aSockAddr), aHandler,
                                                        aContext);
 }
 
@@ -181,14 +182,14 @@ void otCoapSecureAddBlockWiseResource(otInstance *aInstance, otCoapBlockwiseReso
 {
     Instance &instance = *static_cast<Instance *>(aInstance);
 
-    instance.GetApplicationCoapSecure().AddBlockWiseResource(*static_cast<Coap::ResourceBlockWise *>(aResource));
+    instance.GetApplicationCoapSecure().AddBlockWiseResource(*ot_api_cast<Coap::ResourceBlockWise *>(aResource));
 }
 
 void otCoapSecureRemoveBlockWiseResource(otInstance *aInstance, otCoapBlockwiseResource *aResource)
 {
     Instance &instance = *static_cast<Instance *>(aInstance);
 
-    instance.GetApplicationCoapSecure().RemoveBlockWiseResource(*static_cast<Coap::ResourceBlockWise *>(aResource));
+    instance.GetApplicationCoapSecure().RemoveBlockWiseResource(*ot_api_cast<Coap::ResourceBlockWise *>(aResource));
 }
 #endif
 
@@ -196,14 +197,14 @@ void otCoapSecureAddResource(otInstance *aInstance, otCoapResource *aResource)
 {
     Instance &instance = *static_cast<Instance *>(aInstance);
 
-    instance.GetApplicationCoapSecure().AddResource(*static_cast<Coap::Resource *>(aResource));
+    instance.GetApplicationCoapSecure().AddResource(*ot_api_cast<Coap::Resource *>(aResource));
 }
 
 void otCoapSecureRemoveResource(otInstance *aInstance, otCoapResource *aResource)
 {
     Instance &instance = *static_cast<Instance *>(aInstance);
 
-    instance.GetApplicationCoapSecure().RemoveResource(*static_cast<Coap::Resource *>(aResource));
+    instance.GetApplicationCoapSecure().RemoveResource(*ot_api_cast<Coap::Resource *>(aResource));
 }
 
 void otCoapSecureSetClientConnectedCallback(otInstance *                    aInstance,
@@ -232,7 +233,7 @@ otError otCoapSecureSendResponseBlockWise(otInstance *                aInstance,
     Instance &instance = *static_cast<Instance *>(aInstance);
 
     return instance.GetApplicationCoapSecure().SendMessage(*static_cast<Coap::Message *>(aMessage),
-                                                           *static_cast<const Ip6::MessageInfo *>(aMessageInfo),
+                                                           *ot_api_cast<const Ip6::MessageInfo *>(aMessageInfo),
                                                            nullptr, aContext, aTransmitHook);
 }
 #endif
@@ -242,7 +243,7 @@ otError otCoapSecureSendResponse(otInstance *aInstance, otMessage *aMessage, con
     Instance &instance = *static_cast<Instance *>(aInstance);
 
     return instance.GetApplicationCoapSecure().SendMessage(*static_cast<Coap::Message *>(aMessage),
-                                                           *static_cast<const Ip6::MessageInfo *>(aMessageInfo));
+                                                           *ot_api_cast<const Ip6::MessageInfo *>(aMessageInfo));
 }
 
 #endif // OPENTHREAD_CONFIG_COAP_SECURE_API_ENABLE

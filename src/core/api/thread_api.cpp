@@ -35,6 +35,7 @@
 
 #include <openthread/thread.h>
 
+#include "common/cast.hpp"
 #include "common/debug.hpp"
 #include "common/instance.hpp"
 #include "common/locator-getters.hpp"
@@ -68,7 +69,7 @@ otError otThreadSetExtendedPanId(otInstance *aInstance, const otExtendedPanId *a
 {
     Error                     error    = kErrorNone;
     Instance &                instance = *static_cast<Instance *>(aInstance);
-    const Mac::ExtendedPanId &extPanId = *static_cast<const Mac::ExtendedPanId *>(aExtendedPanId);
+    const Mac::ExtendedPanId &extPanId = *ot_api_cast<const Mac::ExtendedPanId *>(aExtendedPanId);
     Mle::MeshLocalPrefix      prefix;
 
     VerifyOrExit(instance.Get<Mle::MleRouter>().IsDisabled(), error = kErrorInvalidState);
@@ -91,7 +92,7 @@ otError otThreadGetLeaderRloc(otInstance *aInstance, otIp6Address *aLeaderRloc)
 
     OT_ASSERT(aLeaderRloc != nullptr);
 
-    return instance.Get<Mle::MleRouter>().GetLeaderAddress(*static_cast<Ip6::Address *>(aLeaderRloc));
+    return instance.Get<Mle::MleRouter>().GetLeaderAddress(*ot_api_cast<Ip6::Address *>(aLeaderRloc));
 }
 
 otLinkModeConfig otThreadGetLinkMode(otInstance *aInstance)
@@ -127,7 +128,7 @@ otError otThreadSetMasterKey(otInstance *aInstance, const otMasterKey *aKey)
 
     VerifyOrExit(instance.Get<Mle::MleRouter>().IsDisabled(), error = kErrorInvalidState);
 
-    error = instance.Get<KeyManager>().SetMasterKey(*static_cast<const MasterKey *>(aKey));
+    error = instance.Get<KeyManager>().SetMasterKey(*ot_api_cast<const MasterKey *>(aKey));
     instance.Get<MeshCoP::ActiveDataset>().Clear();
     instance.Get<MeshCoP::PendingDataset>().Clear();
 
@@ -163,7 +164,7 @@ otError otThreadSetMeshLocalPrefix(otInstance *aInstance, const otMeshLocalPrefi
 
     VerifyOrExit(instance.Get<Mle::MleRouter>().IsDisabled(), error = kErrorInvalidState);
 
-    instance.Get<Mle::MleRouter>().SetMeshLocalPrefix(*static_cast<const Mle::MeshLocalPrefix *>(aMeshLocalPrefix));
+    instance.Get<Mle::MleRouter>().SetMeshLocalPrefix(*ot_api_cast<const Mle::MeshLocalPrefix *>(aMeshLocalPrefix));
     instance.Get<MeshCoP::ActiveDataset>().Clear();
     instance.Get<MeshCoP::PendingDataset>().Clear();
 
@@ -230,7 +231,7 @@ otError otThreadSetFixedDuaInterfaceIdentifier(otInstance *aInstance, const otIp
     if (aIid)
     {
         error = instance.Get<DuaManager>().SetFixedDuaInterfaceIdentifier(
-            *static_cast<const Ip6::InterfaceIdentifier *>(aIid));
+            *ot_api_cast<const Ip6::InterfaceIdentifier *>(aIid));
     }
     else
     {
@@ -304,7 +305,7 @@ otError otThreadGetNextNeighborInfo(otInstance *aInstance, otNeighborInfoIterato
 
     OT_ASSERT((aInfo != nullptr) && (aIterator != nullptr));
 
-    return instance.Get<NeighborTable>().GetNextNeighborInfo(*aIterator, *static_cast<Neighbor::Info *>(aInfo));
+    return instance.Get<NeighborTable>().GetNextNeighborInfo(*aIterator, *ot_api_cast<Neighbor::Info *>(aInfo));
 }
 
 otDeviceRole otThreadGetDeviceRole(otInstance *aInstance)

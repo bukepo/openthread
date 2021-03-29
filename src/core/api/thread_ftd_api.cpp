@@ -38,6 +38,7 @@
 #include <openthread/thread_ftd.h>
 
 #include "backbone_router/bbr_manager.hpp"
+#include "common/cast.hpp"
 #include "common/instance.hpp"
 #include "common/locator-getters.hpp"
 #include "thread/mle_types.hpp"
@@ -262,7 +263,7 @@ otError otThreadGetChildInfoById(otInstance *aInstance, uint16_t aChildId, otChi
 
     OT_ASSERT(aChildInfo != nullptr);
 
-    return instance.Get<ChildTable>().GetChildInfoById(aChildId, *static_cast<Child::Info *>(aChildInfo));
+    return instance.Get<ChildTable>().GetChildInfoById(aChildId, *ot_api_cast<Child::Info *>(aChildInfo));
 }
 
 otError otThreadGetChildInfoByIndex(otInstance *aInstance, uint16_t aChildIndex, otChildInfo *aChildInfo)
@@ -271,7 +272,7 @@ otError otThreadGetChildInfoByIndex(otInstance *aInstance, uint16_t aChildIndex,
 
     OT_ASSERT(aChildInfo != nullptr);
 
-    return instance.Get<ChildTable>().GetChildInfoByIndex(aChildIndex, *static_cast<Child::Info *>(aChildInfo));
+    return instance.Get<ChildTable>().GetChildInfoByIndex(aChildIndex, *ot_api_cast<Child::Info *>(aChildInfo));
 }
 
 otError otThreadGetChildNextIp6Address(otInstance *               aInstance,
@@ -322,7 +323,7 @@ otError otThreadGetRouterInfo(otInstance *aInstance, uint16_t aRouterId, otRoute
 
     OT_ASSERT(aRouterInfo != nullptr);
 
-    return instance.Get<RouterTable>().GetRouterInfo(aRouterId, *static_cast<Router::Info *>(aRouterInfo));
+    return instance.Get<RouterTable>().GetRouterInfo(aRouterId, *ot_api_cast<Router::Info *>(aRouterInfo));
 }
 
 otError otThreadGetNextCacheEntry(otInstance *aInstance, otCacheEntryInfo *aEntryInfo, otCacheEntryIterator *aIterator)
@@ -339,7 +340,7 @@ void otThreadSetSteeringData(otInstance *aInstance, const otExtAddress *aExtAddr
 {
     Instance &instance = *static_cast<Instance *>(aInstance);
 
-    instance.Get<Mle::MleRouter>().SetSteeringData(static_cast<const Mac::ExtAddress *>(aExtAddress));
+    instance.Get<Mle::MleRouter>().SetSteeringData(ot_api_cast<const Mac::ExtAddress *>(aExtAddress));
 }
 #endif
 
@@ -357,7 +358,7 @@ otError otThreadSetPskc(otInstance *aInstance, const otPskc *aPskc)
 
     VerifyOrExit(instance.Get<Mle::MleRouter>().IsDisabled(), error = kErrorInvalidState);
 
-    instance.Get<KeyManager>().SetPskc(*static_cast<const Pskc *>(aPskc));
+    instance.Get<KeyManager>().SetPskc(*ot_api_cast<const Pskc *>(aPskc));
     instance.Get<MeshCoP::ActiveDataset>().Clear();
     instance.Get<MeshCoP::PendingDataset>().Clear();
 
@@ -403,9 +404,9 @@ void otThreadSendAddressNotification(otInstance *              aInstance,
 {
     Instance &instance = *static_cast<Instance *>(aInstance);
 
-    instance.Get<AddressResolver>().SendAddressQueryResponse(static_cast<Ip6::Address &>(*aTarget),
-                                                             static_cast<Ip6::InterfaceIdentifier &>(*aMlIid), nullptr,
-                                                             static_cast<Ip6::Address &>(*aDestination));
+    instance.Get<AddressResolver>().SendAddressQueryResponse(*ot_api_cast<Ip6::Address *>(aTarget),
+                                                             *ot_api_cast<Ip6::InterfaceIdentifier *>(aMlIid), nullptr,
+                                                             *ot_api_cast<Ip6::Address *>(aDestination));
 }
 
 #if OPENTHREAD_CONFIG_BACKBONE_ROUTER_DUA_NDPROXYING_ENABLE
@@ -417,7 +418,7 @@ otError otThreadSendProactiveBackboneNotification(otInstance *              aIns
     Instance &instance = *static_cast<Instance *>(aInstance);
 
     return instance.Get<BackboneRouter::Manager>().SendProactiveBackboneNotification(
-        static_cast<Ip6::Address &>(*aTarget), static_cast<Ip6::InterfaceIdentifier &>(*aMlIid),
+        *ot_api_cast<Ip6::Address *>(aTarget), static_cast<Ip6::InterfaceIdentifier &>(*aMlIid),
         aTimeSinceLastTransaction);
 }
 #endif

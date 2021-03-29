@@ -35,6 +35,7 @@
 
 #include <openthread/dns_client.h>
 
+#include "common/cast.hpp"
 #include "common/instance.hpp"
 #include "common/locator-getters.hpp"
 #include "net/dns_client.hpp"
@@ -44,12 +45,12 @@ using namespace ot;
 
 void otDnsInitTxtEntryIterator(otDnsTxtEntryIterator *aIterator, const uint8_t *aTxtData, uint16_t aTxtDataLength)
 {
-    static_cast<Dns::TxtEntry::Iterator *>(aIterator)->Init(aTxtData, aTxtDataLength);
+    ot_api_cast<Dns::TxtEntry::Iterator *>(aIterator)->Init(aTxtData, aTxtDataLength);
 }
 
 otError otDnsGetNextTxtEntry(otDnsTxtEntryIterator *aIterator, otDnsTxtEntry *aEntry)
 {
-    return static_cast<Dns::TxtEntry::Iterator *>(aIterator)->GetNextEntry(*static_cast<Dns::TxtEntry *>(aEntry));
+    return ot_api_cast<Dns::TxtEntry::Iterator *>(aIterator)->GetNextEntry(*ot_api_cast<Dns::TxtEntry *>(aEntry));
 }
 
 #if OPENTHREAD_CONFIG_DNS_CLIENT_ENABLE
@@ -67,7 +68,7 @@ void otDnsClientSetDefaultConfig(otInstance *aInstance, const otDnsQueryConfig *
 
     if (aConfig != nullptr)
     {
-        instance.Get<Dns::Client>().SetDefaultConfig(*static_cast<const Dns::Client::QueryConfig *>(aConfig));
+        instance.Get<Dns::Client>().SetDefaultConfig(*ot_api_cast<const Dns::Client::QueryConfig *>(aConfig));
     }
     else
     {
@@ -84,14 +85,14 @@ otError otDnsClientResolveAddress(otInstance *            aInstance,
     Instance &instance = *static_cast<Instance *>(aInstance);
 
     return instance.Get<Dns::Client>().ResolveAddress(aHostName, aCallback, aContext,
-                                                      static_cast<const Dns::Client::QueryConfig *>(aConfig));
+                                                      ot_api_cast<const Dns::Client::QueryConfig *>(aConfig));
 }
 
 otError otDnsAddressResponseGetHostName(const otDnsAddressResponse *aResponse,
                                         char *                      aNameBuffer,
                                         uint16_t                    aNameBufferSize)
 {
-    const Dns::Client::AddressResponse &response = *static_cast<const Dns::Client::AddressResponse *>(aResponse);
+    const Dns::Client::AddressResponse &response = *ot_api_cast<const Dns::Client::AddressResponse *>(aResponse);
 
     return response.GetHostName(aNameBuffer, aNameBufferSize);
 }
@@ -101,10 +102,10 @@ otError otDnsAddressResponseGetAddress(const otDnsAddressResponse *aResponse,
                                        otIp6Address *              aAddress,
                                        uint32_t *                  aTtl)
 {
-    const Dns::Client::AddressResponse &response = *static_cast<const Dns::Client::AddressResponse *>(aResponse);
+    const Dns::Client::AddressResponse &response = *ot_api_cast<const Dns::Client::AddressResponse *>(aResponse);
     uint32_t                            ttl;
 
-    return response.GetAddress(aIndex, *static_cast<Ip6::Address *>(aAddress), (aTtl != nullptr) ? *aTtl : ttl);
+    return response.GetAddress(aIndex, *ot_api_cast<Ip6::Address *>(aAddress), (aTtl != nullptr) ? *aTtl : ttl);
 }
 
 #if OPENTHREAD_CONFIG_DNS_CLIENT_SERVICE_DISCOVERY_ENABLE
@@ -118,14 +119,14 @@ otError otDnsClientBrowse(otInstance *            aInstance,
     Instance &instance = *static_cast<Instance *>(aInstance);
 
     return instance.Get<Dns::Client>().Browse(aServiceName, aCallback, aContext,
-                                              static_cast<const Dns::Client::QueryConfig *>(aConfig));
+                                              ot_api_cast<const Dns::Client::QueryConfig *>(aConfig));
 }
 
 otError otDnsBrowseResponseGetServiceName(const otDnsBrowseResponse *aResponse,
                                           char *                     aNameBuffer,
                                           uint16_t                   aNameBufferSize)
 {
-    const Dns::Client::BrowseResponse &response = *static_cast<const Dns::Client::BrowseResponse *>(aResponse);
+    const Dns::Client::BrowseResponse &response = *ot_api_cast<const Dns::Client::BrowseResponse *>(aResponse);
 
     return response.GetServiceName(aNameBuffer, aNameBufferSize);
 }
@@ -135,7 +136,7 @@ otError otDnsBrowseResponseGetServiceInstance(const otDnsBrowseResponse *aRespon
                                               char *                     aLabelBuffer,
                                               uint8_t                    aLabelBufferSize)
 {
-    const Dns::Client::BrowseResponse &response = *static_cast<const Dns::Client::BrowseResponse *>(aResponse);
+    const Dns::Client::BrowseResponse &response = *ot_api_cast<const Dns::Client::BrowseResponse *>(aResponse);
 
     return response.GetServiceInstance(aIndex, aLabelBuffer, aLabelBufferSize);
 }
@@ -144,9 +145,9 @@ otError otDnsBrowseResponseGetServiceInfo(const otDnsBrowseResponse *aResponse,
                                           const char *               aInstanceLabel,
                                           otDnsServiceInfo *         aServiceInfo)
 {
-    const Dns::Client::BrowseResponse &response = *static_cast<const Dns::Client::BrowseResponse *>(aResponse);
+    const Dns::Client::BrowseResponse &response = *ot_api_cast<const Dns::Client::BrowseResponse *>(aResponse);
 
-    return response.GetServiceInfo(aInstanceLabel, *static_cast<Dns::Client::ServiceInfo *>(aServiceInfo));
+    return response.GetServiceInfo(aInstanceLabel, *ot_api_cast<Dns::Client::ServiceInfo *>(aServiceInfo));
 }
 
 otError otDnsBrowseResponseGetHostAddress(const otDnsBrowseResponse *aResponse,
@@ -155,10 +156,10 @@ otError otDnsBrowseResponseGetHostAddress(const otDnsBrowseResponse *aResponse,
                                           otIp6Address *             aAddress,
                                           uint32_t *                 aTtl)
 {
-    const Dns::Client::BrowseResponse &response = *static_cast<const Dns::Client::BrowseResponse *>(aResponse);
+    const Dns::Client::BrowseResponse &response = *ot_api_cast<const Dns::Client::BrowseResponse *>(aResponse);
     uint32_t                           ttl;
 
-    return response.GetHostAddress(aHostName, aIndex, *static_cast<Ip6::Address *>(aAddress),
+    return response.GetHostAddress(aHostName, aIndex, *ot_api_cast<Ip6::Address *>(aAddress),
                                    aTtl != nullptr ? *aTtl : ttl);
 }
 
@@ -172,7 +173,7 @@ otError otDnsClientResolveService(otInstance *            aInstance,
     Instance &instance = *static_cast<Instance *>(aInstance);
 
     return instance.Get<Dns::Client>().ResolveService(aInstanceLabel, aServiceName, aCallback, aContext,
-                                                      static_cast<const Dns::Client::QueryConfig *>(aConfig));
+                                                      ot_api_cast<const Dns::Client::QueryConfig *>(aConfig));
 }
 
 otError otDnsServiceResponseGetServiceName(const otDnsServiceResponse *aResponse,
@@ -181,16 +182,16 @@ otError otDnsServiceResponseGetServiceName(const otDnsServiceResponse *aResponse
                                            char *                      aNameBuffer,
                                            uint16_t                    aNameBufferSize)
 {
-    const Dns::Client::ServiceResponse &response = *static_cast<const Dns::Client::ServiceResponse *>(aResponse);
+    const Dns::Client::ServiceResponse &response = *ot_api_cast<const Dns::Client::ServiceResponse *>(aResponse);
 
     return response.GetServiceName(aLabelBuffer, aLabelBufferSize, aNameBuffer, aNameBufferSize);
 }
 
 otError otDnsServiceResponseGetServiceInfo(const otDnsServiceResponse *aResponse, otDnsServiceInfo *aServiceInfo)
 {
-    const Dns::Client::ServiceResponse &response = *static_cast<const Dns::Client::ServiceResponse *>(aResponse);
+    const Dns::Client::ServiceResponse &response = *ot_api_cast<const Dns::Client::ServiceResponse *>(aResponse);
 
-    return response.GetServiceInfo(*static_cast<Dns::Client::ServiceInfo *>(aServiceInfo));
+    return response.GetServiceInfo(*ot_api_cast<Dns::Client::ServiceInfo *>(aServiceInfo));
 }
 
 otError otDnsServiceResponseGetHostAddress(const otDnsServiceResponse *aResponse,
@@ -199,10 +200,10 @@ otError otDnsServiceResponseGetHostAddress(const otDnsServiceResponse *aResponse
                                            otIp6Address *              aAddress,
                                            uint32_t *                  aTtl)
 {
-    const Dns::Client::ServiceResponse &response = *static_cast<const Dns::Client::ServiceResponse *>(aResponse);
+    const Dns::Client::ServiceResponse &response = *ot_api_cast<const Dns::Client::ServiceResponse *>(aResponse);
     uint32_t                            ttl;
 
-    return response.GetHostAddress(aHostName, aIndex, *static_cast<Ip6::Address *>(aAddress),
+    return response.GetHostAddress(aHostName, aIndex, *ot_api_cast<Ip6::Address *>(aAddress),
                                    (aTtl != nullptr) ? *aTtl : ttl);
 }
 

@@ -37,6 +37,7 @@
 #include <openthread/backbone_router_ftd.h>
 
 #if OPENTHREAD_FTD && OPENTHREAD_CONFIG_BACKBONE_ROUTER_ENABLE
+#include "common/cast.hpp"
 #include "common/instance.hpp"
 
 using namespace ot;
@@ -101,7 +102,7 @@ otError otBackboneRouterGetDomainPrefix(otInstance *aInstance, otBorderRouterCon
     OT_ASSERT(aConfig != nullptr);
 
     return instance.Get<BackboneRouter::Local>().GetDomainPrefix(
-        *static_cast<NetworkData::OnMeshPrefixConfig *>(aConfig));
+        *ot_api_cast<NetworkData::OnMeshPrefixConfig *>(aConfig));
 }
 
 void otBackboneRouterSetDomainPrefixCallback(otInstance *                         aInstance,
@@ -166,7 +167,7 @@ void otBackboneRouterConfigNextDuaRegistrationResponse(otInstance *             
     Instance &instance = *static_cast<Instance *>(aInstance);
 
     instance.Get<BackboneRouter::Manager>().ConfigNextDuaRegistrationResponse(
-        static_cast<const Ip6::InterfaceIdentifier *>(aMlIid), aStatus);
+        ot_api_cast<const Ip6::InterfaceIdentifier *>(aMlIid), aStatus);
 }
 #endif
 
@@ -205,7 +206,7 @@ otError otBackboneRouterMulticastListenerAdd(otInstance *aInstance, const otIp6A
         aTimeout > static_cast<uint32_t>(Mle::kMlrTimeoutMax) ? static_cast<uint32_t>(Mle::kMlrTimeoutMax) : aTimeout;
     aTimeout = Time::SecToMsec(aTimeout);
 
-    return instance.Get<BackboneRouter::MulticastListenersTable>().Add(static_cast<const Ip6::Address &>(*aAddress),
+    return instance.Get<BackboneRouter::MulticastListenersTable>().Add(*ot_api_cast<const Ip6::Address *>(aAddress),
                                                                        TimerMilli::GetNow() + aTimeout);
 }
 #endif // OPENTHREAD_CONFIG_BACKBONE_ROUTER_MULTICAST_ROUTING_ENABLE

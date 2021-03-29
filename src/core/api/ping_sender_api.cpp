@@ -35,6 +35,7 @@
 
 #include <openthread/ping_sender.h>
 
+#include "common/cast.hpp"
 #include "common/instance.hpp"
 #include "common/locator-getters.hpp"
 
@@ -46,7 +47,7 @@ otError otPingSenderPing(otInstance *aInstance, const otPingSenderConfig *aConfi
 {
     Instance &instance = *static_cast<Instance *>(aInstance);
 
-    return instance.Get<Utils::PingSender>().Ping(*static_cast<const Utils::PingSender::Config *>(aConfig));
+    return instance.Get<Utils::PingSender>().Ping(*ot_api_cast<const Utils::PingSender::Config *>(aConfig));
 }
 
 void otPingSenderStop(otInstance *aInstance)
