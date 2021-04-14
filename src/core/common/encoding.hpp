@@ -51,28 +51,36 @@
 namespace ot {
 namespace Encoding {
 
+#if __has_builtin(__builtin_bswap16)
+#define Swap16 __builtin_bswap16
+#else
 inline uint16_t Swap16(uint16_t v)
 {
     return (((v & 0x00ffU) << 8) & 0xff00) | (((v & 0xff00U) >> 8) & 0x00ff);
 }
+#endif
 
+#if __has_builtin(__builtin_bswap32)
+#define Swap32 __builtin_bswap32
+#else
 inline uint32_t Swap32(uint32_t v)
 {
     return ((v & static_cast<uint32_t>(0x000000ffUL)) << 24) | ((v & static_cast<uint32_t>(0x0000ff00UL)) << 8) |
            ((v & static_cast<uint32_t>(0x00ff0000UL)) >> 8) | ((v & static_cast<uint32_t>(0xff000000UL)) >> 24);
 }
+#endif
 
+#if __has_builtin(__builtin_bswap64)
+#define Swap64 __builtin_bswap64
+#else
 inline uint64_t Swap64(uint64_t v)
 {
-    return ((v & static_cast<uint64_t>(0x00000000000000ffULL)) << 56) |
-           ((v & static_cast<uint64_t>(0x000000000000ff00ULL)) << 40) |
-           ((v & static_cast<uint64_t>(0x0000000000ff0000ULL)) << 24) |
-           ((v & static_cast<uint64_t>(0x00000000ff000000ULL)) << 8) |
-           ((v & static_cast<uint64_t>(0x000000ff00000000ULL)) >> 8) |
-           ((v & static_cast<uint64_t>(0x0000ff0000000000ULL)) >> 24) |
-           ((v & static_cast<uint64_t>(0x00ff000000000000ULL)) >> 40) |
-           ((v & static_cast<uint64_t>(0xff00000000000000ULL)) >> 56);
+    v = (v >> 32) | (v << 32);
+    v = ((v >> 16) & 0x0000ffff0000ffffULL) | ((v << 16) & 0xffff0000ffff0000ULL);
+    v = ((v >> 8) & 0x00ff00ff00ff00ffULL) | ((v << 8) & 0xff00ff00ff00ff00ULL);
+    return v;
 }
+#endif
 
 inline uint32_t Reverse32(uint32_t v)
 {
