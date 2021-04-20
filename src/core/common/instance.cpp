@@ -164,7 +164,9 @@ exit:
 
 void Instance::Reset(void)
 {
-    otPlatReset(this);
+    Finalize();
+    new (this) Instance;
+    AfterInit();
 }
 
 void Instance::AfterInit(void)
@@ -222,7 +224,7 @@ exit:
 void Instance::FactoryReset(void)
 {
     Get<Settings>().Wipe();
-    otPlatReset(this);
+    Reset();
 }
 
 Error Instance::ErasePersistentInfo(void)

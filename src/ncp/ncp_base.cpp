@@ -1210,24 +1210,9 @@ otError NcpBase::CommandHandler_RESET(uint8_t aHeader)
 {
     OT_UNUSED_VARIABLE(aHeader);
 
-    otError error = OT_ERROR_NONE;
-
-    // Signal a platform reset. If implemented, this function
-    // shouldn't return.
     otInstanceReset(mInstance);
 
-#if OPENTHREAD_MTD || OPENTHREAD_FTD
-    // We only get to this point if the
-    // platform doesn't support resetting.
-    // In such a case we fake it.
-
-    IgnoreError(otThreadSetEnabled(mInstance, false));
-    IgnoreError(otIp6SetEnabled(mInstance, false));
-#endif
-
-    sNcpInstance = nullptr;
-
-    return error;
+    return OT_ERROR_NONE;
 }
 
 otError NcpBase::CommandHandler_PROP_VALUE_update(uint8_t aHeader, unsigned int aCommand)

@@ -1269,8 +1269,7 @@ class OpenThreadTHCI(object):
     def reset(self):
         """factory reset"""
         print('%s call reset' % self)
-        self.__sendCommand('factoryreset', expectEcho=False)
-        self.sleep(0.5)
+        self.__sendCommand('factoryreset')
 
     @API
     def removeRouter(self, xRouterId):
@@ -1503,9 +1502,8 @@ class OpenThreadTHCI(object):
         print('%s call resetAndRejoin' % self)
         print(timeout)
         try:
-            self.__sendCommand('reset', expectEcho=False)
+            self.__sendCommand('reset')
             self.isPowerDown = True
-            self.sleep(timeout)
 
             if self.deviceRole == Thread_Device_Role.SED:
                 self.__setPollPeriod(self.__sedPollPeriod)

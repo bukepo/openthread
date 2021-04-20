@@ -1799,7 +1799,6 @@ class NodeImpl:
 
     def reset(self):
         self.send_command('reset')
-        time.sleep(self.RESET_DELAY)
 
     def set_router_selection_jitter(self, jitter):
         cmd = 'routerselectionjitter %d' % jitter
