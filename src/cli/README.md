@@ -48,7 +48,6 @@ Done
 - [eui64](#eui64)
 - [extaddr](#extaddr)
 - [extpanid](#extpanid)
-- [factoryreset](#factoryreset)
 - [fake](#fake)
 - [fem](#fem)
 - [ifconfig](#ifconfig)
@@ -102,7 +101,7 @@ Done
 - [sntp](#sntp-query-sntp-server-ip-sntp-server-port)
 - [state](#state)
 - [srp](README_SRP.md)
-- [thread](#thread-start)
+- [thread](#thread-erase)
 - [txpower](#txpower)
 - [udp](README_UDP.md)
 - [unsecureport](#unsecureport-add-port)
@@ -1126,14 +1125,6 @@ Set the Thread Extended PAN ID value.
 ```bash
 > extpanid dead00beef00cafe
 Done
-```
-
-### factoryreset
-
-Delete all stored settings, and signal a platform reset.
-
-```bash
-> factoryreset
 ```
 
 ### fake
@@ -2377,6 +2368,14 @@ Try to switch to state `detached`, `child`, `router` or `leader`.
 ```bash
 > state leader
 Done
+```
+
+### thread erase
+
+Delete all stored settings.
+
+```bash
+> thread erase
 ```
 
 ### thread start

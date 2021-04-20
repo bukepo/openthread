@@ -92,7 +92,7 @@ Form a network with the device that has Commissioner support.
 1. Factory reset the device.
 
    ```bash
-   > factoryreset
+   > thread erase
    ```
 
 2. Start the Joiner process.

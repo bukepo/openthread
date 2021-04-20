@@ -1803,16 +1803,6 @@ exit:
     return error;
 }
 
-otError Interpreter::ProcessFactoryReset(uint8_t aArgsLength, char *aArgs[])
-{
-    OT_UNUSED_VARIABLE(aArgsLength);
-    OT_UNUSED_VARIABLE(aArgs);
-
-    otInstanceFactoryReset(mInstance);
-
-    return OT_ERROR_NONE;
-}
-
 #if OPENTHREAD_FTD && OPENTHREAD_CONFIG_REFERENCE_DEVICE_ENABLE
 otError Interpreter::ProcessFake(uint8_t aArgsLength, char *aArgs[])
 {
@@ -4248,6 +4238,10 @@ otError Interpreter::ProcessThread(uint8_t aArgsLength, char *aArgs[])
     else if (strcmp(aArgs[0], "version") == 0)
     {
         OutputLine("%u", otThreadGetVersion());
+    }
+    else if (strcmp(aArgs[0], "erase") == 0)
+    {
+        SuccessOrExit(error = otInstanceErasePersistentInfo(mInstance));
     }
     else
     {

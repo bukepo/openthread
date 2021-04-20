@@ -86,24 +86,21 @@ proc spawn_node {id {type ""} {radio_url ""}} {
     switch -regexp ${type} {
         {rcp|rcp-cli} {
             spawn /usr/bin/env GCOV_PREFIX=$gcov_prefix $::env(OT_POSIX_APPS)/ot-cli $radio_url
-            send "factoryreset\n"
-            wait_for "state" "disabled"
+            send "thread erase\n"
             expect_line "Done"
             send "routerselectionjitter 1\n"
             expect_line "Done"
         }
         cli {
             spawn /usr/bin/env GCOV_PREFIX=$gcov_prefix $::env(OT_SIMULATION_APPS)/cli/ot-cli-ftd $id
-            send "factoryreset\n"
-            wait_for "state" "disabled"
+            send "thread erase\n"
             expect_line "Done"
             send "routerselectionjitter 1\n"
             expect_line "Done"
         }
         mtd {
             spawn /usr/bin/env GCOV_PREFIX=$gcov_prefix $::env(OT_SIMULATION_APPS)/cli/ot-cli-mtd $id
-            send "factoryreset\n"
-            wait_for "state" "disabled"
+            send "thread erase\n"
             expect_line "Done"
         }
     }

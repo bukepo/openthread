@@ -122,11 +122,11 @@ do_check()
         OT_CLI_CMD="$PWD/build/posix/src/posix/ot-ctl"
         sudo "${OT_CLI_CMD}" panid 0xface | grep 'Done' || die 'failed to set panid with ot-ctl'
 
-        # verify this reset and factoryreset end immediately
+        # verify this reset and `thread erase` end immediately
         sudo "${OT_CLI_CMD}" reset
         # sleep a while for daemon ready
         sleep 2
-        sudo "${OT_CLI_CMD}" factoryreset
+        sudo "${OT_CLI_CMD}" thread erase
     else
         OT_CLI="$PWD/build/posix/src/posix/ot-cli"
         sudo "${OT_CLI}" -I "${VALID_NETIF_NAME}" -n "${RADIO_URL}"

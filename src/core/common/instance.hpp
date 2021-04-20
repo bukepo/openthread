@@ -231,12 +231,6 @@ public:
 
 #if OPENTHREAD_MTD || OPENTHREAD_FTD
     /**
-     * This method deletes all the settings stored in non-volatile memory, and then triggers a platform reset.
-     *
-     */
-    void FactoryReset(void);
-
-    /**
      * This method erases all the OpenThread persistent info (network settings) stored in non-volatile memory.
      *
      * Erase is successful/allowed only if the device is in `disabled` state/role.

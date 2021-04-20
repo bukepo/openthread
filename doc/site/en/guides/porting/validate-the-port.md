@@ -195,14 +195,14 @@ Done
 
 ## Step 7: Verify random number generation
 
-Demonstrate random number generation by executing the `factoryreset` command and
+Demonstrate random number generation by executing the `thread erase` command and
 verifying a new random extended address.
 
 ```
 > extaddr
 a660421703f3fdc3
 Done
-> factoryreset
+> thread erase
 ```
 
 Wait a couple of seconds...

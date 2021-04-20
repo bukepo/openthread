@@ -399,7 +399,6 @@ private:
     otError ProcessLog(uint8_t aArgsLength, char *aArgs[]);
     otError ProcessExtAddress(uint8_t aArgsLength, char *aArgs[]);
     otError ProcessExtPanId(uint8_t aArgsLength, char *aArgs[]);
-    otError ProcessFactoryReset(uint8_t aArgsLength, char *aArgs[]);
 #if OPENTHREAD_FTD && OPENTHREAD_CONFIG_REFERENCE_DEVICE_ENABLE
     otError ProcessFake(uint8_t aArgsLength, char *aArgs[]);
 #endif
@@ -699,7 +698,6 @@ private:
 #endif
         {"extaddr", &Interpreter::ProcessExtAddress},
         {"extpanid", &Interpreter::ProcessExtPanId},
-        {"factoryreset", &Interpreter::ProcessFactoryReset},
 #if OPENTHREAD_FTD && OPENTHREAD_CONFIG_REFERENCE_DEVICE_ENABLE
         {"fake", &Interpreter::ProcessFake},
 #endif

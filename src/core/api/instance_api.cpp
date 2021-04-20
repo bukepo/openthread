@@ -109,13 +109,6 @@ void otRemoveStateChangeCallback(otInstance *aInstance, otStateChangedCallback a
     instance.Get<Notifier>().RemoveCallback(aCallback, aContext);
 }
 
-void otInstanceFactoryReset(otInstance *aInstance)
-{
-    Instance &instance = *static_cast<Instance *>(aInstance);
-
-    instance.FactoryReset();
-}
-
 otError otInstanceErasePersistentInfo(otInstance *aInstance)
 {
     Instance &instance = *static_cast<Instance *>(aInstance);

@@ -55,7 +55,7 @@ expect_line "Done"
 send "thread start\n"
 expect_line "Done"
 
-send "factoryreset\n"
+send "thread erase\n"
 sleep 3
 
 send "ifconfig\n"

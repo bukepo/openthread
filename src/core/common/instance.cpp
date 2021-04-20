@@ -164,9 +164,7 @@ exit:
 
 void Instance::Reset(void)
 {
-    Finalize();
-    new (this) Instance;
-    AfterInit();
+    otPlatReset(this);
 }
 
 void Instance::AfterInit(void)
@@ -221,12 +219,6 @@ exit:
 }
 
 #if OPENTHREAD_MTD || OPENTHREAD_FTD
-void Instance::FactoryReset(void)
-{
-    Get<Settings>().Wipe();
-    Reset();
-}
-
 Error Instance::ErasePersistentInfo(void)
 {
     Error error = kErrorNone;

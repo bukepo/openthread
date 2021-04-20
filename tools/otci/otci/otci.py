@@ -104,7 +104,7 @@ class OTCI(object):
             for line in output:
                 self.__logger and self.__logger.info('%s', line)
 
-        if cmd in ('reset', 'factoryreset'):
+        if cmd in ('reset'):
             self.__wait_reset()
             return output
 
@@ -167,9 +167,9 @@ class OTCI(object):
         """Signal a platform reset."""
         self.execute_command('reset')
 
-    def factory_reset(self):
-        """Delete all stored settings, and signal a platform reset."""
-        self.execute_command('factoryreset')
+    def thread_erase(self):
+        """Delete all stored settings."""
+        self.execute_command('thread erase')
 
     #
     # Network Operations

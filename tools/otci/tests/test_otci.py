@@ -58,7 +58,7 @@ class TestOTCI(unittest.TestCase):
         else:
             self.fail("Please set OT_CLI_SERIAL or OTBR_SSH to test the real device.")
 
-        node.factory_reset()
+        node.thread_erase()
 
         self._test_otci_single_node(node)
 
@@ -88,7 +88,7 @@ class TestOTCI(unittest.TestCase):
         node1 = connector(executable, 1, simulator=sim)
         self._test_otci_single_node(node1)
 
-        node1.factory_reset()
+        node1.thread_erase()
 
         node2 = connector(executable, 2, simulator=sim)
         node3 = connector(executable, 3, simulator=sim)
@@ -96,8 +96,8 @@ class TestOTCI(unittest.TestCase):
 
         self._test_otci_example(node1, node2)
 
-        node1.factory_reset()
-        node2.factory_reset()
+        node1.thread_erase()
+        node2.thread_erase()
 
         self._test_otci_multi_nodes(node1, node2, node3, node4)
 

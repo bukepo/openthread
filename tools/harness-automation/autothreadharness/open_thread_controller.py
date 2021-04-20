@@ -272,7 +272,9 @@ class OpenThreadController(threading.Thread):
         """
         logger.debug('DUT> reset')
         self._log and self.pause()
-        self._req('reset')
+        self._sendline('reset')
+        self._read()
+        self._log and self.resume()
 
     def resume(self):
         """Start dumping logs"""
