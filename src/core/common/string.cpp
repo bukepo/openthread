@@ -72,29 +72,61 @@ bool StringEndsWith(const char *aString, char aChar)
     return len > 0 && aString[len - 1] == aChar;
 }
 
-Error StringBase::Write(char *aBuffer, uint16_t aSize, uint16_t &aLength, const char *aFormat, va_list aArgs)
+StringWriter::StringWriter(char *aBuffer, uint16_t aSize)
+    : mBuffer(aBuffer)
+    , mLength(0)
+    , mSize(aSize)
+{
+    mBuffer[0] = 0;
+}
+
+Error StringWriter::Append(const char *aFormat, ...)
+{
+    otError error;
+
+    va_list args;
+    va_start(args, aFormat);
+    error = AppendVarArgs(aFormat, args);
+    va_end(args);
+    return error;
+}
+
+Error StringWriter::AppendVarArgs(const char *aFormat, va_list aArgs)
 {
     Error error = kErrorNone;
     int   len;
 
-    len = vsnprintf(aBuffer + aLength, aSize - aLength, aFormat, aArgs);
+    len = vsnprintf(mBuffer + mLength, mSize - mLength, aFormat, aArgs);
 
     if (len < 0)
     {
-        aLength    = 0;
-        aBuffer[0] = 0;
+        mLength    = 0;
+        mBuffer[0] = 0;
         error      = kErrorInvalidArgs;
     }
-    else if (len >= aSize - aLength)
+    else if (len >= mSize - mLength)
     {
-        aLength = aSize - 1;
+        mLength = mSize - 1;
         error   = kErrorNoBufs;
     }
     else
     {
-        aLength += static_cast<uint16_t>(len);
+        mLength += static_cast<uint16_t>(len);
     }
 
+    return error;
+}
+
+Error StringWriter::AppendHexBytes(const uint8_t *aBytes, uint16_t aLength)
+{
+    Error error = kErrorNone;
+
+    while (aLength--)
+    {
+        SuccessOrExit(error = Append("%02x", *aBytes++));
+    }
+
+exit:
     return error;
 }
 
