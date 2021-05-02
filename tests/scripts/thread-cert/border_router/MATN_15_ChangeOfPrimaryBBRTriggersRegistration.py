@@ -44,16 +44,16 @@ import thread_cert
 # Topology:
 #
 #
-#    ----------------(eth)--------------------
+#    -----------(eth)--------------------
+#           |         |
+#  (Leader) BR_1 -----BR_2
+#           |        /
+#           |       /
+#           |      /
+#           Router_1
 #           |
-#         BR_1 (Leader) -----BR_2
-#           |                  |
-#           |                  |
-#           |                  |
-#         Router_1-------------+
 #           |
-#           |
-#          TD
+#           TD
 #
 
 BR_1 = 1
@@ -94,9 +94,9 @@ class MATN_15_ChangeOfPrimaryBBRTriggersRegistration(thread_cert.TestCase):
         },
         TD: {
             'name': 'TD',
+            'mode': 'nr',
             'allowlist': [ROUTER_1],
             'version': '1.2',
-            'router_selection_jitter': 2,
             'partition_id': 1,
         },
     }
@@ -120,7 +120,7 @@ class MATN_15_ChangeOfPrimaryBBRTriggersRegistration(thread_cert.TestCase):
 
         td.start()
         self.simulator.go(5)
-        self.assertEqual('router', td.get_state())
+        self.assertEqual('child', td.get_state())
 
         br2.start()
         self.simulator.go(5)
@@ -140,7 +140,6 @@ class MATN_15_ChangeOfPrimaryBBRTriggersRegistration(thread_cert.TestCase):
 
         # Make sure that BR_2 becomes the primary BBR
         self.assertEqual('disabled', br1.get_state())
-        self.assertEqual('leader', br2.get_state())
         self.assertEqual('router', router1.get_state())
         self.assertFalse(br1.is_primary_backbone_router)
         self.assertTrue(br2.is_primary_backbone_router)
