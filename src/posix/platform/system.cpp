@@ -47,6 +47,7 @@
 #include <openthread/platform/radio.h>
 
 #include "common/code_utils.hpp"
+#include "posix/platform/mainloop.hpp"
 #include "posix/platform/radio_url.hpp"
 
 #if OPENTHREAD_CONFIG_PLATFORM_NETIF_ENABLE || OPENTHREAD_CONFIG_BACKBONE_ROUTER_ENABLE
@@ -230,6 +231,8 @@ static int trySelect(fd_set *aReadFdSet, fd_set *aWriteFdSet, fd_set *aErrorFdSe
 
 void otSysMainloopUpdate(otInstance *aInstance, otSysMainloopContext *aMainloop)
 {
+    ot::Posix::Mainloop::Manager::Get().Update(*aMainloop);
+
     platformAlarmUpdateTimeout(&aMainloop->mTimeout);
 #if OPENTHREAD_CONFIG_PLATFORM_UDP_ENABLE
     platformUdpUpdateFdSet(aInstance, &aMainloop->mReadFdSet, &aMainloop->mMaxFd);
@@ -252,10 +255,6 @@ void otSysMainloopUpdate(otInstance *aInstance, otSysMainloopContext *aMainloop)
 #endif
 #if OPENTHREAD_CONFIG_RADIO_LINK_TREL_ENABLE
     platformTrelUpdateFdSet(&aMainloop->mReadFdSet, &aMainloop->mWriteFdSet, &aMainloop->mMaxFd, &aMainloop->mTimeout);
-#endif
-
-#if OPENTHREAD_POSIX_CONFIG_DAEMON_ENABLE
-    platformDaemonUpdate(aMainloop);
 #endif
 
     if (otTaskletsArePending(aInstance))
@@ -310,6 +309,8 @@ int otSysMainloopPoll(otSysMainloopContext *aMainloop)
 
 void otSysMainloopProcess(otInstance *aInstance, const otSysMainloopContext *aMainloop)
 {
+    ot::Posix::Mainloop::Manager::Get().Process(*aMainloop);
+
 #if OPENTHREAD_POSIX_VIRTUAL_TIME
     virtualTimeProcess(aInstance, &aMainloop->mReadFdSet, &aMainloop->mWriteFdSet, &aMainloop->mErrorFdSet);
 #else
@@ -330,9 +331,6 @@ void otSysMainloopProcess(otInstance *aInstance, const otSysMainloopContext *aMa
 #endif
 #if OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE
     platformInfraIfProcess(aInstance, aMainloop->mReadFdSet);
-#endif
-#if OPENTHREAD_POSIX_CONFIG_DAEMON_ENABLE
-    platformDaemonProcess(aMainloop);
 #endif
 }
 

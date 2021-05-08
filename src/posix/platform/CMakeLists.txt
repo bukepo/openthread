@@ -67,6 +67,7 @@ add_library(openthread-posix
     logging.cpp
     memory.cpp
     misc.cpp
+    mainloop.cpp
     multicast_routing.cpp
     netif.cpp
     radio.cpp

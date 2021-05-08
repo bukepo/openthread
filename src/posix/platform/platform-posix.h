@@ -557,22 +557,6 @@ void platformDaemonEnable(otInstance *aInstance);
  */
 void platformDaemonDisable(void);
 
-/**
- * This function updates the file descriptor sets with file descriptors used by daemon.
- *
- * @param[inout]    aMainloop   A pointer to the mainloop context.
- *
- */
-void platformDaemonUpdate(otSysMainloopContext *aContext);
-
-/**
- * This function performs daemon processing.
- *
- * @param[in]   aMainloop   A pointer to the mainloop context.
- *
- */
-void platformDaemonProcess(const otSysMainloopContext *aContext);
-
 #ifdef __cplusplus
 }
 #endif
