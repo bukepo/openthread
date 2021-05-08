@@ -59,7 +59,7 @@ static void processStateChange(otChangedFlags aFlags, void *aContext)
     OT_UNUSED_VARIABLE(aFlags);
 
 #if OPENTHREAD_CONFIG_PLATFORM_NETIF_ENABLE
-    platformNetifStateChange(instance, aFlags);
+    platformNetifStateChange(aFlags);
 #endif
 
 #if OPENTHREAD_CONFIG_BACKBONE_ROUTER_ENABLE
@@ -234,13 +234,6 @@ void otSysMainloopUpdate(otInstance *aInstance, otSysMainloopContext *aMainloop)
     ot::Posix::Mainloop::Manager::Get().Update(*aMainloop);
 
     platformAlarmUpdateTimeout(&aMainloop->mTimeout);
-#if OPENTHREAD_CONFIG_PLATFORM_NETIF_ENABLE
-    platformNetifUpdateFdSet(&aMainloop->mReadFdSet, &aMainloop->mWriteFdSet, &aMainloop->mErrorFdSet,
-                             &aMainloop->mMaxFd);
-#endif
-#if OPENTHREAD_CONFIG_BACKBONE_ROUTER_ENABLE
-    platformBackboneUpdateFdSet(aMainloop->mReadFdSet, aMainloop->mMaxFd);
-#endif
 #if OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE
     platformInfraIfUpdateFdSet(aMainloop->mReadFdSet, aMainloop->mMaxFd);
 #endif
@@ -317,12 +310,6 @@ void otSysMainloopProcess(otInstance *aInstance, const otSysMainloopContext *aMa
     platformTrelProcess(aInstance, &aMainloop->mReadFdSet, &aMainloop->mWriteFdSet);
 #endif
     platformAlarmProcess(aInstance);
-#if OPENTHREAD_CONFIG_PLATFORM_NETIF_ENABLE
-    platformNetifProcess(&aMainloop->mReadFdSet, &aMainloop->mWriteFdSet, &aMainloop->mErrorFdSet);
-#endif
-#if OPENTHREAD_CONFIG_BACKBONE_ROUTER_ENABLE
-    platformBackboneProcess(aMainloop->mReadFdSet);
-#endif
 #if OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE
     platformInfraIfProcess(aInstance, aMainloop->mReadFdSet);
 #endif

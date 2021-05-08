@@ -279,7 +279,7 @@ void platformNetifProcess(const fd_set *aReadFdSet, const fd_set *aWriteFdSet, c
  * @param[in]   aFlags          Flags that denote the state change events.
  *
  */
-void platformNetifStateChange(otInstance *aInstance, otChangedFlags aFlags);
+void platformNetifStateChange(otChangedFlags aFlags);
 
 /**
  * This function initialize virtual time simulation.

@@ -75,8 +75,8 @@ public:
     void        Init(otInstance *aInstance, const char *aIfName);
     static Udp &Get(void)
     {
-        static Udp sUdp;
-        return sUdp;
+        static Udp sInstance;
+        return sInstance;
     }
 
     void Update(otSysMainloopContext *aContext) override;

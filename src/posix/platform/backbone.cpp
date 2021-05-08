@@ -64,25 +64,6 @@ void platformBackboneInit(otInstance *aInstance, const char *aInterfaceName)
 #endif
 }
 
-void platformBackboneUpdateFdSet(fd_set &aReadFdSet, int &aMaxFd)
-{
-    OT_UNUSED_VARIABLE(aReadFdSet);
-    OT_UNUSED_VARIABLE(aMaxFd);
-
-#if OPENTHREAD_CONFIG_BACKBONE_ROUTER_MULTICAST_ROUTING_ENABLE
-    sMulticastRoutingManager.UpdateFdSet(aReadFdSet, aMaxFd);
-#endif
-}
-
-void platformBackboneProcess(const fd_set &aReadSet)
-{
-    OT_UNUSED_VARIABLE(aReadSet);
-
-#if OPENTHREAD_CONFIG_BACKBONE_ROUTER_MULTICAST_ROUTING_ENABLE
-    sMulticastRoutingManager.Process(aReadSet);
-#endif
-}
-
 void platformBackboneStateChange(otInstance *aInstance, otChangedFlags aFlags)
 {
     OT_UNUSED_VARIABLE(aInstance);
