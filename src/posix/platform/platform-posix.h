@@ -362,10 +362,11 @@ void virtualTimeRadioSpinelProcess(otInstance *aInstance, const struct VirtualTi
 /**
  * This function initializes platform UDP driver.
  *
+ * @param[in]   aInstance   A pointer to the OpenThread instance.
  * @param[in]   aIfName   The name of Thread's platform network interface.
  *
  */
-void platformUdpInit(const char *aIfName);
+void platformUdpInit(otInstance *aInstance, const char *aIfName);
 
 /**
  * This function performs platform UDP driver processing.

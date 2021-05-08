@@ -211,7 +211,7 @@ void Daemon::Enable(otInstance *aInstance)
         DieNowWithMessage("listen", OT_EXIT_ERROR_ERRNO);
     }
 
-    otCliInit(aInstance, OutputFormatV, aInstance);
+    otCliInit(aInstance, OutputFormatV, this);
 
     Mainloop::Manager::Get().Add(*this);
 

@@ -56,32 +56,54 @@
 #if OPENTHREAD_CONFIG_PLATFORM_UDP_ENABLE
 
 #include "posix/platform/ip6_utils.hpp"
+#include "posix/platform/mainloop.hpp"
+
+namespace ot {
+namespace Posix {
 
 using namespace ot::Posix::Ip6Utils;
 
-static const size_t kMaxUdpSize = 1280;
+namespace {
 
-static void *FdToHandle(int aFd)
+const size_t kMaxUdpSize = 1280;
+
+class Udp : public Mainloop::Source
+{
+    otInstance *mInstance;
+
+public:
+    void        Init(otInstance *aInstance, const char *aIfName);
+    static Udp &Get(void)
+    {
+        static Udp sUdp;
+        return sUdp;
+    }
+
+    void Update(otSysMainloopContext *aContext) override;
+    void Process(const otSysMainloopContext *aContext) override;
+};
+
+void *FdToHandle(int aFd)
 {
     return reinterpret_cast<void *>(aFd);
 }
 
-static int FdFromHandle(void *aHandle)
+int FdFromHandle(void *aHandle)
 {
     return static_cast<int>(reinterpret_cast<long>(aHandle));
 }
 
-static bool IsLinkLocal(const struct in6_addr &aAddress)
+bool IsLinkLocal(const struct in6_addr &aAddress)
 {
     return aAddress.s6_addr[0] == 0xfe && aAddress.s6_addr[1] == 0x80;
 }
 
-static bool IsMulticast(const otIp6Address &aAddress)
+bool IsMulticast(const otIp6Address &aAddress)
 {
     return aAddress.mFields.m8[0] == 0xff;
 }
 
-static otError transmitPacket(int aFd, uint8_t *aPayload, uint16_t aLength, const otMessageInfo &aMessageInfo)
+otError transmitPacket(int aFd, uint8_t *aPayload, uint16_t aLength, const otMessageInfo &aMessageInfo)
 {
 #ifdef __APPLE__
     // use fixed value for CMSG_SPACE is not a constant expression on macOS
@@ -175,7 +197,7 @@ exit:
     return error;
 }
 
-static otError receivePacket(int aFd, uint8_t *aPayload, uint16_t &aLength, otMessageInfo &aMessageInfo)
+otError receivePacket(int aFd, uint8_t *aPayload, uint16_t &aLength, otMessageInfo &aMessageInfo)
 {
     struct sockaddr_in6 peerAddr;
     uint8_t             control[kMaxUdpSize];
@@ -228,7 +250,9 @@ exit:
     return rval > 0 ? OT_ERROR_NONE : OT_ERROR_FAILED;
 }
 
-otError otPlatUdpSocket(otUdpSocket *aUdpSocket)
+} // namespace
+
+extern "C" otError otPlatUdpSocket(otUdpSocket *aUdpSocket)
 {
     otError error = OT_ERROR_NONE;
     int     fd;
@@ -244,7 +268,7 @@ exit:
     return error;
 }
 
-otError otPlatUdpClose(otUdpSocket *aUdpSocket)
+extern "C" otError otPlatUdpClose(otUdpSocket *aUdpSocket)
 {
     otError error = OT_ERROR_NONE;
     int     fd;
@@ -262,7 +286,7 @@ exit:
     return error;
 }
 
-otError otPlatUdpBind(otUdpSocket *aUdpSocket)
+extern "C" otError otPlatUdpBind(otUdpSocket *aUdpSocket)
 {
     otError error = OT_ERROR_NONE;
     int     fd;
@@ -297,7 +321,7 @@ exit:
     return error;
 }
 
-otError otPlatUdpBindToNetif(otUdpSocket *aUdpSocket, otNetifIdentifier aNetifIdentifier)
+extern "C" otError otPlatUdpBindToNetif(otUdpSocket *aUdpSocket, otNetifIdentifier aNetifIdentifier)
 {
     otError error = OT_ERROR_NONE;
     int     fd    = FdFromHandle(aUdpSocket->mHandle);
@@ -355,7 +379,7 @@ exit:
     return error;
 }
 
-otError otPlatUdpConnect(otUdpSocket *aUdpSocket)
+extern "C" otError otPlatUdpConnect(otUdpSocket *aUdpSocket)
 {
     otError             error = OT_ERROR_NONE;
     struct sockaddr_in6 sin6;
@@ -421,7 +445,7 @@ exit:
     return error;
 }
 
-otError otPlatUdpSend(otUdpSocket *aUdpSocket, otMessage *aMessage, const otMessageInfo *aMessageInfo)
+extern "C" otError otPlatUdpSend(otUdpSocket *aUdpSocket, otMessage *aMessage, const otMessageInfo *aMessageInfo)
 {
     otError  error = OT_ERROR_NONE;
     int      fd;
@@ -459,9 +483,9 @@ exit:
     return error;
 }
 
-otError otPlatUdpJoinMulticastGroup(otUdpSocket *       aUdpSocket,
-                                    otNetifIdentifier   aNetifIdentifier,
-                                    const otIp6Address *aAddress)
+extern "C" otError otPlatUdpJoinMulticastGroup(otUdpSocket *       aUdpSocket,
+                                               otNetifIdentifier   aNetifIdentifier,
+                                               const otIp6Address *aAddress)
 {
     otError          error = OT_ERROR_NONE;
     struct ipv6_mreq mreq;
@@ -499,9 +523,9 @@ exit:
     return error;
 }
 
-otError otPlatUdpLeaveMulticastGroup(otUdpSocket *       aUdpSocket,
-                                     otNetifIdentifier   aNetifIdentifier,
-                                     const otIp6Address *aAddress)
+extern "C" otError otPlatUdpLeaveMulticastGroup(otUdpSocket *       aUdpSocket,
+                                                otNetifIdentifier   aNetifIdentifier,
+                                                const otIp6Address *aAddress)
 {
     otError          error = OT_ERROR_NONE;
     struct ipv6_mreq mreq;
@@ -539,11 +563,11 @@ exit:
     return error;
 }
 
-void platformUdpUpdateFdSet(otInstance *aInstance, fd_set *aReadFdSet, int *aMaxFd)
+void Udp::Update(otSysMainloopContext *aContext)
 {
     VerifyOrExit(gNetifIndex != 0);
 
-    for (otUdpSocket *socket = otUdpGetSockets(aInstance); socket != nullptr; socket = socket->mNext)
+    for (otUdpSocket *socket = otUdpGetSockets(mInstance); socket != nullptr; socket = socket->mNext)
     {
         int fd;
 
@@ -553,11 +577,11 @@ void platformUdpUpdateFdSet(otInstance *aInstance, fd_set *aReadFdSet, int *aMax
         }
 
         fd = FdFromHandle(socket->mHandle);
-        FD_SET(fd, aReadFdSet);
+        FD_SET(fd, &aContext->mReadFdSet);
 
-        if (aMaxFd != nullptr && *aMaxFd < fd)
+        if (aContext->mMaxFd < fd)
         {
-            *aMaxFd = fd;
+            aContext->mMaxFd = fd;
         }
     }
 
@@ -565,7 +589,7 @@ exit:
     return;
 }
 
-void platformUdpInit(const char *aIfName)
+void Udp::Init(otInstance *aInstance, const char *aIfName)
 {
     if (aIfName == nullptr)
     {
@@ -582,17 +606,20 @@ void platformUdpInit(const char *aIfName)
     }
 
     assert(gNetifIndex != 0);
+
+    Udp::mInstance = aInstance;
+    Mainloop::Manager::Get().Add(*this);
 }
 
-void platformUdpProcess(otInstance *aInstance, const fd_set *aReadFdSet)
+void Udp::Process(const otSysMainloopContext *aContext)
 {
     otMessageSettings msgSettings = {false, OT_MESSAGE_PRIORITY_NORMAL};
 
-    for (otUdpSocket *socket = otUdpGetSockets(aInstance); socket != nullptr; socket = socket->mNext)
+    for (otUdpSocket *socket = otUdpGetSockets(mInstance); socket != nullptr; socket = socket->mNext)
     {
         int fd = FdFromHandle(socket->mHandle);
 
-        if (fd > 0 && FD_ISSET(fd, aReadFdSet))
+        if (fd > 0 && FD_ISSET(fd, &aContext->mReadFdSet))
         {
             otMessageInfo messageInfo;
             otMessage *   message = nullptr;
@@ -607,7 +634,7 @@ void platformUdpProcess(otInstance *aInstance, const fd_set *aReadFdSet)
                 continue;
             }
 
-            message = otUdpNewMessage(aInstance, &msgSettings);
+            message = otUdpNewMessage(mInstance, &msgSettings);
 
             if (message == nullptr)
             {
@@ -630,4 +657,10 @@ void platformUdpProcess(otInstance *aInstance, const fd_set *aReadFdSet)
     return;
 }
 
+extern "C" void platformUdpInit(otInstance *aInstance, const char *aIfName)
+{
+    Udp::Get().Init(aInstance, aIfName);
+}
+} // namespace Posix
+} // namespace ot
 #endif // #if OPENTHREAD_CONFIG_PLATFORM_UDP_ENABLE

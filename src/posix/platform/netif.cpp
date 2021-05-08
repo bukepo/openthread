@@ -1475,7 +1475,7 @@ void platformNetifInit(otInstance *aInstance, const char *aInterfaceName)
     VerifyOrDie(gNetifIndex > 0, OT_EXIT_FAILURE);
 
 #if OPENTHREAD_CONFIG_PLATFORM_UDP_ENABLE
-    platformUdpInit(gNetifName);
+    platformUdpInit(aInstance, gNetifName);
 #endif
 #if OPENTHREAD_POSIX_USE_MLD_MONITOR
     mldListenerInit();

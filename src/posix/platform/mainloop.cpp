@@ -90,9 +90,9 @@ void Manager::Process(const otSysMainloopContext &aContext)
 
 Manager &Manager::Get(void)
 {
-    static Manager sManager;
+    static Manager sInstance{};
 
-    return sManager;
+    return sInstance;
 }
 
 } // namespace Mainloop
