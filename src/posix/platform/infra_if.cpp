@@ -56,18 +56,26 @@
 #include <openthread/platform/infra_if.h>
 
 #include "common/code_utils.hpp"
+#include "posix/platform/mainloop.hpp"
 #include "common/debug.hpp"
 #include "lib/platform/exit_code.h"
 
-static char     sInfraIfName[IFNAMSIZ];
-static uint32_t sInfraIfIndex       = 0;
-static int      sInfraIfIcmp6Socket = -1;
-static int      sNetLinkSocket      = -1;
+class InfraNetif : public Mainloop::Source
+{
+    char     sInfraIfName[IFNAMSIZ];
+    uint32_t sInfraIfIndex       = 0;
+    int      sInfraIfIcmp6Socket = -1;
+    int      sNetLinkSocket      = -1;
 
-static int  CreateIcmp6Socket(void);
-static int  CreateNetLinkSocket(void);
-static void ReceiveNetLinkMessage(otInstance *aInstance);
-static void ReceiveIcmp6Message(otInstance *aInstance);
+    int  CreateIcmp6Socket(void);
+    int  CreateNetLinkSocket(void);
+    void ReceiveNetLinkMessage(otInstance *aInstance);
+    void ReceiveIcmp6Message(otInstance *aInstance);
+
+public:
+    void Update(otSysMainloopContext *aContext) override;
+    void Process(const otSysMainloopContext *aContext) override;
+};
 
 bool otPlatInfraIfHasAddress(uint32_t aInfraIfIndex, const otIp6Address *aAddress)
 {
@@ -288,7 +296,7 @@ void platformInfraIfDeinit(void)
     sInfraIfIndex = 0;
 }
 
-void platformInfraIfUpdateFdSet(fd_set &aReadFdSet, int &aMaxFd)
+void InfraIf::Update(fd_set &aReadFdSet, int &aMaxFd)
 {
     VerifyOrExit(sInfraIfIcmp6Socket != -1);
     VerifyOrExit(sNetLinkSocket != -1);
