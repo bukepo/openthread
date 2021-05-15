@@ -56,7 +56,10 @@ do_scan_build()
         "-DOPENTHREAD_CONFIG_JOINER_ENABLE=1"
         "-DOPENTHREAD_CONFIG_LEGACY_ENABLE=1"
         "-DOPENTHREAD_CONFIG_LINK_RAW_ENABLE=1"
+        "-DOPENTHREAD_CONFIG_LOG_LEVEL=OT_LOG_LEVEL_DEBG"
         "-DOPENTHREAD_CONFIG_LOG_LEVEL_DYNAMIC_ENABLE=1"
+        "-DOPENTHREAD_CONFIG_LOG_PREPEND_LEVEL=1"
+        "-DOPENTHREAD_CONFIG_LOG_PREPEND_REGION=1"
         "-DOPENTHREAD_CONFIG_MAC_BEACON_RSP_WHEN_JOINABLE_ENABLE=1"
         "-DOPENTHREAD_CONFIG_MAC_FILTER_ENABLE=1"
         "-DOPENTHREAD_CONFIG_MAC_RETRY_SUCCESS_HISTOGRAM_ENABLE=1"
@@ -83,8 +86,8 @@ do_scan_build()
     )
     options+=(
         "-DMBEDTLS_DEBUG_C"
-        "-I$(pwd)/third_party/mbedtls"
-        "-I$(pwd)/third_party/mbedtls/repo/include"
+        "-I${PWD}/third_party/mbedtls"
+        "-I${PWD}/third_party/mbedtls/repo/include"
         '-DMBEDTLS_CONFIG_FILE=\"mbedtls-config.h\"'
     )
 
