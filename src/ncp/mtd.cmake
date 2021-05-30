@@ -33,10 +33,6 @@ target_compile_definitions(openthread-ncp-mtd PRIVATE
     OPENTHREAD_CONFIG_NCP_HDLC_ENABLE=1
 )
 
-target_compile_options(openthread-ncp-mtd PRIVATE
-    ${OT_CFLAGS}
-)
-
 target_include_directories(openthread-ncp-mtd PUBLIC ${OT_PUBLIC_INCLUDES} PRIVATE ${COMMON_INCLUDES})
 
 target_sources(openthread-ncp-mtd PRIVATE ${COMMON_NCP_SOURCES})

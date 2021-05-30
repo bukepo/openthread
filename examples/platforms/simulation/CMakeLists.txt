@@ -85,10 +85,6 @@ target_link_libraries(openthread-simulation PRIVATE
     ot-config
 )
 
-target_compile_options(openthread-simulation PRIVATE
-    ${OT_CFLAGS}
-)
-
 target_include_directories(openthread-simulation PRIVATE
     ${OT_PUBLIC_INCLUDES}
     ${PROJECT_SOURCE_DIR}/examples/platforms

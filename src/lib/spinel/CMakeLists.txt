@@ -41,14 +41,6 @@ target_compile_definitions(openthread-spinel-rcp PRIVATE
     PUBLIC OPENTHREAD_SPINEL_CONFIG_OPENTHREAD_MESSAGE_ENABLE=0
 )
 
-target_compile_options(openthread-spinel-ncp PRIVATE
-    ${OT_CFLAGS}
-)
-
-target_compile_options(openthread-spinel-rcp PRIVATE
-    ${OT_CFLAGS}
-)
-
 set(COMMON_INCLUDES
     ${PROJECT_SOURCE_DIR}/src
     ${PROJECT_SOURCE_DIR}/src/core

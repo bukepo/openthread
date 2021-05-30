@@ -68,10 +68,6 @@ target_compile_definitions(openthread-cc2538
         ${OT_PLATFORM_DEFINES}
 )
 
-target_compile_options(openthread-cc2538 PRIVATE
-    ${OT_CFLAGS}
-)
-
 target_include_directories(openthread-cc2538 PRIVATE
     ${OT_PUBLIC_INCLUDES}
     ${PROJECT_SOURCE_DIR}/examples/platforms

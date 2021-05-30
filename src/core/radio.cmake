@@ -32,10 +32,6 @@ target_compile_definitions(openthread-radio PRIVATE
     OPENTHREAD_RADIO=1
 )
 
-target_compile_options(openthread-radio PRIVATE
-    ${OT_CFLAGS}
-)
-
 target_include_directories(openthread-radio PUBLIC ${OT_PUBLIC_INCLUDES} PRIVATE ${COMMON_INCLUDES})
 
 target_sources(openthread-radio PRIVATE

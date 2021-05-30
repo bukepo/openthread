@@ -38,7 +38,3 @@ target_include_directories(openthread-hdlc
 )
 
 target_link_libraries(openthread-hdlc PRIVATE ot-config)
-
-target_compile_options(openthread-hdlc PRIVATE
-    ${OT_CFLAGS}
-)

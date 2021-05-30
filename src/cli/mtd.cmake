@@ -33,10 +33,6 @@ target_compile_definitions(openthread-cli-mtd
         OPENTHREAD_MTD=1
 )
 
-target_compile_options(openthread-cli-mtd PRIVATE
-    ${OT_CFLAGS}
-)
-
 target_include_directories(openthread-cli-mtd PUBLIC ${OT_PUBLIC_INCLUDES} PRIVATE ${COMMON_INCLUDES})
 
 target_sources(openthread-cli-mtd PRIVATE ${COMMON_SOURCES})

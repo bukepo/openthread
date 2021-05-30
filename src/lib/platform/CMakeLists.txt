@@ -38,7 +38,3 @@ target_include_directories(openthread-platform
 )
 
 target_link_libraries(openthread-platform PRIVATE ot-config)
-
-target_compile_options(openthread-platform PRIVATE
-    ${OT_CFLAGS}
-)

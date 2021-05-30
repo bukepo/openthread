@@ -119,10 +119,6 @@ target_compile_definitions(openthread-posix
         OPENTHREAD_MTD=0
 )
 
-target_compile_options(openthread-posix PRIVATE
-    ${OT_CFLAGS}
-)
-
 target_include_directories(openthread-posix PRIVATE
     ${OT_PUBLIC_INCLUDES}
     ${PROJECT_SOURCE_DIR}/src

@@ -32,10 +32,6 @@ add_executable(ot-daemon
 
 target_include_directories(ot-daemon PRIVATE ${COMMON_INCLUDES})
 
-target_compile_options(ot-daemon PRIVATE
-    ${OT_CFLAGS}
-)
-
 target_link_libraries(ot-daemon PRIVATE
     openthread-cli-ftd
     openthread-posix
@@ -56,10 +52,6 @@ if (READLINE)
 target_compile_definitions(ot-ctl PRIVATE
     $<$<BOOL:${READLINE}>:HAVE_LIB$<UPPER_CASE:${OT_READLINE}>=1>)
 endif()
-
-target_compile_options(ot-ctl PRIVATE
-    ${OT_CFLAGS}
-)
 
 target_link_libraries(ot-ctl PRIVATE
     ${READLINE_LINK_LIBRARIES}

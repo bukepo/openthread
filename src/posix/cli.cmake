@@ -39,10 +39,6 @@ target_compile_definitions(ot-cli PRIVATE
     $<$<BOOL:${READLINE}>:HAVE_LIB$<UPPER_CASE:${OT_READLINE}>=1>)
 endif()
 
-target_compile_options(ot-cli PRIVATE
-    ${OT_CFLAGS}
-)
-
 target_link_libraries(ot-cli
     openthread-cli-ftd
     openthread-posix
