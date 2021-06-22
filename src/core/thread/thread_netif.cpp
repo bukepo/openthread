@@ -229,7 +229,7 @@ Error ThreadNetif::RouteLookup(const Ip6::Address &aSource, const Ip6::Address &
 
     SuccessOrExit(error = Get<NetworkData::Leader>().RouteLookup(aSource, aDestination, aPrefixMatch, &rloc));
 
-    if (rloc == Get<Mle::MleRouter>().GetRloc16())
+    if (rloc == Get<Mle::MleRouter>().GetRloc16() || rloc == 0xfffe)
     {
         error = kErrorNoRoute;
     }

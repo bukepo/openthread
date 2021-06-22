@@ -101,7 +101,8 @@ Error MeshForwarder::SendMessage(Message &aMessage)
                 }
             }
         }
-        else if ((neighbor = Get<NeighborTable>().FindNeighbor(ip6Header.GetDestination())) != nullptr &&
+        else if (((neighbor = Get<NeighborTable>().FindNeighbor(ip6Header.GetDestination())) != nullptr ||
+                  (neighbor = Get<NeighborTable>().FindNeighbor(aMessage.GetMeshDest())) != nullptr) &&
                  !neighbor->IsRxOnWhenIdle() && !aMessage.GetDirectTransmission())
         {
             // destined for a sleepy child
@@ -728,6 +729,7 @@ void MeshForwarder::HandleMesh(uint8_t *             aFrame,
     Mac::Address       meshSource;
     Lowpan::MeshHeader meshHeader;
     uint16_t           headerLength;
+    Child *            child;
 
     // Security Check: only process Mesh Header frames that had security enabled.
     VerifyOrExit(aLinkInfo.IsLinkSecurityEnabled(), error = kErrorSecurity);
@@ -742,8 +744,9 @@ void MeshForwarder::HandleMesh(uint8_t *             aFrame,
 
     UpdateRoutes(aFrame, aFrameLength, meshSource, meshDest);
 
-    if (meshDest.GetShort() == Get<Mac::Mac>().GetShortAddress() ||
-        Get<Mle::MleRouter>().IsMinimalChild(meshDest.GetShort()))
+    child = Get<ChildTable>().FindChild(meshDest.GetShort(), Child::kInStateAnyExceptInvalid);
+
+    if (meshDest.GetShort() == Get<Mac::Mac>().GetShortAddress() || (child != nullptr && !child->IsFullNetworkData()))
     {
         if (Lowpan::FragmentHeader::IsFragmentHeader(aFrame, aFrameLength))
         {
@@ -762,19 +765,27 @@ void MeshForwarder::HandleMesh(uint8_t *             aFrame,
     {
         Message::Priority priority = Message::kPriorityNormal;
         uint16_t          offset   = 0;
+        bool              toSleepy = (child != nullptr && !child->IsRxOnWhenIdle());
 
         Get<Mle::MleRouter>().ResolveRoutingLoops(aMacSource.GetShort(), meshDest.GetShort());
 
         SuccessOrExit(error = CheckReachability(aFrame, aFrameLength, meshSource, meshDest));
 
-        meshHeader.DecrementHopsLeft();
-
         GetForwardFramePriority(aFrame, aFrameLength, meshSource, meshDest, priority);
         message = Get<MessagePool>().New(Message::kType6lowpan, priority);
         VerifyOrExit(message != nullptr, error = kErrorNoBufs);
 
-        SuccessOrExit(error = message->SetLength(meshHeader.GetHeaderLength() + aFrameLength));
-        offset += meshHeader.WriteTo(*message, offset);
+        if (child == nullptr)
+        {
+            meshHeader.DecrementHopsLeft();
+            SuccessOrExit(error = message->SetLength(meshHeader.GetHeaderLength() + aFrameLength));
+            offset += meshHeader.WriteTo(*message, offset);
+        }
+        else
+        {
+            SuccessOrExit(error = message->SetLength(aFrameLength));
+        }
+
         message->WriteBytes(offset, aFrame, aFrameLength);
         message->SetLinkInfo(aLinkInfo);
 
@@ -794,7 +805,18 @@ void MeshForwarder::HandleMesh(uint8_t *             aFrame,
         message->ClearRadioType();
 #endif
 
-        IgnoreError(SendMessage(*message));
+        if (toSleepy)
+        {
+            message->SetOffset(0);
+            message->SetDatagramTag(0);
+            mSendQueue.Enqueue(*message);
+            mIndirectSender.AddMessageForSleepyChild(*message, *child);
+            mScheduleTransmissionTask.Post();
+        }
+        else
+        {
+            IgnoreError(SendMessage(*message));
+        }
     }
 
 exit:

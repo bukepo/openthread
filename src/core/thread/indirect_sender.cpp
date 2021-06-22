@@ -353,6 +353,17 @@ Error IndirectSender::PrepareFrameForChild(Mac::TxFrame &aFrame, FrameContext &a
         aContext.mMessageNextOffset = message->GetLength();
         break;
 
+    case Message::kType6lowpan:
+    {
+        Mac::Address macSource;
+        Mac::Address macDest;
+
+        aChild.GetMacAddress(macDest);
+        macSource.SetShort(Get<Mac::Mac>().GetShortAddress());
+        aContext.mMessageNextOffset = Get<MeshForwarder>().PrepareDataFrame(aFrame, *message, macSource, macDest);
+        break;
+    }
+
     default:
         OT_ASSERT(false);
         OT_UNREACHABLE_CODE(break);

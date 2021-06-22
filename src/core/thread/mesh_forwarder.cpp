@@ -781,8 +781,15 @@ start:
 
 #endif
 
+    if (aMessage.GetType() == Message::kType6lowpan)
+    {
+        payloadLength = aMessage.GetLength();
+        aMessage.ReadBytes(0, payload, payloadLength);
+        aFrame.SetPayloadLength(payloadLength);
+        nextOffset = payloadLength;
+    }
     // Compress IPv6 Header
-    if (aMessage.GetOffset() == 0)
+    else if (aMessage.GetOffset() == 0)
     {
         Lowpan::BufferWriter buffer(payload,
                                     maxPayloadLength - headerLength - Lowpan::FragmentHeader::kFirstFragmentHeaderSize);
@@ -1417,6 +1424,7 @@ Error MeshForwarder::FrameToMessage(const uint8_t *     aFrame,
     SuccessOrExit(error = aMessage->SetLength(aMessage->GetLength() + aFrameLength));
     aMessage->WriteBytes(aMessage->GetOffset(), aFrame, aFrameLength);
     aMessage->MoveOffset(aFrameLength);
+    aMessage->SetMeshDest(aMacDest.GetShort());
 
 exit:
     return error;

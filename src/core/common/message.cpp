@@ -76,6 +76,7 @@ Message *MessagePool::New(Message::Type aType, uint16_t aReserveHeader, Message:
     message->SetType(aType);
     message->SetReserved(aReserveHeader);
     message->SetLinkSecurityEnabled(true);
+    message->SetMeshDest(0xffff);
 
     SuccessOrExit(error = message->SetPriority(aPriority));
     SuccessOrExit(error = message->SetLength(0));
