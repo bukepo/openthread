@@ -113,7 +113,7 @@ build_simulation()
 build_posix()
 {
     local version="$1"
-    local options=("-DOT_MESSAGE_USE_HEAP=ON" "-DOT_THREAD_VERSION=${version}" "-DBUILD_TESTING=ON")
+    local options=("-DOT_MESSAGE_USE_HEAP=ON" "-DOT_THREAD_VERSION=${version}" "-DBUILD_TESTING=ON" "-DOT_LOG_LEVEL=DEBG")
 
     if [[ ${version} == "1.2" ]]; then
         options+=("-DOT_DUA=ON")
@@ -334,6 +334,7 @@ ot_exec_expect_script()
             else
                 echo -e "\n${OT_COLOR_FAIL}FAIL${OT_COLOR_NONE} ${script}"
                 cat "${log_file}" >&2
+                find tmp -maxdepth 1 -type f -name 'node-*.log' -exec bash -c 'echo "::::$1::::" && cat "$1"' _ {} \;
                 return "${EXIT_CODE}"
             fi
         }

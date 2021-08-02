@@ -85,7 +85,7 @@ proc spawn_node {id {type ""} {radio_url ""}} {
 
     switch -regexp ${type} {
         {rcp|rcp-cli} {
-            spawn /usr/bin/env GCOV_PREFIX=$gcov_prefix $::env(OT_POSIX_APPS)/ot-cli $radio_url
+            spawn /usr/bin/env GCOV_PREFIX=$gcov_prefix bash -c "$::env(OT_POSIX_APPS)/ot-cli -d7 -v $radio_url 2>tmp/node-$id.log"
             send "factoryreset\n"
             wait_for "state" "disabled"
             expect_line "Done"
