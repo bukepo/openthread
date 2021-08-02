@@ -62,6 +62,18 @@ proc expect_line {line} {
     return $expect_out(1,string)
 }
 
+proc backtrace {pid} {
+    if { $OSTYPE == "Darwin" } {
+        spawn sudo lldb "$::env(OT_POSIX_APPS)/ot-cli"
+        send "\n"
+        expect "empty command"
+        send "process attach --pid $pid\n"
+        expect "lldb"
+        send "bt\n"
+        expect "(lldb)"
+    }
+}
+
 proc spawn_node {id {type ""} {radio_url ""}} {
     global spawn_id
     global spawn_ids
@@ -85,7 +97,7 @@ proc spawn_node {id {type ""} {radio_url ""}} {
 
     switch -regexp ${type} {
         {rcp|rcp-cli} {
-            spawn /usr/bin/env GCOV_PREFIX=$gcov_prefix bash -c "$::env(OT_POSIX_APPS)/ot-cli -d7 -v $radio_url 2>tmp/node-$id.log"
+            set node_pid [spawn /usr/bin/env GCOV_PREFIX=$gcov_prefix bash -c "exec $::env(OT_POSIX_APPS)/ot-cli -d7 -v $radio_url 2>tmp/node-$id.log"]
             send "factoryreset\n"
             wait_for "state" "disabled"
             expect_line "Done"
@@ -109,7 +121,10 @@ proc spawn_node {id {type ""} {radio_url ""}} {
     }
 
     expect_after {
-        timeout { fail "Timed out" }
+        timeout {
+            backtrace $node_pid
+            fail "Timed out"
+        }
     }
 
     set spawn_ids($id) $spawn_id
