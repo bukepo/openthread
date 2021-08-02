@@ -42,8 +42,7 @@ expect_line "Done"
 send "txpower\n"
 expect "11 dBm"
 expect_line "Done"
-send "\x04"
-expect eof
+dispose_all
 # allows all channels by default
 spawn_node 1 "rcp" "spinel+hdlc+uart://$env(OT_SIMULATION_APPS)/ncp/ot-rcp?forkpty-arg=1"
 send "channel supported\n"
@@ -52,5 +51,4 @@ expect_line "Done"
 send "channel preferred\n"
 expect "0x7fff800"
 expect_line "Done"
-send "\x04"
-expect eof
+dispose_all
