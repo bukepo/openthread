@@ -251,7 +251,7 @@ static_assert(sizeof(Buffer) >= kBufferSize, "Buffer size if not valid");
  * This class represents a message.
  *
  */
-class Message : public otMessage, public Buffer
+class Message : public otMessage, public Buffer, private NonCopyable
 {
     friend class Checksum;
     friend class Crypto::HmacSha256;

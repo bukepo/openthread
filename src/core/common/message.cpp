@@ -38,6 +38,7 @@
 #include "common/instance.hpp"
 #include "common/locator_getters.hpp"
 #include "common/logging.hpp"
+#include "common/new.hpp"
 #include "net/checksum.hpp"
 #include "net/ip6.hpp"
 
@@ -72,9 +73,12 @@ Message *MessagePool::New(Message::Type aType, uint16_t aReserveHeader, Message:
     Error    error = kErrorNone;
     Message *message;
 
-    VerifyOrExit((message = static_cast<Message *>(NewBuffer(aPriority))) != nullptr);
+    {
+        Buffer *buffer;
+        VerifyOrExit((buffer = NewBuffer(aPriority)) != nullptr);
+        message = new (buffer) Message{};
+    }
 
-    memset(message, 0, sizeof(*message));
     message->SetMessagePool(this);
     message->SetType(aType);
     message->SetReserved(aReserveHeader);
