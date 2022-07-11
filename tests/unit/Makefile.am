@@ -68,13 +68,6 @@ AM_CPPFLAGS                                                        += \
     $(NULL)
 endif
 
-if OPENTHREAD_PLATFORM_POSIX
-AM_CPPFLAGS                                                        += \
-    -DOPENTHREAD_PLATFORM_POSIX=1                                     \
-    -I$(top_srcdir)/src/posix/platform                                \
-    $(NULL)
-endif
-
 COMMON_LDADD                                                        = \
     $(NULL)
 
@@ -94,12 +87,6 @@ COMMON_LDADD                                                       += \
 if OPENTHREAD_ENABLE_BUILTIN_MBEDTLS
 COMMON_LDADD                                                       += \
     $(top_builddir)/third_party/mbedtls/libmbedcrypto.a               \
-    $(NULL)
-endif
-
-if OPENTHREAD_PLATFORM_POSIX
-COMMON_LDADD                                                       += \
-    -lutil
     $(NULL)
 endif
 

@@ -102,7 +102,7 @@ const char *otExitCodeToString(uint8_t aExitCode);
  * @param[in]   aExitCode   The exit code.
  *
  */
-#define VerifyOrDie(aCondition, aExitCode)                                                         \
+#define otVerifyOrDie(aCondition, aExitCode)                                                       \
     do                                                                                             \
     {                                                                                              \
         if (!(aCondition))                                                                         \
@@ -122,9 +122,9 @@ const char *otExitCodeToString(uint8_t aExitCode);
  * @param[in]  aError  An error code to be evaluated against OT_ERROR_NONE.
  *
  */
-#define SuccessOrDie(aError)             \
-    VerifyOrDie(aError == OT_ERROR_NONE, \
-                (aError == OT_ERROR_INVALID_ARGS ? OT_EXIT_INVALID_ARGUMENTS : OT_EXIT_FAILURE))
+#define otSuccessOrDie(aError)             \
+    otVerifyOrDie(aError == OT_ERROR_NONE, \
+                  (aError == OT_ERROR_INVALID_ARGS ? OT_EXIT_INVALID_ARGUMENTS : OT_EXIT_FAILURE))
 
 /**
  * This macro unconditionally both records exit status and terminates the program.
@@ -132,7 +132,7 @@ const char *otExitCodeToString(uint8_t aExitCode);
  * @param[in]   aExitCode   The exit code.
  *
  */
-#define DieNow(aExitCode) VerifyOrDie(false, aExitCode)
+#define otDieNow(aExitCode) otVerifyOrDie(false, aExitCode)
 
 /**
  * This macro unconditionally both records exit status and exit message and terminates the program.
@@ -141,7 +141,7 @@ const char *otExitCodeToString(uint8_t aExitCode);
  * @param[in]   aExitCode   The exit code.
  *
  */
-#define DieNowWithMessage(aMessage, aExitCode)                                                 \
+#define otDieNowWithMessage(aMessage, aExitCode)                                               \
     do                                                                                         \
     {                                                                                          \
         otLogCritPlat("exit(%d): %s line %d, %s, %s", aExitCode, __func__, __LINE__, aMessage, \

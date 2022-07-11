@@ -67,7 +67,7 @@ OT_CMAKE_NINJA_TARGET=${OT_CMAKE_NINJA_TARGET:-}
 OT_SRCDIR="$(cd "$(dirname "$0")"/.. && pwd)"
 readonly OT_SRCDIR
 
-OT_PLATFORMS=(simulation posix)
+OT_PLATFORMS=(simulation)
 readonly OT_PLATFORMS
 
 OT_POSIX_SIM_COMMON_OPTIONS=(
@@ -155,13 +155,6 @@ main()
     )
 
     case "${platform}" in
-        posix)
-            local_options+=(
-                "-DOT_LOG_OUTPUT=PLATFORM_DEFINED"
-                "-DOT_POSIX_MAX_POWER_TABLE=ON"
-            )
-            options+=("${OT_POSIX_SIM_COMMON_OPTIONS[@]}" "${local_options[@]}")
-            ;;
         simulation)
             local_options=("-DOT_LINK_RAW=ON")
             options+=("${OT_POSIX_SIM_COMMON_OPTIONS[@]}" "${local_options[@]}")

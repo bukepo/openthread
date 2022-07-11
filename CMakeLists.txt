@@ -144,7 +144,7 @@ set(OT_LOG_OUTPUT_VALUES
     "NONE"
     "PLATFORM_DEFINED"
 )
-if(OT_REFERENCE_DEVICE AND NOT OT_PLATFORM STREQUAL "posix")
+if(OT_REFERENCE_DEVICE)
     set(OT_LOG_OUTPUT "APP" CACHE STRING "Set log output to application for reference device")
 else()
     set(OT_LOG_OUTPUT "" CACHE STRING "Where log output goes to")
@@ -170,12 +170,7 @@ list(APPEND OT_PUBLIC_INCLUDES ${PROJECT_BINARY_DIR}/etc/cmake)
 list(APPEND OT_PUBLIC_INCLUDES ${PROJECT_SOURCE_DIR}/etc/cmake)
 list(APPEND OT_PUBLIC_INCLUDES ${PROJECT_SOURCE_DIR}/include)
 
-if(OT_PLATFORM STREQUAL "posix")
-    target_include_directories(ot-config INTERFACE ${PROJECT_SOURCE_DIR}/src/posix/platform)
-    add_subdirectory("${PROJECT_SOURCE_DIR}/src/posix/platform")
-elseif(OT_PLATFORM STREQUAL "external")
-    # skip in this case
-else()
+if(NOT OT_PLATFORM STREQUAL "external")
     target_include_directories(ot-config INTERFACE ${PROJECT_SOURCE_DIR}/examples/platforms/${OT_PLATFORM})
     add_subdirectory("${PROJECT_SOURCE_DIR}/examples/platforms/${OT_PLATFORM}")
 endif()
@@ -187,13 +182,7 @@ endif()
 
 target_compile_definitions(ot-config INTERFACE ${OT_PLATFORM_DEFINES})
 
-if(OT_PLATFORM STREQUAL "posix")
-    if(OT_BUILD_EXECUTABLES)
-        add_subdirectory(src/posix)
-    else()
-        add_subdirectory(src/posix EXCLUDE_FROM_ALL)
-    endif()
-elseif(OT_PLATFORM)
+if(OT_PLATFORM)
     add_subdirectory(examples)
 endif()
 

@@ -144,7 +144,7 @@ uint64_t platformGetNow(void)
 
     err = clock_gettime(OT_SIMULATION_CLOCK_ID, &now);
 
-    VerifyOrDie(err == 0, OT_EXIT_ERROR_ERRNO);
+    otVerifyOrDie(err == 0, OT_EXIT_ERROR_ERRNO);
 
     return (uint64_t)now.tv_sec * sSpeedUpFactor * US_PER_S + (uint64_t)now.tv_nsec * sSpeedUpFactor / NS_PER_US;
 }

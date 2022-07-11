@@ -43,15 +43,15 @@
 
 #include "common/code_utils.hpp"
 #include "common/encoding.hpp"
-#include "common/instance.hpp"
-#include "common/new.hpp"
-#include "common/settings.hpp"
+// #include "common/instance.hpp"
+// #include "common/new.hpp"
+// #include "common/settings.hpp"
 #include "lib/platform/exit_code.h"
 #include "lib/spinel/radio_spinel.hpp"
 #include "lib/spinel/spinel.h"
 #include "lib/spinel/spinel_decoder.hpp"
-#include "meshcop/dataset.hpp"
-#include "meshcop/meshcop_tlvs.hpp"
+//#include "meshcop/dataset.hpp"
+//#include "meshcop/meshcop_tlvs.hpp"
 #include "radio/radio.hpp"
 #include "thread/key_manager.hpp"
 
@@ -233,7 +233,7 @@ void RadioSpinel<InterfaceType, ProcessContextType>::Init(bool aResetRadio,
     if (aResetRadio)
     {
         SuccessOrExit(error = SendReset(SPINEL_RESET_STACK));
-        SuccessOrDie(mSpinelInterface.ResetConnection());
+        otSuccessOrDie(mSpinelInterface.ResetConnection());
     }
 
     SuccessOrExit(error = WaitResponse());
@@ -258,17 +258,17 @@ void RadioSpinel<InterfaceType, ProcessContextType>::Init(bool aResetRadio,
         if (aRestoreDatasetFromNcp)
         {
 #if !OPENTHREAD_CONFIG_MULTIPLE_INSTANCE_ENABLE
-            exitCode = (RestoreDatasetFromNcp() == OT_ERROR_NONE) ? OT_EXIT_SUCCESS : OT_EXIT_FAILURE;
+            // exitCode = (RestoreDatasetFromNcp() == OT_ERROR_NONE) ? OT_EXIT_SUCCESS : OT_EXIT_FAILURE;
 #endif
         }
 
-        DieNow(exitCode);
+        otDieNow(exitCode);
     }
 
     if (!aSkipRcpCompatibilityCheck)
     {
-        SuccessOrDie(CheckRcpApiVersion(supportsRcpApiVersion, supportsRcpMinHostApiVersion));
-        SuccessOrDie(CheckRadioCapabilities());
+        otSuccessOrDie(CheckRcpApiVersion(supportsRcpApiVersion, supportsRcpMinHostApiVersion));
+        otSuccessOrDie(CheckRadioCapabilities());
     }
 
     mRxRadioFrame.mPsdu  = mRxPsdu;
@@ -276,7 +276,7 @@ void RadioSpinel<InterfaceType, ProcessContextType>::Init(bool aResetRadio,
     mAckRadioFrame.mPsdu = mAckPsdu;
 
 exit:
-    SuccessOrDie(error);
+    otSuccessOrDie(error);
 }
 
 template <typename InterfaceType, typename ProcessContextType>
@@ -295,7 +295,7 @@ otError RadioSpinel<InterfaceType, ProcessContextType>::CheckSpinelVersion(void)
     {
         otLogCritPlat("Spinel version mismatch - Posix:%d.%d, RCP:%d.%d", SPINEL_PROTOCOL_VERSION_THREAD_MAJOR,
                       SPINEL_PROTOCOL_VERSION_THREAD_MINOR, versionMajor, versionMinor);
-        DieNow(OT_EXIT_RADIO_SPINEL_INCOMPATIBLE);
+        otDieNow(OT_EXIT_RADIO_SPINEL_INCOMPATIBLE);
     }
 
 exit:
@@ -315,7 +315,7 @@ bool RadioSpinel<InterfaceType, ProcessContextType>::IsRcp(bool &aSupportsRcpApi
     aSupportsRcpApiVersion        = false;
     aSupportsRcpMinHostApiVersion = false;
 
-    SuccessOrDie(Get(SPINEL_PROP_CAPS, SPINEL_DATATYPE_DATA_S, capsBuffer, &capsLength));
+    otSuccessOrDie(Get(SPINEL_PROP_CAPS, SPINEL_DATATYPE_DATA_S, capsBuffer, &capsLength));
 
     while (capsLength > 0)
     {
@@ -323,7 +323,7 @@ bool RadioSpinel<InterfaceType, ProcessContextType>::IsRcp(bool &aSupportsRcpApi
         spinel_ssize_t unpacked;
 
         unpacked = spinel_datatype_unpack(capsData, capsLength, SPINEL_DATATYPE_UINT_PACKED_S, &capability);
-        VerifyOrDie(unpacked > 0, OT_EXIT_RADIO_SPINEL_INCOMPATIBLE);
+        otVerifyOrDie(unpacked > 0, OT_EXIT_RADIO_SPINEL_INCOMPATIBLE);
 
         if (capability == SPINEL_CAP_MAC_RAW)
         {
@@ -357,7 +357,7 @@ bool RadioSpinel<InterfaceType, ProcessContextType>::IsRcp(bool &aSupportsRcpApi
     if (!supportsRawRadio && isRcp)
     {
         otLogCritPlat("RCP capability list does not include support for radio/raw mode");
-        DieNow(OT_EXIT_RADIO_SPINEL_INCOMPATIBLE);
+        otDieNow(OT_EXIT_RADIO_SPINEL_INCOMPATIBLE);
     }
 
     return isRcp;
@@ -393,7 +393,7 @@ otError RadioSpinel<InterfaceType, ProcessContextType>::CheckRadioCapabilities(v
                       (missingCaps & OT_RADIO_CAPS_TRANSMIT_SEC) ? "tx-security " : "",
                       (missingCaps & OT_RADIO_CAPS_TRANSMIT_TIMING) ? "tx-timing " : "");
 
-        DieNow(OT_EXIT_RADIO_SPINEL_INCOMPATIBLE);
+        otDieNow(OT_EXIT_RADIO_SPINEL_INCOMPATIBLE);
     }
 
 exit:
@@ -423,7 +423,7 @@ otError RadioSpinel<InterfaceType, ProcessContextType>::CheckRcpApiVersion(bool 
             otLogCritPlat("RCP and host are using incompatible API versions");
             otLogCritPlat("RCP API Version %u is older than min required by host %u", rcpApiVersion,
                           SPINEL_MIN_HOST_SUPPORTED_RCP_API_VERSION);
-            DieNow(OT_EXIT_RADIO_SPINEL_INCOMPATIBLE);
+            otDieNow(OT_EXIT_RADIO_SPINEL_INCOMPATIBLE);
         }
     }
 
@@ -443,7 +443,7 @@ otError RadioSpinel<InterfaceType, ProcessContextType>::CheckRcpApiVersion(bool 
             otLogCritPlat("RCP and host are using incompatible API versions");
             otLogCritPlat("RCP requires min host API version %u but host is older and at version %u",
                           minHostRcpApiVersion, SPINEL_RCP_API_VERSION);
-            DieNow(OT_EXIT_RADIO_SPINEL_INCOMPATIBLE);
+            otDieNow(OT_EXIT_RADIO_SPINEL_INCOMPATIBLE);
         }
     }
 
@@ -451,7 +451,7 @@ exit:
     return error;
 }
 
-#if !OPENTHREAD_CONFIG_MULTIPLE_INSTANCE_ENABLE
+#if !OPENTHREAD_CONFIG_MULTIPLE_INSTANCE_ENABLE && 0
 template <typename InterfaceType, typename ProcessContextType>
 otError RadioSpinel<InterfaceType, ProcessContextType>::RestoreDatasetFromNcp(void)
 {
@@ -519,7 +519,7 @@ void RadioSpinel<InterfaceType, ProcessContextType>::HandleNotification(SpinelIn
     spinel_prop_key_t key;
     spinel_size_t     len = 0;
     spinel_ssize_t    unpacked;
-    uint8_t          *data = nullptr;
+    uint8_t *         data = nullptr;
     uint32_t          cmd;
     uint8_t           header;
     otError           error           = OT_ERROR_NONE;
@@ -574,7 +574,7 @@ void RadioSpinel<InterfaceType, ProcessContextType>::HandleNotification(const ui
     spinel_prop_key_t key;
     spinel_size_t     len = 0;
     spinel_ssize_t    unpacked;
-    uint8_t          *data = nullptr;
+    uint8_t *         data = nullptr;
     uint32_t          cmd;
     uint8_t           header;
     otError           error = OT_ERROR_NONE;
@@ -594,7 +594,7 @@ template <typename InterfaceType, typename ProcessContextType>
 void RadioSpinel<InterfaceType, ProcessContextType>::HandleResponse(const uint8_t *aBuffer, uint16_t aLength)
 {
     spinel_prop_key_t key;
-    uint8_t          *data   = nullptr;
+    uint8_t *         data   = nullptr;
     spinel_size_t     len    = 0;
     uint8_t           header = 0;
     uint32_t          cmd    = 0;
@@ -632,7 +632,7 @@ exit:
     LogIfFail("Error processing response", error);
 }
 
-#if !OPENTHREAD_CONFIG_MULTIPLE_INSTANCE_ENABLE
+#if !OPENTHREAD_CONFIG_MULTIPLE_INSTANCE_ENABLE && 0
 template <typename InterfaceType, typename ProcessContextType>
 otError RadioSpinel<InterfaceType, ProcessContextType>::ThreadDatasetHandler(const uint8_t *aBuffer, uint16_t aLength)
 {
@@ -800,7 +800,7 @@ exit:
 template <typename InterfaceType, typename ProcessContextType>
 void RadioSpinel<InterfaceType, ProcessContextType>::HandleWaitingResponse(uint32_t          aCommand,
                                                                            spinel_prop_key_t aKey,
-                                                                           const uint8_t    *aBuffer,
+                                                                           const uint8_t *   aBuffer,
                                                                            uint16_t          aLength)
 {
     if (aKey == SPINEL_PROP_LAST_STATUS)
@@ -868,7 +868,7 @@ exit:
 
 template <typename InterfaceType, typename ProcessContextType>
 void RadioSpinel<InterfaceType, ProcessContextType>::HandleValueIs(spinel_prop_key_t aKey,
-                                                                   const uint8_t    *aBuffer,
+                                                                   const uint8_t *   aBuffer,
                                                                    uint16_t          aLength)
 {
     otError        error = OT_ERROR_NONE;
@@ -975,8 +975,8 @@ exit:
 }
 
 template <typename InterfaceType, typename ProcessContextType>
-otError RadioSpinel<InterfaceType, ProcessContextType>::ParseRadioFrame(otRadioFrame   &aFrame,
-                                                                        const uint8_t  *aBuffer,
+otError RadioSpinel<InterfaceType, ProcessContextType>::ParseRadioFrame(otRadioFrame &  aFrame,
+                                                                        const uint8_t * aBuffer,
                                                                         uint16_t        aLength,
                                                                         spinel_ssize_t &aUnpacked)
 {
@@ -1604,9 +1604,9 @@ otError RadioSpinel<InterfaceType, ProcessContextType>::Get(spinel_prop_key_t aK
 // This is not a normal use case for VALUE_GET command and should be only used to get RCP timestamp with dummy payload
 template <typename InterfaceType, typename ProcessContextType>
 otError RadioSpinel<InterfaceType, ProcessContextType>::GetWithParam(spinel_prop_key_t aKey,
-                                                                     const uint8_t    *aParam,
+                                                                     const uint8_t *   aParam,
                                                                      spinel_size_t     aParamSize,
-                                                                     const char       *aFormat,
+                                                                     const char *      aFormat,
                                                                      ...)
 {
     otError error;
@@ -1775,7 +1775,7 @@ template <typename InterfaceType, typename ProcessContextType>
 otError RadioSpinel<InterfaceType, ProcessContextType>::SendCommand(uint32_t          aCommand,
                                                                     spinel_prop_key_t aKey,
                                                                     spinel_tid_t      tid,
-                                                                    const char       *aFormat,
+                                                                    const char *      aFormat,
                                                                     va_list           args)
 {
     otError        error = OT_ERROR_NONE;
@@ -1810,7 +1810,7 @@ exit:
 template <typename InterfaceType, typename ProcessContextType>
 otError RadioSpinel<InterfaceType, ProcessContextType>::RequestV(uint32_t          command,
                                                                  spinel_prop_key_t aKey,
-                                                                 const char       *aFormat,
+                                                                 const char *      aFormat,
                                                                  va_list           aArgs)
 {
     otError      error = OT_ERROR_NONE;
@@ -1842,7 +1842,7 @@ exit:
 template <typename InterfaceType, typename ProcessContextType>
 otError RadioSpinel<InterfaceType, ProcessContextType>::Request(uint32_t          aCommand,
                                                                 spinel_prop_key_t aKey,
-                                                                const char       *aFormat,
+                                                                const char *      aFormat,
                                                                 ...)
 {
     va_list args;
@@ -1853,10 +1853,10 @@ otError RadioSpinel<InterfaceType, ProcessContextType>::Request(uint32_t        
 }
 
 template <typename InterfaceType, typename ProcessContextType>
-otError RadioSpinel<InterfaceType, ProcessContextType>::RequestWithPropertyFormat(const char       *aPropertyFormat,
+otError RadioSpinel<InterfaceType, ProcessContextType>::RequestWithPropertyFormat(const char *      aPropertyFormat,
                                                                                   uint32_t          aCommand,
                                                                                   spinel_prop_key_t aKey,
-                                                                                  const char       *aFormat,
+                                                                                  const char *      aFormat,
                                                                                   ...)
 {
     otError error;
@@ -1870,10 +1870,10 @@ otError RadioSpinel<InterfaceType, ProcessContextType>::RequestWithPropertyForma
 }
 
 template <typename InterfaceType, typename ProcessContextType>
-otError RadioSpinel<InterfaceType, ProcessContextType>::RequestWithPropertyFormatV(const char       *aPropertyFormat,
+otError RadioSpinel<InterfaceType, ProcessContextType>::RequestWithPropertyFormatV(const char *      aPropertyFormat,
                                                                                    uint32_t          aCommand,
                                                                                    spinel_prop_key_t aKey,
-                                                                                   const char       *aFormat,
+                                                                                   const char *      aFormat,
                                                                                    va_list           aArgs)
 {
     otError error;
@@ -1889,7 +1889,7 @@ template <typename InterfaceType, typename ProcessContextType>
 otError RadioSpinel<InterfaceType, ProcessContextType>::RequestWithExpectedCommandV(uint32_t          aExpectedCommand,
                                                                                     uint32_t          aCommand,
                                                                                     spinel_prop_key_t aKey,
-                                                                                    const char       *aFormat,
+                                                                                    const char *      aFormat,
                                                                                     va_list           aArgs)
 {
     otError error;
@@ -1904,7 +1904,7 @@ otError RadioSpinel<InterfaceType, ProcessContextType>::RequestWithExpectedComma
 template <typename InterfaceType, typename ProcessContextType>
 void RadioSpinel<InterfaceType, ProcessContextType>::HandleTransmitDone(uint32_t          aCommand,
                                                                         spinel_prop_key_t aKey,
-                                                                        const uint8_t    *aBuffer,
+                                                                        const uint8_t *   aBuffer,
                                                                         uint16_t          aLength)
 {
     otError         error         = OT_ERROR_NONE;
@@ -2100,7 +2100,7 @@ otError RadioSpinel<InterfaceType, ProcessContextType>::Disable(void)
     VerifyOrExit(IsEnabled());
     VerifyOrExit(mState == kStateSleep, error = OT_ERROR_INVALID_STATE);
 
-    SuccessOrDie(Set(SPINEL_PROP_PHY_ENABLED, SPINEL_DATATYPE_BOOL_S, false));
+    otSuccessOrDie(Set(SPINEL_PROP_PHY_ENABLED, SPINEL_DATATYPE_BOOL_S, false));
     mState    = kStateDisabled;
     mInstance = nullptr;
 
@@ -2111,7 +2111,7 @@ exit:
 #if OPENTHREAD_CONFIG_DIAG_ENABLE
 template <typename InterfaceType, typename ProcessContextType>
 otError RadioSpinel<InterfaceType, ProcessContextType>::PlatDiagProcess(const char *aString,
-                                                                        char       *aOutput,
+                                                                        char *      aOutput,
                                                                         size_t      aOutputMaxLen)
 {
     otError error;
@@ -2137,8 +2137,8 @@ uint32_t RadioSpinel<InterfaceType, ProcessContextType>::GetRadioChannelMask(boo
     const uint8_t *maskData    = maskBuffer;
     spinel_size_t  maskLength  = sizeof(maskBuffer);
 
-    SuccessOrDie(Get(aPreferred ? SPINEL_PROP_PHY_CHAN_PREFERRED : SPINEL_PROP_PHY_CHAN_SUPPORTED,
-                     SPINEL_DATATYPE_DATA_S, maskBuffer, &maskLength));
+    otSuccessOrDie(Get(aPreferred ? SPINEL_PROP_PHY_CHAN_PREFERRED : SPINEL_PROP_PHY_CHAN_SUPPORTED,
+                       SPINEL_DATATYPE_DATA_S, maskBuffer, &maskLength));
 
     while (maskLength > 0)
     {
@@ -2258,7 +2258,7 @@ void RadioSpinel<InterfaceType, ProcessContextType>::HandleRcpUnexpectedReset(sp
 #if OPENTHREAD_SPINEL_CONFIG_RCP_RESTORATION_MAX_COUNT > 0
     mRcpFailed = true;
 #else
-    DieNow(OT_EXIT_RADIO_SPINEL_RESET);
+    otDieNow(OT_EXIT_RADIO_SPINEL_RESET);
 #endif
 }
 
@@ -2270,7 +2270,7 @@ void RadioSpinel<InterfaceType, ProcessContextType>::HandleRcpTimeout(void)
 #if OPENTHREAD_SPINEL_CONFIG_RCP_RESTORATION_MAX_COUNT > 0
     mRcpFailed = true;
 #else
-    DieNow(OT_EXIT_RADIO_SPINEL_NO_RESPONSE);
+    otDieNow(OT_EXIT_RADIO_SPINEL_NO_RESPONSE);
 #endif
 }
 
@@ -2294,7 +2294,7 @@ void RadioSpinel<InterfaceType, ProcessContextType>::RecoverFromRcpFailure(void)
     if (mRcpFailureCount > kMaxFailureCount)
     {
         otLogCritPlat("Too many rcp failures, exiting");
-        DieNow(OT_EXIT_FAILURE);
+        otDieNow(OT_EXIT_FAILURE);
     }
 
     otLogWarnPlat("Trying to recover (%d/%d)", mRcpFailureCount, kMaxFailureCount);
@@ -2313,13 +2313,13 @@ void RadioSpinel<InterfaceType, ProcessContextType>::RecoverFromRcpFailure(void)
 
     if (mResetRadioOnStartup)
     {
-        SuccessOrDie(SendReset(SPINEL_RESET_STACK));
-        SuccessOrDie(mSpinelInterface.ResetConnection());
+        otSuccessOrDie(SendReset(SPINEL_RESET_STACK));
+        otSuccessOrDie(mSpinelInterface.ResetConnection());
     }
 
-    SuccessOrDie(WaitResponse());
+    otSuccessOrDie(WaitResponse());
 
-    SuccessOrDie(Set(SPINEL_PROP_PHY_ENABLED, SPINEL_DATATYPE_BOOL_S, true));
+    otSuccessOrDie(Set(SPINEL_PROP_PHY_ENABLED, SPINEL_DATATYPE_BOOL_S, true));
     mState = kStateSleep;
 
     RestoreProperties();
@@ -2330,12 +2330,12 @@ void RadioSpinel<InterfaceType, ProcessContextType>::RecoverFromRcpFailure(void)
     case kStateSleep:
         break;
     case kStateReceive:
-        SuccessOrDie(Set(SPINEL_PROP_MAC_RAW_STREAM_ENABLED, SPINEL_DATATYPE_BOOL_S, true));
+        otSuccessOrDie(Set(SPINEL_PROP_MAC_RAW_STREAM_ENABLED, SPINEL_DATATYPE_BOOL_S, true));
         mState = kStateReceive;
         break;
     case kStateTransmitting:
     case kStateTransmitDone:
-        SuccessOrDie(Set(SPINEL_PROP_MAC_RAW_STREAM_ENABLED, SPINEL_DATATYPE_BOOL_S, true));
+        otSuccessOrDie(Set(SPINEL_PROP_MAC_RAW_STREAM_ENABLED, SPINEL_DATATYPE_BOOL_S, true));
         mTxError = OT_ERROR_ABORT;
         mState   = kStateTransmitDone;
         break;
@@ -2343,7 +2343,7 @@ void RadioSpinel<InterfaceType, ProcessContextType>::RecoverFromRcpFailure(void)
 
     if (mEnergyScanning)
     {
-        SuccessOrDie(EnergyScan(mScanChannel, mScanDuration));
+        otSuccessOrDie(EnergyScan(mScanChannel, mScanDuration));
     }
 
     --mRcpFailureCount;
@@ -2360,57 +2360,57 @@ void RadioSpinel<InterfaceType, ProcessContextType>::RestoreProperties(void)
 {
     Settings::NetworkInfo networkInfo;
 
-    SuccessOrDie(Set(SPINEL_PROP_MAC_15_4_PANID, SPINEL_DATATYPE_UINT16_S, mPanId));
-    SuccessOrDie(Set(SPINEL_PROP_MAC_15_4_SADDR, SPINEL_DATATYPE_UINT16_S, mShortAddress));
-    SuccessOrDie(Set(SPINEL_PROP_MAC_15_4_LADDR, SPINEL_DATATYPE_EUI64_S, mExtendedAddress.m8));
-    SuccessOrDie(Set(SPINEL_PROP_PHY_CHAN, SPINEL_DATATYPE_UINT8_S, mChannel));
+    otSuccessOrDie(Set(SPINEL_PROP_MAC_15_4_PANID, SPINEL_DATATYPE_UINT16_S, mPanId));
+    otSuccessOrDie(Set(SPINEL_PROP_MAC_15_4_SADDR, SPINEL_DATATYPE_UINT16_S, mShortAddress));
+    otSuccessOrDie(Set(SPINEL_PROP_MAC_15_4_LADDR, SPINEL_DATATYPE_EUI64_S, mExtendedAddress.m8));
+    otSuccessOrDie(Set(SPINEL_PROP_PHY_CHAN, SPINEL_DATATYPE_UINT8_S, mChannel));
 
     if (mMacKeySet)
     {
-        SuccessOrDie(Set(SPINEL_PROP_RCP_MAC_KEY,
-                         SPINEL_DATATYPE_UINT8_S SPINEL_DATATYPE_UINT8_S SPINEL_DATATYPE_DATA_WLEN_S
-                             SPINEL_DATATYPE_DATA_WLEN_S SPINEL_DATATYPE_DATA_WLEN_S,
-                         mKeyIdMode, mKeyId, mPrevKey.m8, sizeof(otMacKey), mCurrKey.m8, sizeof(otMacKey), mNextKey.m8,
-                         sizeof(otMacKey)));
+        otSuccessOrDie(Set(SPINEL_PROP_RCP_MAC_KEY,
+                           SPINEL_DATATYPE_UINT8_S SPINEL_DATATYPE_UINT8_S SPINEL_DATATYPE_DATA_WLEN_S
+                               SPINEL_DATATYPE_DATA_WLEN_S SPINEL_DATATYPE_DATA_WLEN_S,
+                           mKeyIdMode, mKeyId, mPrevKey.m8, sizeof(otMacKey), mCurrKey.m8, sizeof(otMacKey),
+                           mNextKey.m8, sizeof(otMacKey)));
     }
 
     if (mInstance != nullptr)
     {
-        SuccessOrDie(static_cast<Instance *>(mInstance)->template Get<Settings>().Read(networkInfo));
-        SuccessOrDie(
+        otSuccessOrDie(static_cast<Instance *>(mInstance)->template Get<Settings>().Read(networkInfo));
+        otSuccessOrDie(
             Set(SPINEL_PROP_RCP_MAC_FRAME_COUNTER, SPINEL_DATATYPE_UINT32_S, networkInfo.GetMacFrameCounter()));
     }
 
     for (int i = 0; i < mSrcMatchShortEntryCount; ++i)
     {
-        SuccessOrDie(
+        otSuccessOrDie(
             Insert(SPINEL_PROP_MAC_SRC_MATCH_SHORT_ADDRESSES, SPINEL_DATATYPE_UINT16_S, mSrcMatchShortEntries[i]));
     }
 
     for (int i = 0; i < mSrcMatchExtEntryCount; ++i)
     {
-        SuccessOrDie(
+        otSuccessOrDie(
             Insert(SPINEL_PROP_MAC_SRC_MATCH_EXTENDED_ADDRESSES, SPINEL_DATATYPE_EUI64_S, mSrcMatchExtEntries[i].m8));
     }
 
     if (mCcaEnergyDetectThresholdSet)
     {
-        SuccessOrDie(Set(SPINEL_PROP_PHY_CCA_THRESHOLD, SPINEL_DATATYPE_INT8_S, mCcaEnergyDetectThreshold));
+        otSuccessOrDie(Set(SPINEL_PROP_PHY_CCA_THRESHOLD, SPINEL_DATATYPE_INT8_S, mCcaEnergyDetectThreshold));
     }
 
     if (mTransmitPowerSet)
     {
-        SuccessOrDie(Set(SPINEL_PROP_PHY_TX_POWER, SPINEL_DATATYPE_INT8_S, mTransmitPower));
+        otSuccessOrDie(Set(SPINEL_PROP_PHY_TX_POWER, SPINEL_DATATYPE_INT8_S, mTransmitPower));
     }
 
     if (mCoexEnabledSet)
     {
-        SuccessOrDie(Set(SPINEL_PROP_RADIO_COEX_ENABLE, SPINEL_DATATYPE_BOOL_S, mCoexEnabled));
+        otSuccessOrDie(Set(SPINEL_PROP_RADIO_COEX_ENABLE, SPINEL_DATATYPE_BOOL_S, mCoexEnabled));
     }
 
     if (mFemLnaGainSet)
     {
-        SuccessOrDie(Set(SPINEL_PROP_PHY_FEM_LNA_GAIN, SPINEL_DATATYPE_INT8_S, mFemLnaGain));
+        otSuccessOrDie(Set(SPINEL_PROP_PHY_FEM_LNA_GAIN, SPINEL_DATATYPE_INT8_S, mFemLnaGain));
     }
 
 #if OPENTHREAD_POSIX_CONFIG_MAX_POWER_TABLE_ENABLE
@@ -2425,7 +2425,7 @@ void RadioSpinel<InterfaceType, ProcessContextType>::RestoreProperties(void)
 
             if (error != OT_ERROR_NONE && error != OT_ERROR_NOT_FOUND)
             {
-                DieNow(OT_EXIT_FAILURE);
+                otDieNow(OT_EXIT_FAILURE);
             }
         }
     }
@@ -2484,7 +2484,7 @@ exit:
 template <typename InterfaceType, typename ProcessContextType>
 otError RadioSpinel<InterfaceType, ProcessContextType>::ConfigureEnhAckProbing(otLinkMetrics        aLinkMetrics,
                                                                                const otShortAddress aShortAddress,
-                                                                               const otExtAddress  &aExtAddress)
+                                                                               const otExtAddress & aExtAddress)
 {
     otError error = OT_ERROR_NONE;
     uint8_t flags = 0;
@@ -2600,11 +2600,11 @@ void RadioSpinel<InterfaceType, ProcessContextType>::LogSpinelFrame(const uint8_
     uint8_t           header;
     uint32_t          cmd;
     spinel_prop_key_t key;
-    uint8_t          *data;
+    uint8_t *         data;
     spinel_size_t     len;
-    const char       *prefix = nullptr;
-    char             *start  = buf;
-    char             *end    = buf + sizeof(buf);
+    const char *      prefix = nullptr;
+    char *            start  = buf;
+    char *            end    = buf + sizeof(buf);
 
     VerifyOrExit(otLoggingGetLevel() >= OT_LOG_LEVEL_DEBG);
 
@@ -2790,7 +2790,7 @@ void RadioSpinel<InterfaceType, ProcessContextType>::LogSpinelFrame(const uint8_
     case SPINEL_PROP_RCP_API_VERSION:
     case SPINEL_PROP_RCP_MIN_HOST_API_VERSION:
     {
-        const char  *name;
+        const char * name;
         unsigned int value;
 
         unpacked = spinel_datatype_unpack(data, len, SPINEL_DATATYPE_UINT_PACKED_S, &value);
@@ -3175,7 +3175,7 @@ void RadioSpinel<InterfaceType, ProcessContextType>::LogSpinelFrame(const uint8_
         {
             uint8_t      channel;
             int16_t      actualPower;
-            uint8_t     *rawPowerSetting;
+            uint8_t *    rawPowerSetting;
             unsigned int rawPowerSettingLength;
 
             unpacked = spinel_datatype_unpack(

@@ -441,36 +441,6 @@ AC_MSG_RESULT(${enable_builtin_mbedtls})
 AM_CONDITIONAL([OPENTHREAD_ENABLE_BUILTIN_MBEDTLS], [test "${enable_builtin_mbedtls}" = "yes"])
 
 #
-# POSIX Daemon
-#
-
-AC_MSG_CHECKING([whether to build POSIX applicaton in daemon mode])
-AC_ARG_ENABLE(posix-daemon,
-    [AS_HELP_STRING([--enable-posix-daemon], [Build POSIX application in daemon mode@<:@default=no@:>@.])],
-    [
-        case "${enableval}" in
-
-        no|yes)
-            enable_posix_daemon=${enableval}
-            ;;
-
-        *)
-            AC_MSG_ERROR([Invalid value ${enable_posix} for --enable-posix-daemon])
-            ;;
-        esac
-    ],
-    [enable_posix_daemon=no])
-
-if test "$enable_posix_daemon" = "yes"; then
-    CPPFLAGS="${CPPFLAGS} -DOPENTHREAD_POSIX_CONFIG_DAEMON_ENABLE=1"
-else
-    CPPFLAGS="${CPPFLAGS} -DOPENTHREAD_POSIX_CONFIG_DAEMON_ENABLE=0"
-fi
-
-AC_MSG_RESULT(${enable_posix_daemon})
-AM_CONDITIONAL([OPENTHREAD_POSIX_CONFIG_DAEMON_ENABLE], [test "${enable_posix_daemon}" = "yes"])
-
-#
 # FTD Library
 #
 
@@ -637,36 +607,6 @@ AC_ARG_ENABLE(ncp,
 
 AC_MSG_RESULT(${enable_ncp})
 AM_CONDITIONAL([OPENTHREAD_ENABLE_NCP], [test "${enable_ncp}" = "yes"])
-
-#
-# Readline - readline library to use for POSIX CLI
-#
-
-AC_ARG_WITH(
-    [readline],
-    [AS_HELP_STRING([--with-readline],[Specify the readline library (no|readline|edit) @<:@default=no@:>@.])],
-    [],
-    [with_readline=no])
-
-case "${with_readline}" in
-"no")
-    ;;
-"readline")
-    # Prefer GNU readline installed by Homebrew.
-    if test "${OPENTHREAD_TARGET}" = darwin && brew --prefix readline > /dev/null; then
-        LDFLAGS="-L$(brew --prefix readline)/lib ${LDFLAGS}"
-        CPPFLAGS="-I$(brew --prefix readline)/include ${CPPFLAGS}"
-        PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig:$PKG_CONFIG_PATH"
-    fi
-    AC_CHECK_LIB([readline], [rl_callback_handler_install])
-    ;;
-"edit")
-    AC_CHECK_LIB([edit], [rl_callback_handler_install])
-    ;;
-*)
-    AC_MSG_ERROR([unexpected --with-readline=${with_readline}])
-    ;;
-esac
 
 #
 # Vendor Extension - Specify a C++ source file which will be built as part of OpenThread core library.
@@ -844,11 +784,11 @@ AC_MSG_CHECKING([whether to build platform libraries])
 
 AC_ARG_WITH(platform,
     [AS_HELP_STRING([--with-platform=TARGET],
-        [Build OpenThread platform libraries for one of: posix, simulation @<:@default=simulation@:>@.])],
+        [Build OpenThread platform libraries for one of: simulation @<:@default=simulation@:>@.])],
     [
         # Make sure the given target is valid.
         case "${with_platform}" in
-        no|posix|simulation)
+        no|simulation)
             ;;
         *)
             AC_MSG_RESULT(ERROR)
@@ -879,10 +819,7 @@ AM_CONDITIONAL([OPENTHREAD_ENABLE_PLATFORM], [test ${with_platform} != "no"])
 
 OPENTHREAD_ENABLE_PLATFORM=${with_platform}
 
-AM_CONDITIONAL([OPENTHREAD_PLATFORM_POSIX],     [test "${with_platform}" = "posix"])
 AM_CONDITIONAL([OPENTHREAD_PLATFORM_SIMULATION],[test "${with_platform}" = "simulation"])
-
-AM_COND_IF([OPENTHREAD_PLATFORM_POSIX], CPPFLAGS="${CPPFLAGS} -DOPENTHREAD_PLATFORM_POSIX=1", CPPFLAGS="${CPPFLAGS} -DOPENTHREAD_PLATFORM_POSIX=0")
 
 case ${with_platform} in
     no)
@@ -929,9 +866,9 @@ NL_ENABLE_DOCS([auto],[NO])
 
 AM_CONDITIONAL(OPENTHREAD_BUILD_DOCS, [test "${nl_cv_build_docs}" = "yes"])
 
-AM_CONDITIONAL(OPENTHREAD_POSIX, [test "${with_platform}" = "posix" -o "${with_examples}" = "simulation"])
+AM_CONDITIONAL(OPENTHREAD_POSIX, [test "${with_examples}" = "simulation"])
 
-AM_CONDITIONAL([OPENTHREAD_ENABLE_SPINEL_RCP], [test OPENTHREAD_PLATFORM_POSIX || test OPENTHREAD_ENABLE_RADIO_ONLY])
+AM_CONDITIONAL([OPENTHREAD_ENABLE_SPINEL_RCP], [test OPENTHREAD_ENABLE_RADIO_ONLY])
 
 #
 # Checks for libraries and packages.
@@ -1005,8 +942,6 @@ src/Makefile
 src/cli/Makefile
 src/ncp/Makefile
 src/core/Makefile
-src/posix/Makefile
-src/posix/platform/Makefile
 src/lib/Makefile
 src/lib/hdlc/Makefile
 src/lib/platform/Makefile

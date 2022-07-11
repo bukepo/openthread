@@ -34,8 +34,4 @@ SUBDIRS                                 = \
     spinel                                \
     $(NULL)
 
-if OPENTHREAD_PLATFORM_POSIX
-SUBDIRS                                += url
-endif
-
 include $(abs_top_nlbuild_autotools_dir)/automake/post.am

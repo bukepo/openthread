@@ -57,8 +57,4 @@ SUBDIRS                                += ncp
 endif
 endif
 
-if OPENTHREAD_PLATFORM_POSIX
-SUBDIRS                                += posix
-endif
-
 include $(abs_top_nlbuild_autotools_dir)/automake/post.am
