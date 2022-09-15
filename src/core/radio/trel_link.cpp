@@ -51,7 +51,7 @@ Link::Link(Instance &aInstance)
     , mRxChannel(0)
     , mPanId(Mac::kPanIdBroadcast)
     , mTxPacketNumber(0)
-    , mTxTasklet(aInstance, HandleTxTasklet)
+    , mTxTasklet(aInstance)
     , mTimer(aInstance, HandleTimer)
     , mInterface(aInstance)
 {
@@ -114,11 +114,6 @@ void Link::Send(void)
 
     SetState(kStateTransmit);
     mTxTasklet.Post();
-}
-
-void Link::HandleTxTasklet(Tasklet &aTasklet)
-{
-    aTasklet.Get<Link>().HandleTxTasklet();
 }
 
 void Link::HandleTxTasklet(void)
@@ -245,7 +240,7 @@ void Link::BeginTransmit(void)
         mRxFrame.mRadioType = Mac::kRadioTypeTrel;
 #endif
         mRxFrame.mInfo.mRxInfo.mTimestamp             = 0;
-        mRxFrame.mInfo.mRxInfo.mRssi                  = OT_RADIO_RSSI_INVALID;
+        mRxFrame.mInfo.mRxInfo.mRssi                  = Radio::kInvalidRssi;
         mRxFrame.mInfo.mRxInfo.mLqi                   = OT_RADIO_LQI_NONE;
         mRxFrame.mInfo.mRxInfo.mAckedWithFramePending = false;
 

@@ -70,6 +70,7 @@ Done
 - [mlr](#mlr-reg-ipaddr--timeout)
 - [mode](#mode)
 - [multiradio](#multiradio)
+- [nat64](#nat64-cidr)
 - [neighbor](#neighbor-list)
 - [netdata](README_NETDATA.md)
 - [netstat](#netstat)
@@ -82,7 +83,7 @@ Done
 - [parent](#parent)
 - [parentpriority](#parentpriority)
 - [partitionid](#partitionid)
-- [ping](#ping--i-source-ipaddr-size-count-interval-hoplimit-timeout)
+- [ping](#ping-async--i-source-ipaddr-size-count-interval-hoplimit-timeout)
 - [pollperiod](#pollperiod-pollperiod)
 - [preferrouterid](#preferrouterid-routerid)
 - [prefix](#prefix)
@@ -386,7 +387,7 @@ Done
 
 Get the local NAT64 prefix of the Border Router.
 
-`OPENTHREAD_CONFIG_BORDER_ROUTING_NAT64_ENABLE` is required.
+`OPENTHREAD_CONFIG_NAT64_BORDER_ROUTING_ENABLE` is required.
 
 ```bash
 > br nat64prefix
@@ -1835,6 +1836,61 @@ This command is only available when device supports more than one radio link.
 Done
 ```
 
+### nat64 cidr
+
+Gets the IPv4 configured CIDR in the NAT64 translator.
+
+This command is only available when device enables NAT64 translator.
+
+```bash
+> nat64 cidr
+192.168.64.0/24
+Done
+```
+
+### nat64 mappings
+
+Get the NAT64 translator mappings.
+
+This command is only available when device enables NAT64 translator.
+
+```bash
+> nat64 mappings
+|          | Address                   |        | 4 to 6       | 6 to 4       |
++----------+---------------------------+--------+--------------+--------------+
+| ID       | IPv6       | IPv4         | Expiry | Pkts | Bytes | Pkts | Bytes |
++----------+------------+--------------+--------+------+-------+------+-------+
+| 00021cb9 | fdc7::df79 | 192.168.64.2 |  7196s |    6 |   456 |   11 |  1928 |
+|          |                                TCP |    0 |     0 |    0 |     0 |
+|          |                                UDP |    1 |   136 |   16 |  1608 |
+|          |                               ICMP |    5 |   320 |    5 |   320 |
+```
+
+### nat64 counters
+
+Get the NAT64 translator packet and error counters.
+
+This command is only available when device enables NAT64 translator.
+
+```bash
+> nat64 counters
+|               | 4 to 6                  | 6 to 4                  |
++---------------+-------------------------+-------------------------+
+| Protocol      | Pkts     | Bytes        | Pkts     | Bytes        |
++---------------+----------+--------------+----------+--------------+
+|         Total |       11 |          704 |       11 |          704 |
+|           TCP |        0 |            0 |        0 |            0 |
+|           UDP |        0 |            0 |        0 |            0 |
+|          ICMP |       11 |          704 |       11 |          704 |
+| Errors        | Pkts                    | Pkts                    |
++---------------+-------------------------+-------------------------+
+|         Total |                       8 |                       4 |
+|   Illegal Pkt |                       0 |                       0 |
+|   Unsup Proto |                       0 |                       0 |
+|    No Mapping |                       2 |                       0 |
+Done
+```
+
 ### neighbor list
 
 List RLOC16 of neighbors.
@@ -2067,10 +2123,11 @@ Set the preferred Thread Leader Partition ID.
 Done
 ```
 
-### ping \[-I source\] \<ipaddr\> \[size\] \[count\] \[interval\] \[hoplimit\] \[timeout\]
+### ping \[async\] \[-I source\] \<ipaddr\> \[size\] \[count\] \[interval\] \[hoplimit\] \[timeout\]
 
 Send an ICMPv6 Echo Request.
 
+- async: Use the non-blocking mode. New commands are allowed before the ping process terminates.
 - source: The source IPv6 address of the echo request.
 - size: The number of data bytes to be sent.
 - count: The number of ICMPv6 Echo Requests to be sent.

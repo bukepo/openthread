@@ -39,6 +39,7 @@
 #include <stddef.h>
 
 #include <openthread/ip6.h>
+#include <openthread/nat64.h>
 #include <openthread/udp.h>
 
 #include "common/encoding.hpp"
@@ -111,6 +112,20 @@ class Ip6 : public InstanceLocator, private NonCopyable
     friend class Mpl;
 
 public:
+    /**
+     * This enumeration represents an IPv6 message origin.
+     *
+     * In case the message is originating from host, it also indicates whether or not it is allowed to passed back the
+     * message to the host.
+     *
+     */
+    enum MessageOrigin : uint8_t
+    {
+        kFromThreadNetif,          ///< Message originates from Thread Netif.
+        kFromHostDisallowLoopBack, ///< Message originates from host and should not be passed back to host.
+        kFromHostAllowLoopBack,    ///< Message originates from host and can be passed back to host.
+    };
+
     /**
      * This constructor initializes the object.
      *
@@ -186,8 +201,8 @@ public:
      * The caller transfers ownership of @p aMessage when making this call. OpenThread will free @p aMessage when
      * processing is complete, including when a value other than `kErrorNone` is returned.
      *
-     * @param[in]  aMessage          A reference to the message.
-     * @param[in]  aFromHost         TRUE if the message is originated from the host, FALSE otherwise.
+     * @param[in]  aMessage               A reference to the message.
+     * @param[in]  aAllowLoopBackToHost   Indicate whether or not the message is allowed to be passed back to host.
      *
      * @retval kErrorNone     Successfully processed the message.
      * @retval kErrorDrop     Message was well-formed but not fully processed due to packet processing rules.
@@ -196,15 +211,14 @@ public:
      * @retval kErrorParse    Encountered a malformed header when processing the message.
      *
      */
-    Error SendRaw(Message &aMessage, bool aFromHost);
+    Error SendRaw(Message &aMessage, bool aAllowLoopBackToHost);
 
     /**
      * This method processes a received IPv6 datagram.
      *
      * @param[in]  aMessage          A reference to the message.
-     * @param[in]  aNetif            A pointer to the network interface that received the message.
+     * @param[in]  aOrigin           The message oirgin.
      * @param[in]  aLinkMessageInfo  A pointer to link-specific message information.
-     * @param[in]  aFromHost         TRUE if the message is originated from the host, FALSE otherwise.
      *
      * @retval kErrorNone     Successfully processed the message.
      * @retval kErrorDrop     Message was well-formed but not fully processed due to packet processing rules.
@@ -213,7 +227,7 @@ public:
      * @retval kErrorParse    Encountered a malformed header when processing the message.
      *
      */
-    Error HandleDatagram(Message &aMessage, Netif *aNetif, const void *aLinkMessageInfo, bool aFromHost);
+    Error HandleDatagram(Message &aMessage, MessageOrigin aOrigin, const void *aLinkMessageInfo = nullptr);
 
     /**
      * This method registers a callback to provide received raw IPv6 datagrams.
@@ -230,6 +244,20 @@ public:
      *
      */
     void SetReceiveDatagramCallback(otIp6ReceiveCallback aCallback, void *aCallbackContext);
+
+#if OPENTHREAD_CONFIG_NAT64_TRANSLATOR_ENABLE
+    /**
+     * This method registers a callback to provide received translated IPv4 datagrams.
+     *
+     * @param[in]  aCallback         A pointer to a function that is called when a translated IPv4 datagram is received
+     *                               or `nullptr` to disable the callback.
+     * @param[in]  aCallbackContext  A pointer to application-specific context.
+     *
+     * @sa SetReceiveDatagramCallback
+     *
+     */
+    void SetNat64ReceiveIp4DatagramCallback(otNat64ReceiveIp4Callback aCallback, void *aCallbackContext);
+#endif
 
     /**
      * This method indicates whether or not Thread control traffic is filtered out when delivering IPv6 datagrams
@@ -315,29 +343,26 @@ private:
 
     static constexpr uint16_t kMinimalMtu = 1280;
 
-    static void HandleSendQueue(Tasklet &aTasklet);
-    void        HandleSendQueue(void);
+    void HandleSendQueue(void);
 
     static uint8_t PriorityToDscp(Message::Priority aPriority);
     static Error   GetDatagramPriority(const uint8_t *aData, uint16_t aDataLen, Message::Priority &aPriority);
 
     void  EnqueueDatagram(Message &aMessage);
     Error ProcessReceiveCallback(Message &          aMessage,
+                                 MessageOrigin      aOrigin,
                                  const MessageInfo &aMessageInfo,
                                  uint8_t            aIpProto,
-                                 bool               aFromHost,
                                  bool               aAllowReceiveFilter,
                                  Message::Ownership aMessageOwnership);
-    Error HandleExtensionHeaders(Message &    aMessage,
-                                 Netif *      aNetif,
-                                 MessageInfo &aMessageInfo,
-                                 Header &     aHeader,
-                                 uint8_t &    aNextHeader,
-                                 bool         aIsOutbound,
-                                 bool         aFromHost,
-                                 bool &       aReceive);
+    Error HandleExtensionHeaders(Message &     aMessage,
+                                 MessageOrigin aOrigin,
+                                 MessageInfo & aMessageInfo,
+                                 Header &      aHeader,
+                                 uint8_t &     aNextHeader,
+                                 bool &        aReceive);
     Error FragmentDatagram(Message &aMessage, uint8_t aIpProto);
-    Error HandleFragment(Message &aMessage, Netif *aNetif, MessageInfo &aMessageInfo, bool aFromHost);
+    Error HandleFragment(Message &aMessage, MessageOrigin aOrigin, MessageInfo &aMessageInfo);
 #if OPENTHREAD_CONFIG_IP6_FRAGMENTATION_ENABLE
     void CleanupFragmentationBuffer(void);
     void HandleTimeTick(void);
@@ -354,16 +379,23 @@ private:
                         MessageInfo &      aMessageInfo,
                         uint8_t            aIpProto,
                         Message::Ownership aMessageOwnership);
-    bool  ShouldForwardToThread(const MessageInfo &aMessageInfo, bool aFromHost) const;
+    bool  ShouldForwardToThread(const MessageInfo &aMessageInfo, MessageOrigin aOrigin) const;
     bool  IsOnLink(const Address &aAddress) const;
+
+    using SendQueueTask = TaskletIn<Ip6, &Ip6::HandleSendQueue>;
 
     bool                 mForwardingEnabled;
     bool                 mIsReceiveIp6FilterEnabled;
     otIp6ReceiveCallback mReceiveIp6DatagramCallback;
     void *               mReceiveIp6DatagramCallbackContext;
 
+#if OPENTHREAD_CONFIG_NAT64_TRANSLATOR_ENABLE
+    otNat64ReceiveIp4Callback mReceiveIp4DatagramCallback;
+    void *                    mReceiveIp4DatagramCallbackContext;
+#endif
+
     PriorityQueue mSendQueue;
-    Tasklet       mSendQueueTask;
+    SendQueueTask mSendQueueTask;
 
     Icmp mIcmp;
     Udp  mUdp;

@@ -47,6 +47,7 @@
 #error "OPENTHREAD_CONFIG_IP6_SLAAC_ENABLE is required for OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE."
 #endif
 
+#include <openthread/nat64.h>
 #include <openthread/netdata.h>
 
 #include "border_router/infra_if.hpp"
@@ -59,6 +60,7 @@
 #include "common/string.hpp"
 #include "common/timer.hpp"
 #include "net/ip6.hpp"
+#include "net/nat64_translator.hpp"
 #include "net/nd6.hpp"
 #include "thread/network_data.hpp"
 
@@ -118,6 +120,21 @@ public:
     Error SetEnabled(bool aEnabled);
 
     /**
+     * This method requests the Border Routing Manager to stop.
+     *
+     * If Border Routing Manager is running, calling this method immediately stops it and triggers the preparation
+     * and sending of a final Router Advertisement (RA) message on infrastructure interface which deprecates and/or
+     * removes any previously advertised PIO/RIO prefixes. If Routing Manager is not running (or not enabled), no
+     * action is taken.
+     *
+     * Note that this method does not change whether the Routing Manager is enabled or disabled (see `SetEnabled()`).
+     * It stops the Routing Manager temporarily. After calling this method if the device role gets changes (device
+     * gets attached) and/or the infra interface state gets changed, the Routing Manager may be started again.
+     *
+     */
+    void RequestStop(void) { Stop(); }
+
+    /**
      * This method gets the preference used when advertising Route Info Options (e.g., for discovered OMR prefixes) in
      * Router Advertisement messages sent over the infrastructure link.
      *
@@ -172,7 +189,7 @@ public:
     Error GetFavoredOmrPrefix(Ip6::Prefix &aPrefix, RoutePreference &aPreference);
 
     /**
-     * This method returns the on-link prefix for the adjacent  infrastructure link.
+     * This method returns the on-link prefix for the adjacent infrastructure link.
      *
      * The randomly generated 64-bit prefix will be advertised
      * on the infrastructure link if there isn't already a usable
@@ -186,12 +203,9 @@ public:
      */
     Error GetOnLinkPrefix(Ip6::Prefix &aPrefix);
 
-#if OPENTHREAD_CONFIG_BORDER_ROUTING_NAT64_ENABLE
+#if OPENTHREAD_CONFIG_NAT64_BORDER_ROUTING_ENABLE
     /**
      * This method returns the local NAT64 prefix.
-     *
-     * The local NAT64 prefix will be published in the Thread network
-     * if none exists.
      *
      * @param[out]  aPrefix  A reference to where the prefix will be output to.
      *
@@ -200,7 +214,29 @@ public:
      *
      */
     Error GetNat64Prefix(Ip6::Prefix &aPrefix);
-#endif // OPENTHREAD_CONFIG_BORDER_ROUTING_NAT64_ENABLE
+
+    /**
+     * This method returns the currently favored NAT64 prefix.
+     *
+     * The favored NAT64 prefix can be discovered from infrastructure link or can be the local NAT64 prefix.
+     *
+     * @param[out] aPrefix         A reference to output the favored prefix.
+     * @param[out] aPreference     A reference to output the preference associated with the favored prefix.
+     *
+     * @retval  kErrorInvalidState  The Border Routing Manager is not initialized yet.
+     * @retval  kErrorNone          Successfully retrieved the NAT64 prefix.
+     *
+     */
+    Error GetFavoredNat64Prefix(Ip6::Prefix &aPrefix, RoutePreference &aRoutePreference);
+
+    /**
+     * This method updates mInfraIfNat64Prefix to @p aPrefix.
+     *
+     * @param[in]  aPrefix  A NAT64 prefix on infrastructure link.
+     *
+     */
+    void UpdateInfraIfNat64Prefix(const Ip6::Prefix &aPrefix);
+#endif // OPENTHREAD_CONFIG_NAT64_BORDER_ROUTING_ENABLE
 
     /**
      * This method processes a received ICMPv6 message from the infrastructure interface.
@@ -286,21 +322,16 @@ private:
     // The maximum number of initial Router Advertisements.
     static constexpr uint32_t kMaxInitRtrAdvertisements = 3;
 
-    // The maximum number of Router Solicitations before sending Router Advertisements.
-    static constexpr uint32_t kMaxRtrSolicitations = 3;
-
     static constexpr uint32_t kDefaultOmrPrefixLifetime    = 1800; // The default OMR prefix valid lifetime. In sec.
     static constexpr uint32_t kDefaultOnLinkPrefixLifetime = 1800; // The default on-link prefix valid lifetime. In sec.
+    static constexpr uint32_t kDefaultNat64PrefixLifetime  = 300;  // The default NAT64 prefix valid lifetime. In sec.
     static constexpr uint32_t kMaxRtrAdvInterval           = 600;  // Max Router Advertisement Interval. In sec.
     static constexpr uint32_t kMinRtrAdvInterval           = kMaxRtrAdvInterval / 3; // Min RA Interval. In sec.
     static constexpr uint32_t kMaxInitRtrAdvInterval       = 16;                     // Max Initial RA Interval. In sec.
-    static constexpr uint32_t kRaReplyJitter               = 500;    // Jitter for sending RA after rx RS. In msec.
-    static constexpr uint32_t kRtrSolicitationInterval     = 4;      // Interval between RSs. In sec.
-    static constexpr uint32_t kMaxRtrSolicitationDelay     = 1;      // Max delay for initial solicitation. In sec.
-    static constexpr uint32_t kRoutingPolicyEvaluationJitter = 1000; // Jitter for routing policy evaluation. In msec.
-    static constexpr uint32_t kRtrSolicitationRetryDelay =
-        kRtrSolicitationInterval;                             // The delay before retrying failed RS tx. In Sec.
-    static constexpr uint32_t kMinDelayBetweenRtrAdvs = 3000; // Min delay (msec) between consecutive RAs.
+    static constexpr uint32_t kRaReplyJitter               = 500;  // Jitter for sending RA after rx RS. In msec.
+    static constexpr uint32_t kPolicyEvaluationMinDelay    = 2000; // Min delay for policy evaluation. In msec.
+    static constexpr uint32_t kPolicyEvaluationMaxDelay    = 4000; // Max delay for policy evaluation. In msec.
+    static constexpr uint32_t kMinDelayBetweenRtrAdvs      = 3000; // Min delay (msec) between consecutive RAs.
 
     // The STALE_RA_TIME in seconds. The Routing Manager will consider the prefixes
     // and learned RA parameters STALE when they are not refreshed in STALE_RA_TIME
@@ -315,12 +346,24 @@ private:
     static_assert(kDefaultOnLinkPrefixLifetime >= kMaxRtrAdvInterval, "invalid default on-link prefix lifetime");
     static_assert(kRtrAdvStaleTime >= 1800 && kRtrAdvStaleTime <= kDefaultOnLinkPrefixLifetime,
                   "invalid RA STALE time");
+    static_assert(kPolicyEvaluationMaxDelay > kPolicyEvaluationMinDelay,
+                  "kPolicyEvaluationMaxDelay must be larger than kPolicyEvaluationMinDelay");
 
     enum RouterAdvTxMode : uint8_t // Used in `SendRouterAdvertisement()`
     {
         kInvalidateAllPrevPrefixes,
         kAdvPrefixesFromNetData,
     };
+
+    enum ScheduleMode : uint8_t // Used in `ScheduleRoutingPolicyEvaluation()`
+    {
+        kImmediately,
+        kForNextRa,
+        kAfterRandomDelay,
+        kToReplyToRs,
+    };
+
+    void HandleDiscoveredPrefixTableChanged(void); // Declare early so we can use in `mSignalTask`
 
     class DiscoveredPrefixTable : public InstanceLocator
     {
@@ -490,12 +533,13 @@ private:
         void        HandleTimer(void);
         void        RemoveExpiredEntries(void);
         void        SignalTableChanged(void);
-        static void HandleSignalTask(Tasklet &aTasklet);
+
+        using SignalTask = TaskletIn<RoutingManager, &RoutingManager::HandleDiscoveredPrefixTableChanged>;
 
         Array<Router, kMaxRouters> mRouters;
         Pool<Entry, kMaxEntries>   mEntryPool;
         TimerMilli                 mTimer;
-        Tasklet                    mSignalTask;
+        SignalTask                 mSignalTask;
         bool                       mAllowDefaultRouteInNetData;
     };
 
@@ -512,10 +556,12 @@ private:
         const Ip6::Prefix &GetPrefix(void) const { return mPrefix; }
         RoutePreference    GetPreference(void) const { return mPreference; }
         bool               IsFavoredOver(const NetworkData::OnMeshPrefixConfig &aOmrPrefixConfig) const;
+        bool               IsDomainPrefix(void) const { return mIsDomainPrefix; }
 
     private:
         Ip6::Prefix     mPrefix;
         RoutePreference mPreference;
+        bool            mIsDomainPrefix;
     };
 
     class LocalOmrPrefix : public InstanceLocator
@@ -544,7 +590,7 @@ private:
         void               Stop(void);
         Error              Advertise(void);
         void               Deprecate(void);
-        void               AppendAsPioTo(Ip6::Nd::RouterAdvertMessage &aRaMessage);
+        void               AppendAsPiosTo(Ip6::Nd::RouterAdvertMessage &aRaMessage);
         const Ip6::Prefix &GetPrefix(void) const { return mPrefix; }
         bool               IsAdvertising(void) const { return (mState == kAdvertising); }
         void               HandleExtPanIdChange(void);
@@ -557,11 +603,18 @@ private:
             kDeprecating,
         };
 
+        void AppendCurPrefix(Ip6::Nd::RouterAdvertMessage &aRaMessage);
+        void AppendOldPrefix(Ip6::Nd::RouterAdvertMessage &aRaMessage);
+        void Unpublish(const Ip6::Prefix &aPrefix);
+
         static void HandleTimer(Timer &aTimer);
         void        HandleTimer(void);
 
         Ip6::Prefix mPrefix;
         State       mState;
+        TimeMilli   mExpireTime;
+        Ip6::Prefix mOldPrefix;
+        TimeMilli   mOldExpireTime;
         TimerMilli  mTimer;
     };
 
@@ -574,6 +627,63 @@ private:
         void MarkAsDeleted(const OnMeshPrefix &aPrefix);
     };
 
+    struct RaInfo
+    {
+        // Tracks info about emitted RA messages: Number of RAs sent,
+        // last tx time, header to use and whether the header is
+        // discovered from receiving RAs from the host itself. This
+        // ensures that if an entity on host is advertising certain
+        // info in its RA header (e.g., a default route), the RAs we
+        // emit from `RoutingManager` also include the same header.
+
+        RaInfo(void)
+            : mHeaderUpdateTime(TimerMilli::GetNow())
+            , mIsHeaderFromHost(false)
+            , mTxCount(0)
+            , mLastTxTime(TimerMilli::GetNow() - kMinDelayBetweenRtrAdvs)
+        {
+        }
+
+        Ip6::Nd::RouterAdvertMessage::Header mHeader;
+        TimeMilli                            mHeaderUpdateTime;
+        bool                                 mIsHeaderFromHost;
+        uint32_t                             mTxCount;
+        TimeMilli                            mLastTxTime;
+    };
+
+    class RsSender : public InstanceLocator
+    {
+    public:
+        // This class implements tx of Router Solicitation (RS)
+        // messages to discover other routers. `Start()` schedules
+        // a cycle of RS transmissions of `kMaxTxCount` separated
+        // by `kTxInterval`. At the end of cycle the callback
+        // `HandleRsSenderFinished()` is invoked to inform end of
+        // the cycle to `RoutingManager`.
+
+        explicit RsSender(Instance &aInstance);
+
+        bool IsInProgress(void) const { return mTimer.IsRunning(); }
+        void Start(void);
+        void Stop(void);
+
+    private:
+        // All time intervals are in msec.
+        static constexpr uint32_t kMaxStartDelay     = 1000;        // Max random delay to send the first RS.
+        static constexpr uint32_t kTxInterval        = 4000;        // Interval between RS tx.
+        static constexpr uint32_t kRetryDelay        = kTxInterval; // Interval to wait to retry a failed RS tx.
+        static constexpr uint32_t kWaitOnLastAttempt = 1000;        // Wait interval after last RS tx.
+        static constexpr uint8_t  kMaxTxCount        = 3;           // Number of RS tx in one cycle.
+
+        Error       SendRs(void);
+        static void HandleTimer(Timer &aTimer);
+        void        HandleTimer(void);
+
+        uint8_t    mTxCount;
+        TimerMilli mTimer;
+        TimeMilli  mStartTime;
+    };
+
     void  EvaluateState(void);
     void  Start(void);
     void  Stop(void);
@@ -584,29 +694,29 @@ private:
 
     void EvaluateOnLinkPrefix(void);
 
-#if OPENTHREAD_CONFIG_BORDER_ROUTING_NAT64_ENABLE
+#if OPENTHREAD_CONFIG_NAT64_BORDER_ROUTING_ENABLE
+    void DiscoverInfraIfNat64Prefix(void);
     void GenerateNat64Prefix(void);
     void EvaluateNat64Prefix(void);
 #endif
 
     void  EvaluateRoutingPolicy(void);
-    void  StartRoutingPolicyEvaluationJitter(uint32_t aJitterMilli);
-    void  StartRoutingPolicyEvaluationDelay(uint32_t aDelayMilli);
+    void  ScheduleRoutingPolicyEvaluation(ScheduleMode aMode);
     void  EvaluateOmrPrefix(void);
     Error PublishExternalRoute(const Ip6::Prefix &aPrefix, RoutePreference aRoutePreference, bool aNat64 = false);
     void  UnpublishExternalRoute(const Ip6::Prefix &aPrefix);
-    void  StartRouterSolicitationDelay(void);
-    Error SendRouterSolicitation(void);
+    void  HandleRsSenderFinished(TimeMilli aStartTime);
     void  SendRouterAdvertisement(RouterAdvTxMode aRaTxMode);
-    bool  IsRouterSolicitationInProgress(void) const;
 
-    static void HandleRouterSolicitTimer(Timer &aTimer);
-    void        HandleRouterSolicitTimer(void);
     static void HandleDiscoveredPrefixInvalidTimer(Timer &aTimer);
     void        HandleDiscoveredPrefixInvalidTimer(void);
     static void HandleDiscoveredPrefixStaleTimer(Timer &aTimer);
     void        HandleDiscoveredPrefixStaleTimer(void);
     static void HandleRoutingPolicyTimer(Timer &aTimer);
+#if OPENTHREAD_CONFIG_NAT64_BORDER_ROUTING_ENABLE
+    static void HandleInfraIfNat64PrefixStaleTimer(Timer &aTimer);
+    void        HandleInfraIfNat64PrefixStaleTimer(void);
+#endif
 
     void DeprecateOnLinkPrefix(void);
     void HandleRouterSolicit(const InfraIf::Icmp6Packet &aPacket, const Ip6::Address &aSrcAddress);
@@ -614,7 +724,6 @@ private:
     bool ShouldProcessPrefixInfoOption(const Ip6::Nd::PrefixInfoOption &aPio, const Ip6::Prefix &aPrefix);
     bool ShouldProcessRouteInfoOption(const Ip6::Nd::RouteInfoOption &aRio, const Ip6::Prefix &aPrefix);
     void UpdateDiscoveredPrefixTableOnNetDataChange(void);
-    void HandleDiscoveredPrefixTableChanged(void);
     bool NetworkDataContainsOmrPrefix(const Ip6::Prefix &aPrefix) const;
     void UpdateRouterAdvertHeader(const Ip6::Nd::RouterAdvertMessage *aRouterAdvertMessage);
     bool IsReceivedRouterAdvertFromManager(const Ip6::Nd::RouterAdvertMessage &aRaMessage) const;
@@ -652,30 +761,26 @@ private:
 
     LocalOnLinkPrefix mLocalOnLinkPrefix;
 
-    // The NAT64 prefix allocated from the /48 BR ULA prefix.
-    Ip6::Prefix mLocalNat64Prefix;
-
-    // True if the local NAT64 prefix is advertised in Thread network.
-    bool mIsAdvertisingLocalNat64Prefix;
-
     DiscoveredPrefixTable mDiscoveredPrefixTable;
 
-    // The RA header and parameters for the infra interface.
-    // This value is initialized with `RouterAdvMessage::SetToDefault`
-    // and updated with RA messages initiated from infra interface.
-    Ip6::Nd::RouterAdvertMessage::Header mRouterAdvertHeader;
-    TimeMilli                            mTimeRouterAdvMessageLastUpdate;
-    bool                                 mLearntRouterAdvMessageFromHost;
+#if OPENTHREAD_CONFIG_NAT64_BORDER_ROUTING_ENABLE
+    // The latest NAT64 prefix discovered on the infrastructure interface.
+    Ip6::Prefix mInfraIfNat64Prefix;
+    // The NAT64 prefix allocated from the /48 BR ULA prefix.
+    Ip6::Prefix mLocalNat64Prefix;
+    // The NAT64 prefix published in Network Data. It can have the following value:
+    // - empty: no NAT64 prefix is published from this BR
+    // - the local NAT64 prefix
+    // - the latest published infrastructure NAT64 prefix, which might differs from mInfraIfNat64Prefix
+    Ip6::Prefix mPublishedNat64Prefix;
+
+    TimerMilli mInfraIfNat64PrefixStaleTimer;
+#endif
+
+    RaInfo   mRaInfo;
+    RsSender mRsSender;
 
     TimerMilli mDiscoveredPrefixStaleTimer;
-
-    uint32_t  mRouterAdvertisementCount;
-    TimeMilli mLastRouterAdvertisementSendTime;
-
-    TimerMilli mRouterSolicitTimer;
-    TimeMilli  mTimeRouterSolicitStart;
-    uint8_t    mRouterSolicitCount;
-
     TimerMilli mRoutingPolicyTimer;
 };
 

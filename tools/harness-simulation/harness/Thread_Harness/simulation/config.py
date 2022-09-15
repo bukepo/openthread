@@ -27,6 +27,13 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 
-REMOTE_OT_PATH = '/home/pi/openthread/'
+import json
+import os
 
-EDITCAP_PATH = r'C:\Program Files (x86)\Wireshark_Thread\editcap.exe'
+CONFIG_PATH = r'%s\GRL\Thread1.2\Thread_Harness\simulation\simulation.conf' % os.environ['systemdrive']
+
+
+def load_config():
+    with open(CONFIG_PATH, 'rt') as f:
+        config = json.load(f)
+    return config

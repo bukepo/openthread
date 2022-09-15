@@ -153,6 +153,7 @@ SOURCES_COMMON                                  = \
     api/logging_api.cpp                           \
     api/message_api.cpp                           \
     api/multi_radio_api.cpp                       \
+    api/nat64_api.cpp                             \
     api/netdata_api.cpp                           \
     api/netdata_publisher_api.cpp                 \
     api/netdiag_api.cpp                           \
@@ -261,6 +262,7 @@ SOURCES_COMMON                                  = \
     net/ip6_filter.cpp                            \
     net/ip6_headers.cpp                           \
     net/ip6_mpl.cpp                               \
+    net/nat64_translator.cpp                      \
     net/nd6.cpp                                   \
     net/nd_agent.cpp                              \
     net/netif.cpp                                 \
@@ -288,6 +290,7 @@ SOURCES_COMMON                                  = \
     thread/indirect_sender.cpp                    \
     thread/key_manager.cpp                        \
     thread/link_metrics.cpp                       \
+    thread/link_metrics_types.cpp                 \
     thread/link_quality.cpp                       \
     thread/lowpan.cpp                             \
     thread/mesh_forwarder.cpp                     \
@@ -457,6 +460,7 @@ HEADERS_COMMON                                  = \
     common/new.hpp                                \
     common/non_copyable.hpp                       \
     common/notifier.hpp                           \
+    common/num_utils.hpp                          \
     common/numeric_limits.hpp                     \
     common/owned_ptr.hpp                          \
     common/owning_list.hpp                        \
@@ -504,6 +508,7 @@ HEADERS_COMMON                                  = \
     config/mac.h                                  \
     config/misc.h                                 \
     config/mle.h                                  \
+    config/nat64.h                                \
     config/netdata_publisher.h                    \
     config/openthread-core-config-check.h         \
     config/parent_search.h                        \
@@ -570,6 +575,7 @@ HEADERS_COMMON                                  = \
     net/ip6_headers.hpp                           \
     net/ip6_mpl.hpp                               \
     net/ip6_types.hpp                             \
+    net/nat64_translator.hpp                      \
     net/nd6.hpp                                   \
     net/nd_agent.hpp                              \
     net/netif.hpp                                 \
@@ -600,6 +606,7 @@ HEADERS_COMMON                                  = \
     thread/key_manager.hpp                        \
     thread/link_metrics.hpp                       \
     thread/link_metrics_tlvs.hpp                  \
+    thread/link_metrics_types.hpp                 \
     thread/link_quality.hpp                       \
     thread/lowpan.hpp                             \
     thread/mesh_forwarder.hpp                     \
@@ -631,6 +638,7 @@ HEADERS_COMMON                                  = \
     thread/tmf.hpp                                \
     thread/topology.hpp                           \
     thread/uri_paths.hpp                          \
+    thread/version.hpp                            \
     utils/channel_manager.hpp                     \
     utils/channel_monitor.hpp                     \
     utils/child_supervision.hpp                   \

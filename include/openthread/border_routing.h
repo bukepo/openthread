@@ -216,7 +216,7 @@ otError otBorderRoutingGetOnLinkPrefix(otInstance *aInstance, otIp6Prefix *aPref
  *
  * NAT64 Prefix might not be advertised in the Thread network.
  *
- * `OPENTHREAD_CONFIG_BORDER_ROUTING_NAT64_ENABLE` must be enabled.
+ * `OPENTHREAD_CONFIG_NAT64_BORDER_ROUTING_ENABLE` must be enabled.
  *
  * @param[in]   aInstance   A pointer to an OpenThread instance.
  * @param[out]  aPrefix     A pointer to where the prefix will be output to.
@@ -226,6 +226,23 @@ otError otBorderRoutingGetOnLinkPrefix(otInstance *aInstance, otIp6Prefix *aPref
  *
  */
 otError otBorderRoutingGetNat64Prefix(otInstance *aInstance, otIp6Prefix *aPrefix);
+
+/**
+ * Gets the currently favored NAT64 prefix.
+ *
+ * The favored NAT64 prefix can be discovered from infrastructure link or can be this device's local NAT64 prefix.
+ *
+ * @param[in]   aInstance    A pointer to an OpenThread instance.
+ * @param[out]  aPrefix      A pointer to output the favored NAT64 prefix.
+ * @param[out]  aPreference  A pointer to output the preference associated the favored prefix.
+ *
+ * @retval  OT_ERROR_INVALID_STATE  The Border Routing Manager is not initialized yet.
+ * @retval  OT_ERROR_NONE           Successfully retrieved the favored NAT64 prefix.
+ *
+ */
+otError otBorderRoutingGetFavoredNat64Prefix(otInstance *       aInstance,
+                                             otIp6Prefix *      aPrefix,
+                                             otRoutePreference *aPreference);
 
 /**
  * This function initializes an `otBorderRoutingPrefixTableIterator`.

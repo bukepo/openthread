@@ -298,17 +298,21 @@ class OpenThread_BR(OpenThreadTHCI, IThci):
     IsBorderRouter = True
     __is_root = False
 
+    def _getHandle(self):
+        if self.connectType == 'ip':
+            return SSHHandle(self.telnetIp, self.telnetPort, self.telnetUsername, self.telnetPassword)
+        else:
+            return SerialHandle(self.port, 115200)
+
     def _connect(self):
         self.log("logging in to Raspberry Pi ...")
         self.__cli_output_lines = []
         self.__syslog_skip_lines = None
         self.__syslog_last_read_ts = 0
 
+        self.__handle = self._getHandle()
         if self.connectType == 'ip':
-            self.__handle = SSHHandle(self.telnetIp, self.telnetPort, self.telnetUsername, self.telnetPassword)
             self.__is_root = self.telnetUsername == 'root'
-        else:
-            self.__handle = SerialHandle(self.port, 115200)
 
     def _disconnect(self):
         if self.__handle:
@@ -331,7 +335,7 @@ class OpenThread_BR(OpenThreadTHCI, IThci):
         self.__truncateSyslog()
         self.__enableAcceptRa()
         if not self.IsHost:
-            self.__restartAgentService()
+            self._restartAgentService()
             time.sleep(2)
 
     def __enableAcceptRa(self):
@@ -587,7 +591,7 @@ class OpenThread_BR(OpenThreadTHCI, IThci):
         cmd = 'sh -c "cat >/etc/radvd.conf <<%s"' % conf
 
         self.bash(cmd)
-        self.bash('service radvd restart')
+        self.bash(self.extraParams.get('cmd-restart-radvd', 'service radvd restart'))
         self.bash('service radvd status')
 
     @watched
@@ -624,7 +628,7 @@ class OpenThread_BR(OpenThreadTHCI, IThci):
         for line in output:
             self.__cli_output_lines.append(line)
 
-    def __restartAgentService(self):
+    def _restartAgentService(self):
         restart_cmd = self.extraParams.get('cmd-restart-otbr-agent', 'systemctl restart otbr-agent')
         self.bash(restart_cmd)
 
@@ -661,21 +665,20 @@ class OpenThread_BR(OpenThreadTHCI, IThci):
 
                 ip6tables_cmd('ip6tables -I INPUT -p udp --dport 5353 -j DROP')
 
-            return self._mdns_query_impl(service, use_dig=(not addrs_allowlist and not addrs_denylist))
+            return self._mdns_query_impl(service, find_active=(addrs_allowlist or addrs_denylist))
 
         finally:
             for cmd in cleanup:
                 self.bash(cmd)
 
-    def _mdns_query_impl(self, service, use_dig):
+    def _mdns_query_impl(self, service, find_active):
         # For BBR-TC-03 or DH test cases (empty arguments) just send a query
-        if use_dig:
-            self.bash('dig -p 5353 @ff02::fb %s ptr' % service, sudo=False)
+        output = self.bash('python3 ~/repo/openthread/tests/scripts/thread-cert/find_border_agents.py')
+
+        if not find_active:
             return
 
         # For MATN-TC-17 and MATN-TC-18 use Zeroconf to get the BBR address and border agent port
-        cmd = 'python3 ~/repo/openthread/tests/scripts/thread-cert/find_border_agents.py'
-        output = self.bash(cmd)
         for line in output:
             print(line)
             alias, addr, port, thread_status = eval(line)

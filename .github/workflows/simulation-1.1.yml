@@ -30,15 +30,11 @@ name: Simulation 1.1
 
 on: [push, pull_request]
 
-jobs:
+concurrency:
+  group: ${{ github.workflow }}-${{ (github.ref == 'refs/heads/main' && github.run_id) || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
-  cancel-previous-runs:
-    runs-on: ubuntu-20.04
-    steps:
-    - uses: rokroskar/workflow-run-cleanup-action@master
-      env:
-        GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-      if: "github.ref != 'refs/heads/main'"
+jobs:
 
   distcheck:
     runs-on: ubuntu-20.04
@@ -233,7 +229,7 @@ jobs:
         path: tmp/coverage.info
 
   expects:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     env:
       CFLAGS: -DCLI_COAP_SECURE_USE_COAP_DEFAULT_HANDLER=1 -DOPENTHREAD_CONFIG_MLE_MAX_CHILDREN=15
       CXXFLAGS: -DCLI_COAP_SECURE_USE_COAP_DEFAULT_HANDLER=1 -DOPENTHREAD_CONFIG_MLE_MAX_CHILDREN=15

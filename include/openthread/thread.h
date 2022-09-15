@@ -305,7 +305,7 @@ otError otThreadSetJoinerAdvertisement(otInstance *   aInstance,
 #define OT_JOINER_ADVDATA_MAX_LENGTH 64 ///< Maximum AdvData Length of Joiner Advertisement
 
 /**
- * Get the Thread Child Timeout used when operating in the Child role.
+ * Gets the Thread Child Timeout (in seconds) used when operating in the Child role.
  *
  * @param[in]  aInstance A pointer to an OpenThread instance.
  *
@@ -317,7 +317,7 @@ otError otThreadSetJoinerAdvertisement(otInstance *   aInstance,
 uint32_t otThreadGetChildTimeout(otInstance *aInstance);
 
 /**
- * Set the Thread Child Timeout used when operating in the Child role.
+ * Sets the Thread Child Timeout (in seconds) used when operating in the Child role.
  *
  * @param[in]  aInstance A pointer to an OpenThread instance.
  * @param[in]  aTimeout  The timeout value in seconds.
@@ -854,6 +854,17 @@ otError otThreadGetParentAverageRssi(otInstance *aInstance, int8_t *aParentRssi)
  *
  */
 otError otThreadGetParentLastRssi(otInstance *aInstance, int8_t *aLastRssi);
+
+/**
+ * Starts the process for child to search for a better parent while staying attached to its current parent.
+ *
+ * Must be used when device is attached as a child.
+ *
+ * @retval OT_ERROR_NONE           Successfully started the process to search for a better parent.
+ * @retval OT_ERROR_INVALID_STATE  Device role is not child.
+ *
+ */
+otError otThreadSearchForBetterParent(otInstance *aInstance);
 
 /**
  * Gets the IPv6 counters.

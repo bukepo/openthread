@@ -51,6 +51,8 @@ import thread_cert
 
 PORT_OFFSET = int(os.getenv('PORT_OFFSET', "0"))
 
+INFRA_DNS64 = int(os.getenv('NAT64', 0))
+
 
 class OtbrDocker:
     RESET_DELAY = 3
@@ -107,13 +109,17 @@ class OtbrDocker:
         logging.info(f'Docker image: {config.OTBR_DOCKER_IMAGE}')
         subprocess.check_call(f"docker rm -f {self._docker_name} || true", shell=True)
         CI_ENV = os.getenv('CI_ENV', '').split()
+        dns = ['--dns=127.0.0.1'] if INFRA_DNS64 == 1 else []
+        nat64_prefix = ['--nat64-prefix', '2001:db8:1:ffff::/96'] if INFRA_DNS64 == 1 else []
         os.makedirs('/tmp/coverage/', exist_ok=True)
-        self._docker_proc = subprocess.Popen(['docker', 'run'] + CI_ENV + [
+
+        cmd = ['docker', 'run'] + CI_ENV + [
             '--rm',
             '--name',
             self._docker_name,
             '--network',
             config.BACKBONE_DOCKER_NETWORK_NAME,
+        ] + dns + [
             '-i',
             '--sysctl',
             'net.ipv6.conf.all.disable_ipv6=0 net.ipv4.conf.all.forwarding=1 net.ipv6.conf.all.forwarding=1',
@@ -128,10 +134,9 @@ class OtbrDocker:
             config.BACKBONE_IFNAME,
             '--trel-url',
             f'trel://{config.BACKBONE_IFNAME}',
-        ],
-                                             stdin=subprocess.DEVNULL,
-                                             stdout=sys.stdout,
-                                             stderr=sys.stderr)
+        ] + nat64_prefix
+        logging.info(' '.join(cmd))
+        self._docker_proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=sys.stdout, stderr=sys.stderr)
 
         launch_docker_deadline = time.time() + 300
         launch_ok = False
@@ -1989,6 +1994,11 @@ class NodeImpl:
         self.send_command(cmd)
         return self._expect_command_output()[0]
 
+    def get_br_favored_nat64_prefix(self):
+        cmd = 'br favorednat64prefix'
+        self.send_command(cmd)
+        return self._expect_command_output()[0].split(' ')[0]
+
     def get_netdata_nat64_prefix(self):
         prefixes = []
         routes = self.get_routes()
@@ -2851,15 +2861,38 @@ class NodeImpl:
 
         return router_table
 
-    def link_metrics_query_single_probe(self, dst_addr: str, linkmetrics_flags: str):
-        cmd = 'linkmetrics query %s single %s' % (dst_addr, linkmetrics_flags)
+    def link_metrics_query_single_probe(self, dst_addr: str, linkmetrics_flags: str, block: str = ""):
+        cmd = 'linkmetrics query %s single %s %s' % (dst_addr, linkmetrics_flags, block)
         self.send_command(cmd)
-        self._expect_done()
+        self.simulator.go(5)
+        return self._parse_linkmetrics_query_result(self._expect_command_output())
 
-    def link_metrics_query_forward_tracking_series(self, dst_addr: str, series_id: int):
-        cmd = 'linkmetrics query %s forward %d' % (dst_addr, series_id)
+    def link_metrics_query_forward_tracking_series(self, dst_addr: str, series_id: int, block: str = ""):
+        cmd = 'linkmetrics query %s forward %d %s' % (dst_addr, series_id, block)
         self.send_command(cmd)
-        self._expect_done()
+        self.simulator.go(5)
+        return self._parse_linkmetrics_query_result(self._expect_command_output())
+
+    def _parse_linkmetrics_query_result(self, lines):
+        """Parse link metrics query result"""
+
+        # Exmaple of command output:
+        # ['Received Link Metrics Report from: fe80:0:0:0:146e:a00:0:1',
+        #  '- PDU Counter: 1 (Count/Summation)',
+        #  '- LQI: 0 (Exponential Moving Average)',
+        #  '- Margin: 80 (dB) (Exponential Moving Average)',
+        #  '- RSSI: -20 (dBm) (Exponential Moving Average)']
+        #
+        # Or 'Link Metrics Report, status: {status}'
+
+        result = {}
+        for line in lines:
+            if line.startswith('- '):
+                k, v = line[2:].split(': ')
+                result[k] = v.split(' ')[0]
+            elif line.startswith('Link Metrics Report, status: '):
+                result['Status'] = line[29:]
+        return result
 
     def link_metrics_mgmt_req_enhanced_ack_based_probing(self,
                                                          dst_addr: str,

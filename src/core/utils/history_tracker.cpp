@@ -40,6 +40,7 @@
 #include "common/debug.hpp"
 #include "common/instance.hpp"
 #include "common/locator_getters.hpp"
+#include "common/num_utils.hpp"
 #include "common/string.hpp"
 #include "common/timer.hpp"
 #include "net/ip6_headers.hpp"
@@ -128,7 +129,7 @@ void HistoryTracker::RecordMessage(const Message &aMessage, const Mac::Address &
     entry->mChecksum             = headers.GetChecksum();
     entry->mIpProto              = headers.GetIpProto();
     entry->mIcmp6Type            = headers.IsIcmp6() ? headers.GetIcmpHeader().GetType() : 0;
-    entry->mAveRxRss             = (aType == kRxMessage) ? aMessage.GetRssAverager().GetAverage() : kInvalidRss;
+    entry->mAveRxRss             = (aType == kRxMessage) ? aMessage.GetRssAverager().GetAverage() : Radio::kInvalidRssi;
     entry->mLinkSecurity         = aMessage.IsLinkSecurityEnabled();
     entry->mTxSuccess            = (aType == kTxMessage) ? aMessage.GetTxSuccess() : true;
     entry->mPriority             = aMessage.GetPriority();
@@ -436,7 +437,7 @@ void HistoryTracker::Timestamp::SetToNow(void)
 
 uint32_t HistoryTracker::Timestamp::GetDurationTill(TimeMilli aTime) const
 {
-    return IsDistantPast() ? kMaxAge : OT_MIN(aTime - mTime, kMaxAge);
+    return IsDistantPast() ? kMaxAge : Min(aTime - mTime, kMaxAge);
 }
 
 //---------------------------------------------------------------------------------------------------------------------

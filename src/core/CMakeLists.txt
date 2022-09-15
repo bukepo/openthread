@@ -63,6 +63,7 @@ set(COMMON_SOURCES
     api/logging_api.cpp
     api/message_api.cpp
     api/multi_radio_api.cpp
+    api/nat64_api.cpp
     api/netdata_api.cpp
     api/netdata_publisher_api.cpp
     api/netdiag_api.cpp
@@ -171,6 +172,7 @@ set(COMMON_SOURCES
     net/ip6_filter.cpp
     net/ip6_headers.cpp
     net/ip6_mpl.cpp
+    net/nat64_translator.cpp
     net/nd6.cpp
     net/nd_agent.cpp
     net/netif.cpp
@@ -198,6 +200,7 @@ set(COMMON_SOURCES
     thread/indirect_sender.cpp
     thread/key_manager.cpp
     thread/link_metrics.cpp
+    thread/link_metrics_types.cpp
     thread/link_quality.cpp
     thread/lowpan.cpp
     thread/mesh_forwarder.cpp
