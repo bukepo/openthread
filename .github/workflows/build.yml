@@ -266,7 +266,6 @@ jobs:
     - name: Build
       run: |
         script/check-simulation-build
-        script/check-posix-build
 
   clang:
     name: clang-${{ matrix.clang_ver }}
@@ -301,7 +300,6 @@ jobs:
       - name: Build
         run: |
           script/check-simulation-build
-          script/check-posix-build
 
   clang-m32:
     name: clang-m32-${{ matrix.clang_ver }}
@@ -340,7 +338,6 @@ jobs:
       - name: Build
         run: |
           script/check-simulation-build
-          script/check-posix-build
 
   gn:
     runs-on: ubuntu-20.04
