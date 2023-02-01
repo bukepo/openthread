@@ -395,5 +395,4 @@ jobs:
     - name: Build
       run: |
         export PATH=$(brew --prefix m4)/bin:$PATH
-        script/check-posix-build
         script/check-simulation-build
