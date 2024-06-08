@@ -26,6 +26,8 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "lib/platform/exit_code.h"
+#include "openthread/error.h"
 #include "platform/openthread-posix-config.h"
 
 #include "cli/cli_config.h"
@@ -409,7 +411,19 @@ int main(int argc, char *argv[])
                                               strncmp("Error ", line, 6) == 0))
                         {
                             isFinished = true;
-                            ret        = OT_EXIT_SUCCESS;
+                            // Done
+                            if (line[0] == 'D')
+                            {
+                                ret = OT_ERROR_NONE;
+                            }
+                            // Error
+                            else
+                            {
+                                if (sscanf(line, "Error %d", &ret) < 1)
+                                {
+                                    ret = OT_ERROR_FAILED;
+                                }
+                            }
                             break;
                         }
 
