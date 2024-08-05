@@ -3589,6 +3589,7 @@ enum
      *        in `otRadioFrame` (default zero).
      *  `C` : RX channel after TX done (default assumed to be same as
      *        channel in metadata)
+     *  `C` : TX power - related to `mTxPower` in `otRadioFrame` (default OT_RADIO_POWER_INVALID).
      *
      */
     SPINEL_PROP_STREAM_RAW = SPINEL_PROP_STREAM__BEGIN + 1,

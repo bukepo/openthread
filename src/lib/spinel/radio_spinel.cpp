@@ -1436,14 +1436,14 @@ exit:
     return tid;
 }
 
-otError RadioSpinel::RequestV(uint32_t command, spinel_prop_key_t aKey, const char *aFormat, va_list aArgs)
+otError RadioSpinel::RequestV(uint32_t aCommand, spinel_prop_key_t aKey, const char *aFormat, va_list aArgs)
 {
     otError      error = OT_ERROR_NONE;
     spinel_tid_t tid   = GetNextTid();
 
     EXPECT(tid > 0, error = OT_ERROR_BUSY);
 
-    error = GetSpinelDriver().SendCommand(command, aKey, tid, aFormat, aArgs);
+    error = GetSpinelDriver().SendCommand(aCommand, aKey, tid, aFormat, aArgs);
     EXPECT_NO_ERROR(error);
 
     if (aKey == SPINEL_PROP_STREAM_RAW)
@@ -1645,26 +1645,30 @@ otError RadioSpinel::Transmit(otRadioFrame &aFrame)
 #endif // OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT && OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
 
     // `otPlatRadioTxStarted()` is triggered immediately for now, which may be earlier than real started time.
-    mCallbacks.mTxStarted(mInstance, mTransmitFrame);
+    if (mCallbacks.mTxStarted != nullptr)
+    {
+        mCallbacks.mTxStarted(mInstance, mTransmitFrame);
+    }
 
     error = Request(SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_STREAM_RAW,
-                    SPINEL_DATATYPE_DATA_WLEN_S                                      // Frame data
-                        SPINEL_DATATYPE_UINT8_S                                      // Channel
-                            SPINEL_DATATYPE_UINT8_S                                  // MaxCsmaBackoffs
-                                SPINEL_DATATYPE_UINT8_S                              // MaxFrameRetries
-                                    SPINEL_DATATYPE_BOOL_S                           // CsmaCaEnabled
-                                        SPINEL_DATATYPE_BOOL_S                       // IsHeaderUpdated
-                                            SPINEL_DATATYPE_BOOL_S                   // IsARetx
-                                                SPINEL_DATATYPE_BOOL_S               // IsSecurityProcessed
-                                                    SPINEL_DATATYPE_UINT32_S         // TxDelay
-                                                        SPINEL_DATATYPE_UINT32_S     // TxDelayBaseTime
-                                                            SPINEL_DATATYPE_UINT8_S, // RxChannelAfterTxDone
+                    SPINEL_DATATYPE_DATA_WLEN_S                                          // Frame data
+                        SPINEL_DATATYPE_UINT8_S                                          // Channel
+                            SPINEL_DATATYPE_UINT8_S                                      // MaxCsmaBackoffs
+                                SPINEL_DATATYPE_UINT8_S                                  // MaxFrameRetries
+                                    SPINEL_DATATYPE_BOOL_S                               // CsmaCaEnabled
+                                        SPINEL_DATATYPE_BOOL_S                           // IsHeaderUpdated
+                                            SPINEL_DATATYPE_BOOL_S                       // IsARetx
+                                                SPINEL_DATATYPE_BOOL_S                   // IsSecurityProcessed
+                                                    SPINEL_DATATYPE_UINT32_S             // TxDelay
+                                                        SPINEL_DATATYPE_UINT32_S         // TxDelayBaseTime
+                                                            SPINEL_DATATYPE_UINT8_S      // RxChannelAfterTxDone
+                                                                SPINEL_DATATYPE_UINT8_S, // TxPower
                     mTransmitFrame->mPsdu, mTransmitFrame->mLength, mTransmitFrame->mChannel,
                     mTransmitFrame->mInfo.mTxInfo.mMaxCsmaBackoffs, mTransmitFrame->mInfo.mTxInfo.mMaxFrameRetries,
                     mTransmitFrame->mInfo.mTxInfo.mCsmaCaEnabled, mTransmitFrame->mInfo.mTxInfo.mIsHeaderUpdated,
                     mTransmitFrame->mInfo.mTxInfo.mIsARetx, mTransmitFrame->mInfo.mTxInfo.mIsSecurityProcessed,
                     mTransmitFrame->mInfo.mTxInfo.mTxDelay, mTransmitFrame->mInfo.mTxInfo.mTxDelayBaseTime,
-                    mTransmitFrame->mInfo.mTxInfo.mRxChannelAfterTxDone);
+                    mTransmitFrame->mInfo.mTxInfo.mRxChannelAfterTxDone, mTransmitFrame->mInfo.mTxInfo.mTxPower);
 
     if (error == OT_ERROR_NONE)
     {

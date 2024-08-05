@@ -1,5 +1,5 @@
 #
-#  Copyright (c) 2020, The OpenThread Authors.
+#  Copyright (c) 2024, The OpenThread Authors.
 #  All rights reserved.
 #
 #  Redistribution and use in source and binary forms, with or without
@@ -26,13 +26,35 @@
 #  POSSIBILITY OF SUCH DAMAGE.
 #
 
-if(OT_FTD AND BUILD_TESTING)
-    add_subdirectory(unit)
-    add_subdirectory(gtest)
-endif()
+cmake_minimum_required(VERSION 3.14)
+project(openthread-gtest)
 
-option(OT_FUZZ_TARGETS "enable fuzz targets" OFF)
+# GoogleTest requires at least C++14
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(OT_FUZZ_TARGETS)
-    add_subdirectory(fuzz)
-endif()
+include(FetchContent)
+FetchContent_Declare(
+    googletest
+    URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+)
+# For Windows: Prevent overriding the parent project's compiler/linker settings
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
+include(GoogleTest)
+
+add_executable(ot-rcp-gtest-unit
+    mock_platform.cpp
+    mock_coprocessor_platform.cpp
+    radio_spinel_test.cpp
+)
+target_link_libraries(ot-rcp-gtest-unit
+    openthread-hdlc
+    openthread-rcp
+    openthread-radio-spinel
+    openthread-radio
+    ot-config
+    GTest::gmock_main
+)
+gtest_discover_tests(ot-rcp-gtest-unit)
