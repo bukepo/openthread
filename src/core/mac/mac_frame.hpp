@@ -232,19 +232,34 @@ public:
      * @returns the network time, in microseconds.
      *
      */
-    uint64_t GetTime(void) const { return LittleEndian::HostSwap64(mTime); }
+    uint64_t GetTime(void) const { return LittleEndian::HostSwap64(mTimeOrTimeOffset.mTime); }
 
     /**
      * Sets the network time.
      *
-     * @param[in]  aTime  The network time.
+     * @param[in]  aTimeOffset  The network time offset.
      *
      */
-    void SetTime(uint64_t aTime) { mTime = LittleEndian::HostSwap64(aTime); }
+    void SetTimeOffset(int64_t aTimeOffset) { mTimeOrTimeOffset.mTimeOffset = aTimeOffset; }
+
+    /**
+     * Sets the network time.
+     *
+     * @param[in]  aRadioNow  Current radio time.
+     *
+     */
+    void UpdateTime(uint64_t aRadioTime)
+    {
+        mTimeOrTimeOffset.mTime = LittleEndian::HostSwap64(mTimeOrTimeOffset.mTimeOffset + aRadioTime);
+    }
 
 private:
-    uint8_t  mSequence;
-    uint64_t mTime;
+    uint8_t mSequence;
+    union
+    {
+        uint64_t mTime;
+        int64_t  mTimeOffset;
+    } mTimeOrTimeOffset;
 } OT_TOOL_PACKED_END;
 #endif // OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
 
@@ -1496,43 +1511,6 @@ public:
      */
     void SetIsHeaderUpdated(bool aIsHeaderUpdated) { mInfo.mTxInfo.mIsHeaderUpdated = aIsHeaderUpdated; }
 
-#if OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
-    /**
-     * Sets the Time IE offset.
-     *
-     * @param[in]  aOffset  The Time IE offset, 0 means no Time IE.
-     *
-     */
-    void SetTimeIeOffset(uint8_t aOffset) { mInfo.mTxInfo.mIeInfo->mTimeIeOffset = aOffset; }
-
-    /**
-     * Gets the Time IE offset.
-     *
-     * @returns The Time IE offset, 0 means no Time IE.
-     *
-     */
-    uint8_t GetTimeIeOffset(void) const { return mInfo.mTxInfo.mIeInfo->mTimeIeOffset; }
-
-    /**
-     * Sets the offset to network time.
-     *
-     * @param[in]  aNetworkTimeOffset  The offset to network time.
-     *
-     */
-    void SetNetworkTimeOffset(int64_t aNetworkTimeOffset)
-    {
-        mInfo.mTxInfo.mIeInfo->mNetworkTimeOffset = aNetworkTimeOffset;
-    }
-
-    /**
-     * Sets the time sync sequence.
-     *
-     * @param[in]  aTimeSyncSeq  The time sync sequence.
-     *
-     */
-    void SetTimeSyncSeq(uint8_t aTimeSyncSeq) { mInfo.mTxInfo.mIeInfo->mTimeSyncSeq = aTimeSyncSeq; }
-#endif // OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
-
     /**
      * Generate Imm-Ack in this frame object.
      *
@@ -1572,6 +1550,16 @@ public:
      *
      */
     void SetTxDelayBaseTime(uint32_t aTxDelayBaseTime) { mInfo.mTxInfo.mTxDelayBaseTime = aTxDelayBaseTime; }
+#endif
+#if OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
+    void UpdateTimeIe(uint64_t aRadioTime)
+    {
+        TimeIe *timeIe = GetTimeIe();
+        if (timeIe != nullptr)
+        {
+            timeIe->UpdateTime(aRadioTime);
+        }
+    }
 #endif
 };
 

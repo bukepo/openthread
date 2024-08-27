@@ -273,7 +273,6 @@ typedef struct otRadioFrame
         struct
         {
             const otMacKeyMaterial *mAesKey; ///< The key material used for AES-CCM frame security.
-            otRadioIeInfo          *mIeInfo; ///< The pointer to the Header IE(s) related information.
 
             /**
              * The base time in microseconds for scheduled transmissions

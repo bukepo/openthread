@@ -108,10 +108,6 @@ static otRadioFrame        sReceiveFrame;
 static otRadioFrame        sTransmitFrame;
 static otRadioFrame        sAckFrame;
 
-#if OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT
-static otRadioIeInfo sTransmitIeInfo;
-#endif
-
 static otExtAddress   sExtAddress;
 static otShortAddress sShortAddress;
 static otPanId        sPanid;
@@ -417,12 +413,6 @@ void platformRadioInit(void)
     sTransmitFrame.mPsdu = sTransmitMessage.mPsdu;
     sAckFrame.mPsdu      = sAckMessage.mPsdu;
 
-#if OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT
-    sTransmitFrame.mInfo.mTxInfo.mIeInfo = &sTransmitIeInfo;
-#else
-    sTransmitFrame.mInfo.mTxInfo.mIeInfo = NULL;
-#endif
-
     for (size_t i = 0; i <= kMaxChannel - kMinChannel; i++)
     {
         sChannelMaxTransmitPower[i] = OT_RADIO_POWER_INVALID;
@@ -719,20 +709,7 @@ exit:
 void radioSendMessage(otInstance *aInstance)
 {
 #if OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT && OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
-    if (sTransmitFrame.mInfo.mTxInfo.mIeInfo->mTimeIeOffset != 0)
-    {
-        uint8_t *timeIe = sTransmitFrame.mPsdu + sTransmitFrame.mInfo.mTxInfo.mIeInfo->mTimeIeOffset;
-        uint64_t time = (uint64_t)((int64_t)otPlatTimeGet() + sTransmitFrame.mInfo.mTxInfo.mIeInfo->mNetworkTimeOffset);
-
-        *timeIe = sTransmitFrame.mInfo.mTxInfo.mIeInfo->mTimeSyncSeq;
-
-        *(++timeIe) = (uint8_t)(time & 0xff);
-        for (uint8_t i = 1; i < sizeof(uint64_t); i++)
-        {
-            time        = time >> 8;
-            *(++timeIe) = (uint8_t)(time & 0xff);
-        }
-    }
+    otMacFrameUpdateTimeIe(&sTransmitFrame, otPlatRadioGetNow(aInstance));
 #endif // OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT && OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
 
 #if OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_ENABLE

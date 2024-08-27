@@ -334,6 +334,14 @@ uint8_t otMacFrameGenerateEnhAckProbingIe(uint8_t *aDest, const uint8_t *aIeData
  */
 void otMacFrameSetEnhAckProbingIe(otRadioFrame *aFrame, const uint8_t *aData, uint8_t aDataLen);
 
+/**
+ * Update the time ie in the frame.
+ *
+ * @param[in]  aFrame     The target frame that contains the IE. MUST NOT be `NULL`.
+ * @param[in]  aRadioTime The radio time.
+ */
+void otMacFrameUpdateTimeIe(otRadioFrame *aFrame, uint64_t aRadioTime);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif

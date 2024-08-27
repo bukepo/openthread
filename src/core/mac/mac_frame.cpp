@@ -1342,8 +1342,7 @@ template Error Frame::AppendHeaderIeAt<Termination2Ie>(uint8_t &aIndex);
 
 void TxFrame::CopyFrom(const TxFrame &aFromFrame)
 {
-    uint8_t       *psduBuffer   = mPsdu;
-    otRadioIeInfo *ieInfoBuffer = mInfo.mTxInfo.mIeInfo;
+    uint8_t *psduBuffer = mPsdu;
 #if OPENTHREAD_CONFIG_MULTI_RADIO
     uint8_t radioType = mRadioType;
 #endif
@@ -1353,19 +1352,13 @@ void TxFrame::CopyFrom(const TxFrame &aFromFrame)
     // Set the original buffer pointers (and link type) back on
     // the frame (which were overwritten by above `memcpy()`).
 
-    mPsdu                 = psduBuffer;
-    mInfo.mTxInfo.mIeInfo = ieInfoBuffer;
+    mPsdu = psduBuffer;
 
 #if OPENTHREAD_CONFIG_MULTI_RADIO
     mRadioType = radioType;
 #endif
 
     memcpy(mPsdu, aFromFrame.mPsdu, aFromFrame.mLength);
-
-    // mIeInfo may be null when TIME_SYNC is not enabled.
-#if OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
-    memcpy(mInfo.mTxInfo.mIeInfo, aFromFrame.mInfo.mTxInfo.mIeInfo, sizeof(otRadioIeInfo));
-#endif
 
 #if OPENTHREAD_CONFIG_MULTI_RADIO
     if (mRadioType != aFromFrame.GetRadioType())

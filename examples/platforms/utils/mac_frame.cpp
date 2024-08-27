@@ -277,3 +277,9 @@ void otMacFrameSetEnhAckProbingIe(otRadioFrame *aFrame, const uint8_t *aData, ui
     reinterpret_cast<Mac::Frame *>(aFrame)->SetEnhAckProbingIe(aData, aDataLen);
 }
 #endif // OPENTHREAD_CONFIG_MLE_LINK_METRICS_SUBJECT_ENABLE
+#if OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
+void otMacFrameUpdateTimeIe(otRadioFrame *aFrame, uint64_t aRadioTime)
+{
+    reinterpret_cast<Mac::TxFrame *>(aFrame)->UpdateTimeIe(aRadioTime);
+}
+#endif // OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
