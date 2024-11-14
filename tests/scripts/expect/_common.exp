@@ -297,4 +297,14 @@ proc dispose_tcat_client {id} {
     expect eof
 }
 
+proc run_command {cmd {output ""}} {
+    send "$cmd\n"
+
+    if {$output != ""} {
+        expect $output
+    }
+
+    expect_line "Done"
+}
+
 set timeout 10
