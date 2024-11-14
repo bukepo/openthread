@@ -72,16 +72,16 @@ set wed2_extaddr [get_extaddr]
 
 
 send_user ">>> SSED1 wake up WED1\n"
-swich_node $SSED1
+switch_node $SSED1
 run_command "srp server enable"
-run_command "wakeup $WED1 1500 7"
+run_command "wakeup wake $wed1_extaddr 7500 1090"
 sleep 5
 run_command "srp server host" "$wed1_lladdr"
 send "ping $wed1_lladdr\n"
 expect_line "Done"
 
 send_user ">>> SSED1 wake up WED2\n"
-run_command "wakeup $WED2 1500 7"
+run_command "wakeup wake $wed2_extaddr 7500 1090"
 sleep 5
 run_command "srp server host" "$wed2_lladdr"
 send "ping $wed2_lladdr\n"
@@ -91,7 +91,7 @@ expect_line "Done"
 send_user ">>> SSED2 wake up WED1\n"
 swich_node $SSED2
 run_command "srp server enable"
-run_command "wakeup $WED1 1500 7"
+run_command "wakeup wake $wed1_extaddr 7500 1090"
 sleep 5
 run_command "srp server host" "$wed1_lladdr"
 send "ping $wed1_lladdr\n"

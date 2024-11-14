@@ -257,6 +257,8 @@ proc setup_default_network {} {
     expect_line "Done"
     send "dataset pskc c23a76e98f1a6483639b1ac1271e2e27\n"
     expect_line "Done"
+    send "dataset wakeupchannel 25\n"
+    expect_line "Done"
     send "dataset commit active\n"
     expect_line "Done"
 }
