@@ -929,9 +929,21 @@ void Mac::ProcessTransmitSecurity(TxFrame &aFrame)
 #if OPENTHREAD_CONFIG_WAKEUP_COORDINATOR_ENABLE
         if (aFrame.IsWakeupFrame())
         {
+            uint32_t           sequence;
+            const KeyMaterial *macKey;
+
+            sequence = keyManager.GetCurrentKeySequence();
             // Just set the key source here, further security processing will happen in SubMac
             BigEndian::WriteUint32(keyManager.GetCurrentKeySequence(), keySource);
             aFrame.SetKeySource(keySource);
+
+            extAddress = &GetExtAddress();
+            aFrame.SetKeyId(static_cast<uint8_t>((sequence & 0x7f) + 1));
+
+            macKey = mLinks.GetCurrentMacKey(aFrame);
+            aFrame.SetAesKey(*macKey);
+            aFrame.ProcessTransmitAesCcm(*extAddress);
+
             ExitNow();
         }
 #endif
