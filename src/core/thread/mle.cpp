@@ -34,6 +34,7 @@
 #include "mle.hpp"
 
 #include "instance/instance.hpp"
+#include "mac/mac_types.hpp"
 #include "utils/static_counter.hpp"
 
 namespace ot {
@@ -2324,6 +2325,60 @@ exit:
     return error;
 }
 
+void Mle::HandleLinkRequestMtd(RxInfo &aRxInfo)
+{
+    Error          error = kErrorNone;
+    LinkAcceptInfo info;
+
+    Log(kMessageReceive, kTypeLinkRequest, aRxInfo.mMessageInfo.GetPeerAddr());
+
+    SuccessOrExit(error = aRxInfo.mMessage.ReadChallengeTlv(info.mRxChallenge));
+
+    aRxInfo.mMessageInfo.GetPeerAddr().GetIid().ConvertToExtAddress(info.mExtAddress);
+
+    info.mLinkMargin = Get<Mac::Mac>().ComputeLinkMargin(aRxInfo.mMessage.GetAverageRss());
+
+    ProcessKeySequence(aRxInfo);
+
+    error = SendLinkAcceptMtd(info);
+
+exit:
+    LogProcessError(kTypeLinkRequest, error);
+}
+
+Error Mle::SendLinkAcceptMtd(const LinkAcceptInfo &aInfo)
+{
+    Error        error   = kErrorNone;
+    TxMessage   *message = nullptr;
+    Command      command = kCommandLinkAccept;
+    Ip6::Address destination;
+
+    VerifyOrExit((message = NewMleMessage(command)) != nullptr, error = kErrorNoBufs);
+    SuccessOrExit(error = message->AppendVersionTlv());
+    SuccessOrExit(error = message->AppendResponseTlv(aInfo.mRxChallenge));
+    SuccessOrExit(error = message->AppendLinkAndMleFrameCounterTlvs());
+
+    SuccessOrExit(error = message->AppendLinkMarginTlv(aInfo.mLinkMargin));
+
+    if (command == kCommandLinkAcceptAndRequest)
+    {
+        TxChallenge challenge; ///< The challenge value
+        challenge.GenerateRandom();
+
+        SuccessOrExit(error = message->AppendChallengeTlv(challenge));
+    }
+
+    destination.SetToLinkLocalAddress(aInfo.mExtAddress);
+
+    SuccessOrExit(error = message->SendTo(destination));
+
+    Log(kMessageSend, (command == kCommandLinkAccept) ? kTypeLinkAccept : kTypeLinkAcceptAndRequest, destination);
+
+exit:
+    FreeMessageOnError(message, error);
+    return error;
+}
+
 void Mle::HandleUdpReceive(Message &aMessage, const Ip6::MessageInfo &aMessageInfo)
 {
     Error           error = kErrorNone;
@@ -2531,6 +2586,14 @@ void Mle::HandleUdpReceive(Message &aMessage, const Ip6::MessageInfo &aMessageIn
 
     case kCommandChildIdRequest:
         Get<MleRouter>().HandleChildIdRequest(rxInfo);
+        break;
+#else
+    case kCommandLinkRequest:
+        HandleLinkRequestMtd(rxInfo);
+        break;
+
+    case kCommandLinkAccept:
+        // HandleLinkAcceptMtd(rxInfo);
         break;
 #endif // OPENTHREAD_FTD
 
@@ -4574,6 +4637,16 @@ void Mle::DelayedSender::ScheduleDiscoveryResponse(const Ip6::Address          &
 
 #endif // OPENTHREAD_FTD
 
+void Mle::DelayedSender::ScheduleLinkRequest(const Mac::ExtAddress &aPeer, uint32_t aDelay)
+{
+    Ip6::Address destination;
+
+    destination.SetToLinkLocalAddress(aPeer);
+
+    RemoveMatchingSchedules(kTypeLinkRequest, destination);
+    AddSchedule(kTypeLinkRequest, destination, aDelay, nullptr, 0);
+}
+
 void Mle::DelayedSender::AddSchedule(MessageType         aMessageType,
                                      const Ip6::Address &aDestination,
                                      uint16_t            aDelay,
@@ -4702,6 +4775,11 @@ void Mle::DelayedSender::Execute(const Schedule &aSchedule)
         break;
     }
 #endif // OPENTHREAD_FTD
+    case kTypeLinkRequest:
+    {
+        Get<Mle>().SendLinkRequestMtd(header.mDestination);
+        break;
+    }
 
     default:
         break;
@@ -5505,6 +5583,31 @@ void Mle::ParentCandidate::CopyTo(Parent &aParent) const
     const Parent *candidateAsParent = this;
 
     aParent = *candidateAsParent;
+}
+
+void Mle::LinkToWakeupParent(const Mac::ExtAddress &aCoord, uint32_t aDelayMs, uint32_t aWindowMs)
+{
+    mWakeupLinkWindowMs = aWindowMs;
+    mDelayedSender.ScheduleLinkRequest(aCoord, aDelayMs);
+}
+
+void Mle::SendLinkRequestMtd(const Ip6::Address &aPeer)
+{
+    Error      error   = kErrorNone;
+    TxMessage *message = nullptr;
+
+    VerifyOrExit((message = NewMleMessage(kCommandLinkRequest)) != nullptr, error = kErrorNoBufs);
+    SuccessOrExit(error = message->AppendVersionTlv());
+
+    mParentRequestChallenge.GenerateRandom();
+    SuccessOrExit(error = message->AppendChallengeTlv(mParentRequestChallenge));
+
+    SuccessOrExit(error = message->SendTo(aPeer));
+
+    Log(kMessageSend, kTypeLinkRequest, aPeer);
+
+exit:
+    FreeMessageOnError(message, error);
 }
 
 } // namespace Mle

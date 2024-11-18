@@ -45,6 +45,7 @@
 #include "common/timer.hpp"
 #include "crypto/aes_ccm.hpp"
 #include "mac/mac.hpp"
+#include "mac/mac_types.hpp"
 #include "mac/wakeup_tx_scheduler.hpp"
 #include "meshcop/dataset.hpp"
 #include "meshcop/joiner_router.hpp"
@@ -703,6 +704,17 @@ public:
     uint32_t GetStoreFrameCounterAhead(void) { return mStoreFrameCounterAhead; }
 #endif // OPENTHREAD_CONFIG_DYNAMIC_STORE_FRAME_AHEAD_COUNTER_ENABLE
 
+    /**
+     * Attaches to a Wake-up Parent.
+     *
+     * This detaches from the current parent and initiates attachment to the Wake-up Parent.
+     *
+     * @param[in] aCoord          The extended address of the Wake-up Parent.
+     * @param[in] aAttachTime     The time when Parent Requests start being sent to the Wake-up Parent.
+     * @param[in] aAttachWindowMs The connection window for receiving the Parent Response.
+     */
+    void     LinkToWakeupParent(const Mac::ExtAddress &aCoord, uint32_t aDelayMs, uint32_t aWindowMs);
+    uint32_t mWakeupLinkWindowMs = 0;
 #if OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_ENABLE
     /**
      * Gets the CSL timeout.
@@ -927,7 +939,6 @@ private:
         kTypeParentRequestToRouters,
         kTypeParentRequestToRoutersReeds,
         kTypeParentResponse,
-#if OPENTHREAD_FTD
         kTypeAddressRelease,
         kTypeAddressReleaseReply,
         kTypeAddressReply,
@@ -940,7 +951,6 @@ private:
         kTypeLinkReject,
         kTypeLinkRequest,
         kTypeParentRequest,
-#endif
 #if OPENTHREAD_CONFIG_MLE_LINK_METRICS_INITIATOR_ENABLE || OPENTHREAD_CONFIG_MLE_LINK_METRICS_SUBJECT_ENABLE
         kTypeLinkMetricsManagementRequest,
         kTypeLinkMetricsManagementResponse,
@@ -1096,19 +1106,19 @@ private:
 
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-#if OPENTHREAD_FTD
-    struct ParentResponseInfo
-    {
-        Mac::ExtAddress mChildExtAddress; // The child extended address.
-        RxChallenge     mRxChallenge;     // The challenge from the Parent Request.
-    };
-
     struct LinkAcceptInfo
     {
         Mac::ExtAddress mExtAddress;       // The neighbor/router extended address.
         TlvList         mRequestedTlvList; // The requested TLVs in Link Request.
         RxChallenge     mRxChallenge;      // The challenge in Link Request.
         uint8_t         mLinkMargin;       // Link margin of the received Link Request.
+    };
+
+#if OPENTHREAD_FTD
+    struct ParentResponseInfo
+    {
+        Mac::ExtAddress mChildExtAddress; // The child extended address.
+        RxChallenge     mRxChallenge;     // The challenge from the Parent Request.
     };
 
     struct DiscoveryResponseInfo
@@ -1134,6 +1144,7 @@ private:
 
         void ScheduleDataRequest(const Ip6::Address &aDestination, uint16_t aDelay);
         void ScheduleChildUpdateRequestToParent(uint16_t aDelay);
+        void ScheduleLinkRequest(const Mac::ExtAddress &aPeer, uint32_t aDelay);
 #if OPENTHREAD_FTD
         void ScheduleParentResponse(const ParentResponseInfo &aInfo, uint16_t aDelay);
         void ScheduleMulticastDataResponse(uint16_t aDelay);
@@ -1354,6 +1365,10 @@ private:
     uint32_t   Reattach(void);
     bool       HasAcceptableParentCandidate(void) const;
     Error      DetermineParentRequestType(ParentRequestType &aType) const;
+    void       HandleLinkRequestMtd(RxInfo &aRxInfo);
+    void       HandleLinkAcceptMtd(RxInfo &aRxInfo);
+    void       SendLinkRequestMtd(const Ip6::Address &aPeer);
+    Error      SendLinkAcceptMtd(const LinkAcceptInfo &aInfo);
     bool       IsBetterParent(uint16_t                aRloc16,
                               uint8_t                 aTwoWayLinkMargin,
                               const ConnectivityTlv  &aConnectivityTlv,

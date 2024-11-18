@@ -1,2 +1,2 @@
 #!/bin/bash
-./script/cmake-build simulation -DOT_WAKEUP_COORDINATOR=ON -DOT_WAKEUP_END_DEVICE=ON
+./script/cmake-build simulation -DOT_WAKEUP_COORDINATOR=ON -DOT_WAKEUP_END_DEVICE=ON -DOT_FULL_LOGS=ON "$@"

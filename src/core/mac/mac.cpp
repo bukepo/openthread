@@ -2623,6 +2623,8 @@ void Mac::UpdateWakeupListening(void)
 
 Error Mac::HandleWakeupFrame(const RxFrame &aFrame)
 {
+    constexpr uint32_t kWakeupIntervalUs = kDefaultWedListenInterval * kUsPerTenSymbols;
+
     Error               error = kErrorNone;
     const ConnectionIe *connectionIe;
     uint32_t            rvTimeUs;
@@ -2631,7 +2633,9 @@ Error Mac::HandleWakeupFrame(const RxFrame &aFrame)
     uint64_t            radioNowUs;
     uint8_t             retryInterval;
     uint8_t             retryCount;
+    Address             coordAddress;
 
+    LogInfo("Wake up received");
     VerifyOrExit(mWakeupListenEnabled && aFrame.IsWakeupFrame());
     connectionIe  = aFrame.GetConnectionIe();
     retryInterval = connectionIe->GetRetryInterval();
@@ -2664,8 +2668,10 @@ Error Mac::HandleWakeupFrame(const RxFrame &aFrame)
     // Stop receiving more wake up frames
     IgnoreError(SetWakeupListenEnabled(false));
 
+    IgnoreError(aFrame.GetSrcAddr(coordAddress));
     // TODO: start MLE attach process with the WC
-    OT_UNUSED_VARIABLE(attachDelayMs);
+    Get<Mle::Mle>().LinkToWakeupParent(coordAddress.GetExtended(), attachDelayMs,
+                                       kWakeupIntervalUs * retryInterval * retryCount / 1000);
 
 exit:
     return error;

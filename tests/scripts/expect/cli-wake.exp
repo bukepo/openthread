@@ -48,12 +48,15 @@ send_user ">>> setup WED1\n"
 spawn_node $WED1
 setup_default_network
 run_command "mode -"
-run_command "wakeup channel 25"
+run_command "ifconfig up"
+run_command "wakeup channel 11"
 run_command "wakeup parameters 1000000 8000"
 run_command "wakeup listen enable"
 run_command "macfilter addr add $ssed1_extaddr"
 run_command "macfilter addr add $ssed2_extaddr"
 run_command "macfilter addr allowlist"
+run_command "panid"
+run_command "channel"
 set wed1_lladdr [get_ipaddr linklocal]
 set wed1_extaddr [get_extaddr]
 
@@ -62,7 +65,8 @@ send_user ">>> setup WED2\n"
 spawn_node $WED2
 setup_default_network
 run_command "mode -"
-run_command "wakeup channel 25"
+run_command "ifconfig up"
+run_command "wakeup channel 11"
 run_command "wakeup parameters 1000000 8000"
 run_command "wakeup listen enable"
 run_command "macfilter addr add $ssed2_extaddr"
