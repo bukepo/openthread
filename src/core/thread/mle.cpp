@@ -33,8 +33,11 @@
 
 #include "mle.hpp"
 
+#include "common/code_utils.hpp"
 #include "instance/instance.hpp"
 #include "mac/mac_types.hpp"
+#include "thread/mle_types.hpp"
+#include "thread/neighbor.hpp"
 #include "utils/static_counter.hpp"
 
 namespace ot {
@@ -2340,17 +2343,33 @@ void Mle::HandleLinkRequestMtd(RxInfo &aRxInfo)
 
     ProcessKeySequence(aRxInfo);
 
-    error = SendLinkAcceptMtd(info);
+    if (aRxInfo.mNeighbor == nullptr)
+    {
+        aRxInfo.mNeighbor = &mPeers[mNumPeers++];
+    }
+
+    InitNeighbor(*aRxInfo.mNeighbor, aRxInfo);
+    aRxInfo.mNeighbor->SetState(Neighbor::kStateLinkRequest);
+
+    error = SendLinkAcceptMtd(info, aRxInfo.IsNeighborStateValid());
+
+    if (mWedAttachState == kWedAttaching && mWakeupTxScheduler.GetWedAddress() == info.mExtAddress)
+    {
+        mWakeupTxScheduler.Stop();
+        mWedAttachTimer.Stop();
+        Get<MeshForwarder>().SetRxOnWhenIdle(false);
+        mWakeupCallback.Invoke(kErrorNone);
+    }
 
 exit:
     LogProcessError(kTypeLinkRequest, error);
 }
 
-Error Mle::SendLinkAcceptMtd(const LinkAcceptInfo &aInfo)
+Error Mle::SendLinkAcceptMtd(const LinkAcceptInfo &aInfo, bool isNeighborStateValid)
 {
     Error        error   = kErrorNone;
     TxMessage   *message = nullptr;
-    Command      command = kCommandLinkAccept;
+    Command      command = isNeighborStateValid ? kCommandLinkAccept : kCommandLinkAcceptAndRequest;
     Ip6::Address destination;
 
     VerifyOrExit((message = NewMleMessage(command)) != nullptr, error = kErrorNoBufs);
@@ -2362,10 +2381,9 @@ Error Mle::SendLinkAcceptMtd(const LinkAcceptInfo &aInfo)
 
     if (command == kCommandLinkAcceptAndRequest)
     {
-        TxChallenge challenge; ///< The challenge value
-        challenge.GenerateRandom();
+        mParentRequestChallenge.GenerateRandom();
 
-        SuccessOrExit(error = message->AppendChallengeTlv(challenge));
+        SuccessOrExit(error = message->AppendChallengeTlv(mParentRequestChallenge));
     }
 
     destination.SetToLinkLocalAddress(aInfo.mExtAddress);
@@ -2379,6 +2397,87 @@ exit:
     return error;
 }
 
+void Mle::HandleLinkAcceptMtd(RxInfo &aRxInfo, MessageType aMessageType)
+{
+    // Handles "Link Accept" or "Link Accept And Request".
+
+    Error           error = kErrorNone;
+    Neighbor::State neighborState;
+    uint16_t        version;
+    RxChallenge     response;
+    uint32_t        linkFrameCounter;
+    uint32_t        mleFrameCounter;
+    uint8_t         linkMargin;
+    Neighbor       &neighbor = *aRxInfo.mNeighbor;
+
+    Log(kMessageReceive, aMessageType, aRxInfo.mMessageInfo.GetPeerAddr());
+
+    neighborState = aRxInfo.mNeighbor->GetState();
+
+    SuccessOrExit(error = aRxInfo.mMessage.ReadResponseTlv(response));
+
+    switch (neighborState)
+    {
+    case Neighbor::kStateLinkRequest:
+        VerifyOrExit(response == mParentRequestChallenge, error = kErrorSecurity);
+        break;
+
+    case Neighbor::kStateValid:
+        break;
+
+    default:
+        ExitNow(error = kErrorSecurity);
+    }
+
+    SuccessOrExit(error = aRxInfo.mMessage.ReadVersionTlv(version));
+
+    SuccessOrExit(error = aRxInfo.mMessage.ReadFrameCounterTlvs(linkFrameCounter, mleFrameCounter));
+
+    switch (Tlv::Find<LinkMarginTlv>(aRxInfo.mMessage, linkMargin))
+    {
+    case kErrorNone:
+        break;
+    case kErrorNotFound:
+        // The Link Margin TLV may be omitted after a reset. We wait
+        // for MLE Advertisements to establish the routing cost to
+        // the neighbor
+        VerifyOrExit(IsDetached(), error = kErrorNotFound);
+        linkMargin = 0;
+        break;
+    default:
+        ExitNow(error = kErrorParse);
+    }
+
+    InitNeighbor(neighbor, aRxInfo);
+    neighbor.SetState(Neighbor::kStateValid);
+
+    aRxInfo.mClass = RxInfo::kAuthoritativeMessage;
+    ProcessKeySequence(aRxInfo);
+
+    if (aMessageType == kTypeLinkAcceptAndRequest)
+    {
+        LinkAcceptInfo info;
+
+        SuccessOrExit(error = aRxInfo.mMessage.ReadChallengeTlv(info.mRxChallenge));
+
+        switch (aRxInfo.mMessage.ReadTlvRequestTlv(info.mRequestedTlvList))
+        {
+        case kErrorNone:
+        case kErrorNotFound:
+            break;
+        default:
+            ExitNow(error = kErrorParse);
+        }
+
+        info.mExtAddress = aRxInfo.mNeighbor->GetExtAddress();
+        info.mLinkMargin = Get<Mac::Mac>().ComputeLinkMargin(aRxInfo.mMessage.GetAverageRss());
+
+        SuccessOrExit(error = SendLinkAcceptMtd(info, true));
+    }
+
+exit:
+    LogProcessError(aMessageType, error);
+}
 void Mle::HandleUdpReceive(Message &aMessage, const Ip6::MessageInfo &aMessageInfo)
 {
     Error           error = kErrorNone;
@@ -2458,6 +2557,13 @@ void Mle::HandleUdpReceive(Message &aMessage, const Ip6::MessageInfo &aMessageIn
     }
 #endif
 
+    if (neighbor == nullptr && !IsRouterOrLeader() &&
+        (command == kCommandLinkAcceptAndRequest || command == kCommandLinkAccept))
+    {
+        neighbor = mNeighborTable.FindNeighbor(extAddr, Neighbor::kInStateAnyExceptInvalid);
+    }
+
+    LogInfo("neighbor is %s", neighbor ? "found" : "not found");
     if (neighbor != nullptr && neighbor->IsStateValid())
     {
         if (keySequence == neighbor->GetKeySequence())
@@ -2565,15 +2671,36 @@ void Mle::HandleUdpReceive(Message &aMessage, const Ip6::MessageInfo &aMessageIn
 
 #if OPENTHREAD_FTD
     case kCommandLinkRequest:
-        Get<MleRouter>().HandleLinkRequest(rxInfo);
+        if (IsRouterOrLeader())
+        {
+            Get<MleRouter>().HandleLinkRequest(rxInfo);
+        }
+        else
+        {
+            HandleLinkRequestMtd(rxInfo);
+        }
         break;
 
     case kCommandLinkAccept:
-        Get<MleRouter>().HandleLinkAccept(rxInfo);
+        if (IsRouterOrLeader())
+        {
+            Get<MleRouter>().HandleLinkAccept(rxInfo);
+        }
+        else
+        {
+            HandleLinkAcceptMtd(rxInfo, kTypeLinkAccept);
+        }
         break;
 
     case kCommandLinkAcceptAndRequest:
-        Get<MleRouter>().HandleLinkAcceptAndRequest(rxInfo);
+        if (IsRouterOrLeader())
+        {
+            Get<MleRouter>().HandleLinkAcceptAndRequest(rxInfo);
+        }
+        else
+        {
+            HandleLinkAcceptMtd(rxInfo, kTypeLinkAcceptAndRequest);
+        }
         break;
 
     case kCommandDataRequest:
@@ -2592,8 +2719,12 @@ void Mle::HandleUdpReceive(Message &aMessage, const Ip6::MessageInfo &aMessageIn
         HandleLinkRequestMtd(rxInfo);
         break;
 
+    case kCommandLinkAcceptAndRequest:
+        HandleLinkAcceptMtd(rxInfo, kTypeLinkAcceptAndRequest);
+        break;
+
     case kCommandLinkAccept:
-        // HandleLinkAcceptMtd(rxInfo);
+        HandleLinkAcceptMtd(rxInfo, kTypeLinkAccept);
         break;
 #endif // OPENTHREAD_FTD
 
@@ -5585,9 +5716,31 @@ void Mle::ParentCandidate::CopyTo(Parent &aParent) const
     aParent = *candidateAsParent;
 }
 
+Neighbor *Mle::FindPeer(const Neighbor::AddressMatcher &aMatcher)
+{
+    for (auto *peer = &mPeers[mNumPeers - 1]; peer >= &mPeers[0]; peer--)
+    {
+        if (peer->Matches(aMatcher))
+            return peer;
+    }
+
+    return nullptr;
+}
 void Mle::LinkToWakeupParent(const Mac::ExtAddress &aCoord, uint32_t aDelayMs, uint32_t aWindowMs)
 {
     mWakeupLinkWindowMs = aWindowMs;
+    SetStateDetached();
+
+    auto *peer = mNeighborTable.FindNeighbor(aCoord, Neighbor::kInStateAnyExceptInvalid);
+    if (peer == nullptr)
+    {
+        peer = &mPeers[mNumPeers++];
+    }
+    peer->GetLinkInfo().Clear();
+    peer->ResetLinkFailures();
+    peer->SetLastHeard(TimerMilli::GetNow());
+    peer->SetExtAddress(aCoord);
+    peer->SetState(Neighbor::kStateLinkRequest);
     mDelayedSender.ScheduleLinkRequest(aCoord, aDelayMs);
 }
 

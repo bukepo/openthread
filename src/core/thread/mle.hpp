@@ -124,6 +124,8 @@ public:
 
     typedef otWakeupCallback WakeupCallback; ///< Callback to communicate the result of waking a Wake-up End Device
 
+    Neighbor *FindPeer(const Neighbor::AddressMatcher &aMatcher);
+
     /**
      * Initializes the MLE object.
      *
@@ -1366,9 +1368,9 @@ private:
     bool       HasAcceptableParentCandidate(void) const;
     Error      DetermineParentRequestType(ParentRequestType &aType) const;
     void       HandleLinkRequestMtd(RxInfo &aRxInfo);
-    void       HandleLinkAcceptMtd(RxInfo &aRxInfo);
+    void       HandleLinkAcceptMtd(RxInfo &aRxInfo, MessageType aMessageType);
     void       SendLinkRequestMtd(const Ip6::Address &aPeer);
-    Error      SendLinkAcceptMtd(const LinkAcceptInfo &aInfo);
+    Error      SendLinkAcceptMtd(const LinkAcceptInfo &aInfo, bool isNeighborStateValid);
     bool       IsBetterParent(uint16_t                aRloc16,
                               uint8_t                 aTwoWayLinkMargin,
                               const ConnectivityTlv  &aConnectivityTlv,
@@ -1530,6 +1532,10 @@ private:
     WedAttachTimer           mWedAttachTimer;
     Callback<WakeupCallback> mWakeupCallback;
 #endif
+
+    static constexpr size_t kMaxPeers = 10;
+    Neighbor                mPeers[kMaxPeers];
+    uint8_t                 mNumPeers = 0;
 };
 
 } // namespace Mle

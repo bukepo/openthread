@@ -91,6 +91,10 @@ Neighbor *NeighborTable::FindNeighbor(const Neighbor::AddressMatcher &aMatcher)
         neighbor = FindParent(aMatcher);
     }
 
+    if (neighbor == nullptr)
+    {
+        neighbor = Get<Mle::Mle>().FindPeer(aMatcher);
+    }
     return neighbor;
 }
 
