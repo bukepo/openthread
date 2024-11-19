@@ -27,6 +27,7 @@ setup_default_network
 run_command "mode -"
 attach "child"
 set ssed1_extaddr [get_extaddr]
+set ssed1_lladdr [get_ipaddr linklocal]
 
 
 send_user ">>> setup SSED2\n"
@@ -55,8 +56,9 @@ run_command "wakeup listen enable"
 run_command "macfilter addr add $ssed1_extaddr"
 run_command "macfilter addr add $ssed2_extaddr"
 run_command "macfilter addr allowlist"
-run_command "panid"
-run_command "channel"
+run_command "srp client host name wed1"
+run_command "srp client host address auto"
+run_command "srp client service add ins1 _matter._tcp 5540"
 set wed1_lladdr [get_ipaddr linklocal]
 set wed1_extaddr [get_extaddr]
 
@@ -80,10 +82,16 @@ switch_node $SSED1
 run_command "srp server enable"
 run_command "wakeup wake $wed1_extaddr 7500 1090"
 sleep 5
+run_command "srp server state"
+run_command "netstat"
 run_command "ping $wed1_lladdr"
+
+switch_node $WED1
+run_command "srp client start $ssed1_lladdr 53536"
+sleep 5
+
+switch_node $SSED1
 run_command "srp server host" "$wed1_lladdr"
-send "ping $wed1_lladdr\n"
-expect_line "Done"
 
 send_user ">>> SSED1 wake up WED2\n"
 run_command "srp server enable"
