@@ -56,11 +56,11 @@ run_command "wakeup listen enable"
 run_command "macfilter addr add $ssed1_extaddr"
 run_command "macfilter addr add $ssed2_extaddr"
 run_command "macfilter addr allowlist"
-run_command "srp client host name wed1"
-run_command "srp client host address auto"
-run_command "srp client service add ins1 _matter._tcp 5540"
 set wed1_lladdr [get_ipaddr linklocal]
 set wed1_extaddr [get_extaddr]
+run_command "srp client host name wed1"
+run_command "srp client host address $wed1_lladdr"
+run_command "srp client service add ins1 _matter._tcp 5540"
 
 
 send_user ">>> setup WED2\n"
@@ -75,32 +75,37 @@ run_command "macfilter addr add $ssed2_extaddr"
 run_command "macfilter addr allowlist"
 set wed2_lladdr [get_ipaddr linklocal]
 set wed2_extaddr [get_extaddr]
+run_command "srp client host name wed2"
+run_command "srp client host address $wed2_lladdr"
+run_command "srp client service add ins2 _matter._tcp 5540"
 
 
 send_user ">>> SSED1 wake up WED1\n"
 switch_node $SSED1
+run_command "srp server addrmode anycast"
 run_command "srp server enable"
 run_command "wakeup wake $wed1_extaddr 7500 1090"
 sleep 5
 run_command "srp server state"
 run_command "netstat"
-run_command "ping $wed1_lladdr"
 
 switch_node $WED1
-run_command "srp client start $ssed1_lladdr 53536"
+run_command "srp client start $ssed1_lladdr 53"
 sleep 5
 
 switch_node $SSED1
 run_command "srp server host" "$wed1_lladdr"
+run_command "ping $wed1_lladdr"
 
 send_user ">>> SSED1 wake up WED2\n"
-run_command "srp server enable"
 run_command "wakeup wake $wed2_extaddr 7500 1090"
 sleep 5
-send "ping $wed2_lladdr\n"
+
+switch_node $WED2
+run_command "srp client start $ssed1_lladdr 53"
+sleep 5
 run_command "srp server host" "$wed2_lladdr"
-send "ping $wed2_lladdr\n"
-expect_line "Done"
+run_command "ping $wed2_lladdr\n"
 
 
 send_user ">>> SSED2 wake up WED1\n"
