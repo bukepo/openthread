@@ -118,5 +118,4 @@ send_user ">>> SSED2 wake up WED2\n"
 switch_node $SSED2
 run_command "wakeup wake $wed2_extaddr 7500 1090"
 sleep 5
-run_command "srp server host" "$wed1_lladdr"
 run_command "ping $wed2_lladdr"
