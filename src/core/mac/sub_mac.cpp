@@ -197,6 +197,7 @@ void SubMac::SetRxOnWhenIdle(bool aRxOnWhenIdle)
 #endif
     }
 
+    mRxOnWhenIdle = true;
     LogDebg("RxOnWhenIdle: %d", mRxOnWhenIdle);
 }
 

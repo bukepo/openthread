@@ -92,7 +92,6 @@ Mle::Mle(Instance &aInstance)
     , mMessageTransmissionTimer(aInstance)
 #if OPENTHREAD_CONFIG_WAKEUP_COORDINATOR_ENABLE
     , mWakeupTxScheduler(aInstance)
-    , mWedAttachState(kWedDetached)
     , mWedAttachTimer(aInstance)
 #endif
 {
@@ -2353,7 +2352,7 @@ void Mle::HandleLinkRequestMtd(RxInfo &aRxInfo)
 
     error = SendLinkAcceptMtd(info, aRxInfo.IsNeighborStateValid());
 
-    if (mWedAttachState == kWedAttaching && mWakeupTxScheduler.GetWedAddress() == info.mExtAddress)
+    if (mWedAttachTimer.IsRunning() && mWakeupTxScheduler.GetWedAddress() == info.mExtAddress)
     {
         mWakeupTxScheduler.Stop();
     }
@@ -2471,12 +2470,11 @@ void Mle::HandleLinkAcceptMtd(RxInfo &aRxInfo, MessageType aMessageType)
 
         SuccessOrExit(error = SendLinkAcceptMtd(info, true));
     }
-    else if (mWedAttachState == kWedAttaching && mWakeupTxScheduler.GetWedAddress() == neighbor.GetExtAddress())
+    else if (mWedAttachTimer.IsRunning() && mWakeupTxScheduler.GetWedAddress() == neighbor.GetExtAddress())
     {
         Get<MeshForwarder>().SetRxOnWhenIdle(false);
         mWakeupCallback.Invoke(kErrorNone);
         mWedAttachTimer.Stop();
-        mWedAttachState = kWedAttached;
     }
 
 exit:
@@ -4557,23 +4555,15 @@ uint64_t Mle::CalcParentCslMetric(const Mac::CslAccuracy &aCslAccuracy) const
 #if OPENTHREAD_CONFIG_WAKEUP_COORDINATOR_ENABLE
 void Mle::HandleWedAttachTimer(void)
 {
-    switch (mWedAttachState)
+    // Connection timeout
+    if (!IsRxOnWhenIdle())
     {
-    case kWedAttaching:
-        // Connection timeout
-        if (!IsRxOnWhenIdle())
-        {
-            Get<MeshForwarder>().SetRxOnWhenIdle(false);
-        }
-
-        LogInfo("Connection window closed");
-
-        mWedAttachState = kWedDetached;
-        mWakeupCallback.InvokeAndClearIfSet(kErrorFailed);
-        break;
-    default:
-        break;
+        Get<MeshForwarder>().SetRxOnWhenIdle(false);
     }
+
+    LogInfo("Connection window closed");
+
+    mWakeupCallback.InvokeAndClearIfSet(kErrorFailed);
 }
 
 Error Mle::Wakeup(const Mac::ExtAddress &aWedAddress,
@@ -4586,11 +4576,9 @@ Error Mle::Wakeup(const Mac::ExtAddress &aWedAddress,
 
     VerifyOrExit((aIntervalUs > 0) && (aDurationMs > 0), error = kErrorInvalidArgs);
     VerifyOrExit(aIntervalUs < aDurationMs * Time::kOneMsecInUsec, error = kErrorInvalidArgs);
-    VerifyOrExit(mWedAttachState == kWedDetached, error = kErrorInvalidState);
 
     SuccessOrExit(error = mWakeupTxScheduler.WakeUp(aWedAddress, aIntervalUs, aDurationMs));
 
-    mWedAttachState = kWedAttaching;
     mWakeupCallback.Set(aCallback, aCallbackContext);
     Get<MeshForwarder>().SetRxOnWhenIdle(true);
     mWedAttachTimer.FireAt(mWakeupTxScheduler.GetTxEndTime() + mWakeupTxScheduler.GetConnectionWindowUs());

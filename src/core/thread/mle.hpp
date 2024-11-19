@@ -963,15 +963,6 @@ private:
 #endif
     };
 
-#if OPENTHREAD_CONFIG_WAKEUP_COORDINATOR_ENABLE
-    enum WedAttachState : uint8_t{
-        kWedDetached,
-        kWedAttaching,
-        kWedAttached,
-        kWedDetaching,
-    };
-#endif
-
     //------------------------------------------------------------------------------------------------------------------
     // Nested types
 
@@ -1528,7 +1519,6 @@ private:
 
 #if OPENTHREAD_CONFIG_WAKEUP_COORDINATOR_ENABLE
     WakeupTxScheduler        mWakeupTxScheduler;
-    WedAttachState           mWedAttachState;
     WedAttachTimer           mWedAttachTimer;
     Callback<WakeupCallback> mWakeupCallback;
 #endif
