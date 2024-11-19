@@ -2356,9 +2356,6 @@ void Mle::HandleLinkRequestMtd(RxInfo &aRxInfo)
     if (mWedAttachState == kWedAttaching && mWakeupTxScheduler.GetWedAddress() == info.mExtAddress)
     {
         mWakeupTxScheduler.Stop();
-        mWedAttachTimer.Stop();
-        Get<MeshForwarder>().SetRxOnWhenIdle(false);
-        mWakeupCallback.Invoke(kErrorNone);
     }
 
 exit:
@@ -2473,6 +2470,13 @@ void Mle::HandleLinkAcceptMtd(RxInfo &aRxInfo, MessageType aMessageType)
         info.mLinkMargin = Get<Mac::Mac>().ComputeLinkMargin(aRxInfo.mMessage.GetAverageRss());
 
         SuccessOrExit(error = SendLinkAcceptMtd(info, true));
+    }
+    else if (mWedAttachState == kWedAttaching && mWakeupTxScheduler.GetWedAddress() == neighbor.GetExtAddress())
+    {
+        Get<MeshForwarder>().SetRxOnWhenIdle(false);
+        mWakeupCallback.Invoke(kErrorNone);
+        mWedAttachTimer.Stop();
+        mWedAttachState = kWedAttached;
     }
 
 exit:
