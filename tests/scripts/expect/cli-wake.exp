@@ -25,6 +25,8 @@ send_user ">>> setup SSED1\n"
 spawn_node $SSED1
 setup_default_network
 run_command "mode -"
+run_command "csl period 1000000"
+run_command "csl timeout 10"
 attach "child"
 set ssed1_extaddr [get_extaddr]
 set ssed1_lladdr [get_ipaddr linklocal]
