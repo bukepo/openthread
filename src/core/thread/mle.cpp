@@ -2372,14 +2372,20 @@ Error Mle::SendLinkAcceptMtd(const LinkAcceptInfo &aInfo, bool isNeighborStateVa
     SuccessOrExit(error = message->AppendVersionTlv());
     SuccessOrExit(error = message->AppendResponseTlv(aInfo.mRxChallenge));
     SuccessOrExit(error = message->AppendLinkAndMleFrameCounterTlvs());
-
     SuccessOrExit(error = message->AppendLinkMarginTlv(aInfo.mLinkMargin));
+    SuccessOrExit(error = message->AppendCslClockAccuracyTlv());
 
     if (command == kCommandLinkAcceptAndRequest)
     {
         mParentRequestChallenge.GenerateRandom();
 
         SuccessOrExit(error = message->AppendChallengeTlv(mParentRequestChallenge));
+
+        message->SetCslIeSuppressed(true);
+    }
+    else
+    {
+        message->SetEnhAckRequested(true);
     }
 
     destination.SetToLinkLocalAddress(aInfo.mExtAddress);
@@ -5360,6 +5366,13 @@ Error Mle::TxMessage::SendTo(const Ip6::Address &aDestination)
         Get<KeyManager>().IncrementMleFrameCounter();
     }
 
+#if OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_ENABLE
+    if (Get<Mac::Mac>().IsCslEnabled() && !(IsMleCommand(kCommandLinkAcceptAndRequest) ||
+                                            IsMleCommand(kCommandLinkRequest) || IsMleCommand(kCommandLinkAccept)))
+    {
+        SetLinkSecurityEnabled(true);
+    }
+#endif
     SuccessOrExit(error = Get<Mle>().mSocket.SendTo(*this, messageInfo));
 
 exit:
@@ -5708,7 +5721,7 @@ void Mle::ParentCandidate::CopyTo(Parent &aParent) const
     aParent = *candidateAsParent;
 }
 
-Neighbor *Mle::FindPeer(const Neighbor::AddressMatcher &aMatcher)
+Peer *Mle::FindPeer(const Neighbor::AddressMatcher &aMatcher)
 {
     for (auto *peer = &mPeers[mNumPeers - 1]; peer >= &mPeers[0]; peer--)
     {
@@ -5746,6 +5759,8 @@ void Mle::SendLinkRequestMtd(const Ip6::Address &aPeer)
 
     mParentRequestChallenge.GenerateRandom();
     SuccessOrExit(error = message->AppendChallengeTlv(mParentRequestChallenge));
+
+    message->SetCslIeSuppressed(true);
 
     SuccessOrExit(error = message->SendTo(aPeer));
 

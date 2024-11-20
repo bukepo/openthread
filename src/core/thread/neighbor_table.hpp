@@ -38,6 +38,7 @@
 
 #include "common/locator.hpp"
 #include "common/non_copyable.hpp"
+#include "thread/csl_tx_scheduler.hpp"
 #include "thread/neighbor.hpp"
 
 namespace ot {
@@ -187,6 +188,8 @@ public:
 
 #endif // OPENTHREAD_FTD
 
+    CslTxScheduler::ChildInfo *FindChildInfo(const Mac::Address   &aMacAddress,
+                                             Neighbor::StateFilter aFilter = Neighbor::kInStateValidOrRestoring);
     /**
      * Gets the next neighbor information. It is used to iterate through the entries of
      * the neighbor table.

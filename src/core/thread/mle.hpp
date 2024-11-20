@@ -52,6 +52,7 @@
 #include "meshcop/meshcop.hpp"
 #include "net/udp6.hpp"
 #include "thread/child.hpp"
+#include "thread/csl_tx_scheduler.hpp"
 #include "thread/link_metrics.hpp"
 #include "thread/link_metrics_tlvs.hpp"
 #include "thread/mle_tlvs.hpp"
@@ -61,6 +62,10 @@
 #include "thread/router.hpp"
 
 namespace ot {
+
+class Peer : public Neighbor, public CslTxScheduler::ChildInfo
+{
+};
 
 /**
  * @addtogroup core-mle MLE
@@ -124,7 +129,7 @@ public:
 
     typedef otWakeupCallback WakeupCallback; ///< Callback to communicate the result of waking a Wake-up End Device
 
-    Neighbor *FindPeer(const Neighbor::AddressMatcher &aMatcher);
+    Peer *FindPeer(const Neighbor::AddressMatcher &aMatcher);
 
     /**
      * Initializes the MLE object.
@@ -1524,7 +1529,7 @@ private:
 #endif
 
     static constexpr size_t kMaxPeers = 10;
-    Neighbor                mPeers[kMaxPeers];
+    Peer                    mPeers[kMaxPeers];
     uint8_t                 mNumPeers = 0;
 };
 
