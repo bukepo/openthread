@@ -77,11 +77,9 @@ Mac::Mac(Instance &aInstance)
     , mScanChannel(Radio::kChannelMin)
     , mScanDuration(0)
     , mMaxFrameRetriesDirect(kDefaultMaxFrameRetriesDirect)
-#if OPENTHREAD_FTD
     , mMaxFrameRetriesIndirect(kDefaultMaxFrameRetriesIndirect)
 #if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
     , mCslTxFireTime(TimeMilli::kMaxDuration)
-#endif
 #endif
 #if OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_ENABLE
     , mCslChannel(0)
@@ -574,7 +572,7 @@ void Mac::UpdateIdleMode(void)
         }
 #endif
     }
-#if OPENTHREAD_FTD && OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
+#if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
     else if (IsPending(kOperationTransmitDataCsl))
     {
         mTimer.FireAt(mCslTxFireTime);
@@ -658,7 +656,7 @@ void Mac::PerformNextOperation(void)
         mOperation = kOperationTransmitWakeup;
     }
 #endif
-#if OPENTHREAD_FTD && OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
+#if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
     else if (IsPending(kOperationTransmitDataCsl) && TimerMilli::GetNow() >= mCslTxFireTime)
     {
         mOperation = kOperationTransmitDataCsl;
@@ -676,12 +674,10 @@ void Mac::PerformNextOperation(void)
     {
         mOperation = kOperationTransmitBeacon;
     }
-#if OPENTHREAD_FTD
     else if (IsPending(kOperationTransmitDataIndirect))
     {
         mOperation = kOperationTransmitDataIndirect;
     }
-#endif // OPENTHREAD_FTD
     else if (IsPending(kOperationTransmitPoll) && (!IsPending(kOperationTransmitDataDirect) || mShouldTxPollBeforeData))
     {
         mOperation = kOperationTransmitPoll;
@@ -1029,7 +1025,6 @@ void Mac::BeginTransmit(void)
         frame->SetSequence(mDataSequence++);
         break;
 
-#if OPENTHREAD_FTD
     case kOperationTransmitDataIndirect:
         txFrames.SetChannel(mRadioChannel);
         txFrames.SetMaxCsmaBackoffs(kMaxCsmaBackoffsIndirect);
@@ -1043,7 +1038,6 @@ void Mac::BeginTransmit(void)
             frame->SetSequence(mDataSequence++);
         }
         break;
-#endif // OPENTHREAD_FTD
 
 #if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
     case kOperationTransmitDataCsl:
@@ -1359,7 +1353,7 @@ void Mac::HandleTransmitDone(TxFrame &aFrame, RxFrame *aAckFrame, Error aError)
 #if OPENTHREAD_CONFIG_MLE_LINK_METRICS_INITIATOR_ENABLE
                 ProcessEnhAckProbing(*aAckFrame, *neighbor);
 #endif
-#if OPENTHREAD_FTD && OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
+#if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
                 ProcessCsl(*aAckFrame, dstAddr);
 #endif
 #if OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_ENABLE
@@ -1491,7 +1485,6 @@ void Mac::HandleTransmitDone(TxFrame &aFrame, RxFrame *aAckFrame, Error aError)
 
         break;
 #endif
-#if OPENTHREAD_FTD
     case kOperationTransmitDataIndirect:
         mCounters.mTxData++;
 
@@ -1511,7 +1504,6 @@ void Mac::HandleTransmitDone(TxFrame &aFrame, RxFrame *aAckFrame, Error aError)
         Get<DataPollHandler>().HandleSentFrame(aFrame, aError);
         PerformNextOperation();
         break;
-#endif // OPENTHREAD_FTD
 
 #if OPENTHREAD_CONFIG_WAKEUP_COORDINATOR_ENABLE
     case kOperationTransmitWakeup:
@@ -1557,7 +1549,7 @@ void Mac::HandleTimer(void)
             }
 #endif
         }
-#if OPENTHREAD_FTD && OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
+#if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
         else if (IsPending(kOperationTransmitDataCsl))
         {
             PerformNextOperation();
@@ -1969,7 +1961,7 @@ void Mac::HandleReceivedFrame(RxFrame *aFrame, Error aError)
         ExitNow();
     }
 
-#if OPENTHREAD_FTD && OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
+#if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
     ProcessCsl(*aFrame, srcaddr);
 #endif
 
@@ -2003,7 +1995,7 @@ void Mac::HandleReceivedFrame(RxFrame *aFrame, Error aError)
                     ExitNow(error = kErrorUnknownNeighbor);
                 }
 
-#if OPENTHREAD_CONFIG_THREAD_VERSION >= OT_THREAD_VERSION_1_2 && OPENTHREAD_FTD
+#if OPENTHREAD_CONFIG_THREAD_VERSION >= OT_THREAD_VERSION_1_2
                 // From Thread 1.2, MAC Data Frame can also act as keep-alive message if child supports
                 if (aFrame->GetType() == Frame::kTypeData && !neighbor->IsRxOnWhenIdle() &&
                     neighbor->IsEnhancedKeepAliveSupported())
@@ -2194,10 +2186,8 @@ bool Mac::HandleMacCommand(RxFrame &aFrame)
 
     case Frame::kMacCmdDataRequest:
         mCounters.mRxDataPoll++;
-#if OPENTHREAD_FTD
         Get<DataPollHandler>().HandleDataPoll(aFrame);
         didHandle = true;
-#endif
         break;
 
     default:
@@ -2252,7 +2242,6 @@ const uint32_t *Mac::GetDirectRetrySuccessHistogram(uint8_t &aNumberOfEntries)
     return mRetryHistogram.mTxDirectRetrySuccess;
 }
 
-#if OPENTHREAD_FTD
 const uint32_t *Mac::GetIndirectRetrySuccessHistogram(uint8_t &aNumberOfEntries)
 {
     if (mMaxFrameRetriesIndirect >= OPENTHREAD_CONFIG_MAC_RETRY_SUCCESS_HISTOGRAM_MAX_SIZE_COUNT_INDIRECT)
@@ -2266,7 +2255,6 @@ const uint32_t *Mac::GetIndirectRetrySuccessHistogram(uint8_t &aNumberOfEntries)
 
     return mRetryHistogram.mTxIndirectRetrySuccess;
 }
-#endif
 
 void Mac::ResetRetrySuccessHistogram() { ClearAllBytes(mRetryHistogram); }
 #endif // OPENTHREAD_CONFIG_MAC_RETRY_SUCCESS_HISTOGRAM_ENABLE
@@ -2280,18 +2268,16 @@ uint8_t Mac::ComputeLinkMargin(int8_t aRss) const { return ot::ComputeLinkMargin
 const char *Mac::OperationToString(Operation aOperation)
 {
     static const char *const kOperationStrings[] = {
-        "Idle",               // (0) kOperationIdle
-        "ActiveScan",         // (1) kOperationActiveScan
-        "EnergyScan",         // (2) kOperationEnergyScan
-        "TransmitBeacon",     // (3) kOperationTransmitBeacon
-        "TransmitDataDirect", // (4) kOperationTransmitDataDirect
-        "TransmitPoll",       // (5) kOperationTransmitPoll
-        "WaitingForData",     // (6) kOperationWaitingForData
-#if OPENTHREAD_FTD
+        "Idle",                 // (0) kOperationIdle
+        "ActiveScan",           // (1) kOperationActiveScan
+        "EnergyScan",           // (2) kOperationEnergyScan
+        "TransmitBeacon",       // (3) kOperationTransmitBeacon
+        "TransmitDataDirect",   // (4) kOperationTransmitDataDirect
+        "TransmitPoll",         // (5) kOperationTransmitPoll
+        "WaitingForData",       // (6) kOperationWaitingForData
         "TransmitDataIndirect", // (7) kOperationTransmitDataIndirect
 #if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
         "TransmitDataCsl", // (8) kOperationTransmitDataCsl
-#endif
 #endif
 #if OPENTHREAD_CONFIG_WAKEUP_COORDINATOR_ENABLE
         "TransmitWakeup", // kOperationTransmitWakeup
@@ -2309,11 +2295,9 @@ const char *Mac::OperationToString(Operation aOperation)
         ValidateNextEnum(kOperationTransmitDataDirect);
         ValidateNextEnum(kOperationTransmitPoll);
         ValidateNextEnum(kOperationWaitingForData);
-#if OPENTHREAD_FTD
         ValidateNextEnum(kOperationTransmitDataIndirect);
 #if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
         ValidateNextEnum(kOperationTransmitDataCsl);
-#endif
 #endif
     };
 
@@ -2480,7 +2464,9 @@ void Mac::ProcessCsl(const RxFrame &aFrame, const Address &aSrcAddr)
     Child       *child;
     const CslIe *csl;
 
+#if !OPENTHREAD_CONFIG_MAC_CSL_PEER_ENABLE
     VerifyOrExit(aFrame.IsVersion2015() && aFrame.GetSecurityEnabled());
+#endif
 
     csl = aFrame.GetCslIe();
     VerifyOrExit(csl != nullptr);
