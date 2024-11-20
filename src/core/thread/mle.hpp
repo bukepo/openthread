@@ -52,6 +52,7 @@
 #include "meshcop/meshcop.hpp"
 #include "net/udp6.hpp"
 #include "thread/child.hpp"
+#include "thread/child_table.hpp"
 #include "thread/csl_tx_scheduler.hpp"
 #include "thread/link_metrics.hpp"
 #include "thread/link_metrics_tlvs.hpp"
@@ -1528,9 +1529,7 @@ private:
     Callback<WakeupCallback> mWakeupCallback;
 #endif
 
-    static constexpr size_t kMaxPeers = 10;
-    Peer                    mPeers[kMaxPeers];
-    uint8_t                 mNumPeers = 0;
+    ChildTable mChildTable;
 };
 
 } // namespace Mle

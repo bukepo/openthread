@@ -627,9 +627,7 @@ private:
 #endif
 #endif
 
-#if OPENTHREAD_FTD
-    ChildSupervisor mChildSupervisor;
-#endif
+    ChildSupervisor     mChildSupervisor;
     SupervisionListener mSupervisionListener;
 
     AnnounceBeginServer mAnnounceBegin;
@@ -783,9 +781,9 @@ template <> inline Mle::DiscoverScanner &Instance::Get(void) { return mDiscoverS
 
 template <> inline NeighborTable &Instance::Get(void) { return mMleRouter.mNeighborTable; }
 
-#if OPENTHREAD_FTD
 template <> inline ChildTable &Instance::Get(void) { return mMleRouter.mChildTable; }
 
+#if OPENTHREAD_FTD
 template <> inline RouterTable &Instance::Get(void) { return mMleRouter.mRouterTable; }
 #endif
 
@@ -821,7 +819,9 @@ template <> inline Ip6::Filter &Instance::Get(void) { return mIp6Filter; }
 
 template <> inline AddressResolver &Instance::Get(void) { return mAddressResolver; }
 
-#if OPENTHREAD_FTD
+#if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
+template <> inline CslTxScheduler &Instance::Get(void) { return mMeshForwarder.mIndirectSender.mCslTxScheduler; }
+#endif
 
 template <> inline IndirectSender &Instance::Get(void) { return mMeshForwarder.mIndirectSender; }
 
@@ -832,10 +832,7 @@ template <> inline SourceMatchController &Instance::Get(void)
 
 template <> inline DataPollHandler &Instance::Get(void) { return mMeshForwarder.mIndirectSender.mDataPollHandler; }
 
-#if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
-template <> inline CslTxScheduler &Instance::Get(void) { return mMeshForwarder.mIndirectSender.mCslTxScheduler; }
-#endif
-
+#if OPENTHREAD_FTD
 template <> inline MeshCoP::Leader &Instance::Get(void) { return mLeader; }
 
 template <> inline MeshCoP::JoinerRouter &Instance::Get(void) { return mJoinerRouter; }
@@ -969,7 +966,7 @@ template <> inline Utils::JamDetector &Instance::Get(void) { return mJamDetector
 template <> inline Sntp::Client &Instance::Get(void) { return mSntpClient; }
 #endif
 
-#if OPENTHREAD_FTD
+#if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
 template <> inline ChildSupervisor &Instance::Get(void) { return mChildSupervisor; }
 #endif
 template <> inline SupervisionListener &Instance::Get(void) { return mSupervisionListener; }

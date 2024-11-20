@@ -263,7 +263,7 @@ void Settings::DeleteOperationalDataset(MeshCoP::Dataset::Type aType)
     OT_ASSERT(error != kErrorNotImplemented);
 }
 
-#if OPENTHREAD_FTD
+#if OPENTHREAD_FTD || OPENTHREAD_CONFIG_MAC_CSL_PEER_ENABLE
 Error Settings::AddChildInfo(const ChildInfo &aChildInfo)
 {
     Error error = Get<SettingsDriver>().Add(kKeyChildInfo, &aChildInfo, sizeof(aChildInfo));
@@ -324,7 +324,7 @@ exit:
     Log(kActionRead, error, kKeyChildInfo, &mChildInfo);
     mIsDone = (error != kErrorNone);
 }
-#endif // OPENTHREAD_FTD
+#endif // OPENTHREAD_FTD || OPENTHREAD_CONFIG_MAC_CSL_PEER_ENABLE
 
 #if OPENTHREAD_CONFIG_BORDER_ROUTING_ENABLE
 Error Settings::AddOrUpdateBrOnLinkPrefix(const BrOnLinkPrefix &aBrOnLinkPrefix)
@@ -467,7 +467,7 @@ void Settings::Log(Action aAction, Error aError, Key aKey, const void *aValue)
             actionText = "deleting";
             break;
 
-#if OPENTHREAD_FTD
+#if OPENTHREAD_FTD || OPENTHREAD_CONFIG_MAC_CSL_PEER_ENABLE
         case kActionAdd:
             actionText = "adding";
             break;

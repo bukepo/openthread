@@ -94,6 +94,7 @@ Mle::Mle(Instance &aInstance)
     , mWakeupTxScheduler(aInstance)
     , mWedAttachTimer(aInstance)
 #endif
+    , mChildTable(aInstance)
 {
     mParent.Init(aInstance);
     mParentCandidate.Init(aInstance);
@@ -2344,7 +2345,7 @@ void Mle::HandleLinkRequestMtd(RxInfo &aRxInfo)
 
     if (aRxInfo.mNeighbor == nullptr)
     {
-        aRxInfo.mNeighbor = &mPeers[mNumPeers++];
+        VerifyOrExit((aRxInfo.mNeighbor = mChildTable.GetNewChild()) != nullptr, error = kErrorNoBufs);
     }
 
     InitNeighbor(*aRxInfo.mNeighbor, aRxInfo);
@@ -2374,6 +2375,8 @@ Error Mle::SendLinkAcceptMtd(const LinkAcceptInfo &aInfo, bool isNeighborStateVa
     SuccessOrExit(error = message->AppendLinkAndMleFrameCounterTlvs());
     SuccessOrExit(error = message->AppendLinkMarginTlv(aInfo.mLinkMargin));
     SuccessOrExit(error = message->AppendCslClockAccuracyTlv());
+
+    message->SetDirectTransmission();
 
     if (command == kCommandLinkAcceptAndRequest)
     {
@@ -5721,25 +5724,15 @@ void Mle::ParentCandidate::CopyTo(Parent &aParent) const
     aParent = *candidateAsParent;
 }
 
-Peer *Mle::FindPeer(const Neighbor::AddressMatcher &aMatcher)
-{
-    for (auto *peer = &mPeers[mNumPeers - 1]; peer >= &mPeers[0]; peer--)
-    {
-        if (peer->Matches(aMatcher))
-            return peer;
-    }
-
-    return nullptr;
-}
 void Mle::LinkToWakeupParent(const Mac::ExtAddress &aCoord, uint32_t aDelayMs, uint32_t aWindowMs)
 {
     mWakeupLinkWindowMs = aWindowMs;
     SetStateDetached();
 
-    auto *peer = mNeighborTable.FindNeighbor(aCoord, Neighbor::kInStateAnyExceptInvalid);
+    auto *peer = mChildTable.FindChild(aCoord, Child::kInStateAnyExceptInvalid);
     if (peer == nullptr)
     {
-        peer = &mPeers[mNumPeers++];
+        peer = mChildTable.GetNewChild();
     }
     peer->GetLinkInfo().Clear();
     peer->ResetLinkFailures();

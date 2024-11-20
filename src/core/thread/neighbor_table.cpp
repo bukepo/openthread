@@ -94,7 +94,7 @@ Neighbor *NeighborTable::FindNeighbor(const Neighbor::AddressMatcher &aMatcher)
 
     if (neighbor == nullptr)
     {
-        neighbor = Get<Mle::Mle>().FindPeer(aMatcher);
+        neighbor = Get<ChildTable>().FindChild(aMatcher);
     }
     return neighbor;
 }
@@ -113,21 +113,6 @@ exit:
 Neighbor *NeighborTable::FindNeighbor(const Mac::ExtAddress &aExtAddress, Neighbor::StateFilter aFilter)
 {
     return FindNeighbor(Neighbor::AddressMatcher(aExtAddress, aFilter));
-}
-
-CslTxScheduler::ChildInfo *NeighborTable::FindChildInfo(const Mac::Address &aMacAddress, Neighbor::StateFilter aFilter)
-{
-    auto matcher = Neighbor::AddressMatcher(aMacAddress, aFilter);
-#if OPENTHREAD_FTD
-    auto *child = Get<ChildTable>().FindChild(matcher);
-    if (child != nullptr)
-    {
-        return child;
-    }
-#endif
-
-    auto *peer = Get<Mle::Mle>().FindPeer(matcher);
-    return peer;
 }
 
 Neighbor *NeighborTable::FindNeighbor(const Mac::Address &aMacAddress, Neighbor::StateFilter aFilter)

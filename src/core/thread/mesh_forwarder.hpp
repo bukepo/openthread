@@ -643,8 +643,8 @@ private:
 
     otIpCounters mIpCounters;
 
+    IndirectSender mIndirectSender;
 #if OPENTHREAD_FTD
-    IndirectSender    mIndirectSender;
     FwdFrameInfoArray mFwdFrameInfoArray;
 #endif
 

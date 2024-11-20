@@ -38,6 +38,7 @@
 #include "crypto/aes_ccm.hpp"
 #include "crypto/sha256.hpp"
 #include "instance/instance.hpp"
+#include "thread/csl_tx_scheduler.hpp"
 #include "utils/static_counter.hpp"
 
 namespace ot {
@@ -198,11 +199,9 @@ bool Mac::IsInTransmitState(void) const
     switch (mOperation)
     {
     case kOperationTransmitDataDirect:
-#if OPENTHREAD_FTD
     case kOperationTransmitDataIndirect:
 #if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
     case kOperationTransmitDataCsl:
-#endif
 #endif
     case kOperationTransmitBeacon:
     case kOperationTransmitPoll:
@@ -497,7 +496,6 @@ exit:
     return;
 }
 
-#if OPENTHREAD_FTD
 void Mac::RequestIndirectFrameTransmission(void)
 {
     VerifyOrExit(IsEnabled());
@@ -522,7 +520,6 @@ exit:
     return;
 }
 #endif
-#endif // OPENTHREAD_FTD
 
 #if OPENTHREAD_CONFIG_WAKEUP_COORDINATOR_ENABLE
 void Mac::RequestWakeupFrameTransmission(void)
@@ -725,11 +722,9 @@ void Mac::PerformNextOperation(void)
 
     case kOperationTransmitBeacon:
     case kOperationTransmitDataDirect:
-#if OPENTHREAD_FTD
     case kOperationTransmitDataIndirect:
 #if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
     case kOperationTransmitDataCsl:
-#endif
 #endif
     case kOperationTransmitPoll:
 #if OPENTHREAD_CONFIG_WAKEUP_COORDINATOR_ENABLE
@@ -1048,6 +1043,7 @@ void Mac::BeginTransmit(void)
             frame->SetSequence(mDataSequence++);
         }
         break;
+#endif // OPENTHREAD_FTD
 
 #if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
     case kOperationTransmitDataCsl:
@@ -1065,7 +1061,6 @@ void Mac::BeginTransmit(void)
         break;
 
 #endif
-#endif // OPENTHREAD_FTD
 
 #if OPENTHREAD_CONFIG_WAKEUP_COORDINATOR_ENABLE
     case kOperationTransmitWakeup:
@@ -1485,7 +1480,6 @@ void Mac::HandleTransmitDone(TxFrame &aFrame, RxFrame *aAckFrame, Error aError)
         PerformNextOperation();
         break;
 
-#if OPENTHREAD_FTD
 #if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
     case kOperationTransmitDataCsl:
         mCounters.mTxData++;
@@ -1497,6 +1491,7 @@ void Mac::HandleTransmitDone(TxFrame &aFrame, RxFrame *aAckFrame, Error aError)
 
         break;
 #endif
+#if OPENTHREAD_FTD
     case kOperationTransmitDataIndirect:
         mCounters.mTxData++;
 
@@ -2479,7 +2474,7 @@ bool Mac::IsCslSupported(void) const
 }
 #endif // OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_ENABLE
 
-#if OPENTHREAD_FTD && OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
+#if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
 void Mac::ProcessCsl(const RxFrame &aFrame, const Address &aSrcAddr)
 {
     Child       *child;
@@ -2509,7 +2504,7 @@ void Mac::ProcessCsl(const RxFrame &aFrame, const Address &aSrcAddr)
 exit:
     return;
 }
-#endif // OPENTHREAD_FTD && OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
+#endif // OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
 
 #if OPENTHREAD_CONFIG_MLE_LINK_METRICS_INITIATOR_ENABLE
 void Mac::ProcessEnhAckProbing(const RxFrame &aFrame, const Neighbor &aNeighbor)

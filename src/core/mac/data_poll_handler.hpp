@@ -36,8 +36,6 @@
 
 #include "openthread-core-config.h"
 
-#if OPENTHREAD_FTD
-
 #include "common/code_utils.hpp"
 #include "common/locator.hpp"
 #include "common/non_copyable.hpp"
@@ -86,7 +84,7 @@ public:
     class ChildInfo
     {
         friend class DataPollHandler;
-#if OPENTHREAD_FTD && OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
+#if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
         friend class CslTxScheduler;
 #endif
 
@@ -280,7 +278,5 @@ private:
  */
 
 } // namespace ot
-
-#endif // OPENTHREAD_FTD
 
 #endif // DATA_POLL_HANDLER_HPP_

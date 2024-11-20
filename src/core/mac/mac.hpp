@@ -198,7 +198,6 @@ public:
      */
     void RequestDirectFrameTransmission(void);
 
-#if OPENTHREAD_FTD
     /**
      * Requests an indirect data frame transmission.
      */
@@ -211,8 +210,6 @@ public:
      * @param[in]  aDelay  Delay time for `Mac` to start a CSL tx, in units of milliseconds.
      */
     void RequestCslFrameTransmission(uint32_t aDelay);
-#endif
-
 #endif
 
 #if OPENTHREAD_CONFIG_WAKEUP_COORDINATOR_ENABLE
@@ -426,7 +423,8 @@ public:
      */
     bool IsEnergyScanInProgress(void) const { return IsActiveOrPending(kOperationEnergyScan); }
 
-#if OPENTHREAD_FTD
+#if OPENTHREAD_FTD || OPENTHREAD_CONFIG_MAC_CSL_PEER_ENABLE
+
     /**
      * Indicates whether the MAC layer is performing an indirect transmission (in middle of a tx).
      *
@@ -778,11 +776,9 @@ private:
         kOperationTransmitDataDirect,
         kOperationTransmitPoll,
         kOperationWaitingForData,
-#if OPENTHREAD_FTD
         kOperationTransmitDataIndirect,
 #if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
         kOperationTransmitDataCsl,
-#endif
 #endif
 #if OPENTHREAD_CONFIG_WAKEUP_COORDINATOR_ENABLE
         kOperationTransmitWakeup,
@@ -852,7 +848,7 @@ private:
     uint8_t GetTimeIeOffset(const Frame &aFrame);
 #endif
 
-#if OPENTHREAD_FTD && OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
+#if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
     void ProcessCsl(const RxFrame &aFrame, const Address &aSrcAddr);
 #endif
 #if OPENTHREAD_CONFIG_MLE_LINK_METRICS_INITIATOR_ENABLE
@@ -895,11 +891,9 @@ private:
     uint16_t    mScanDuration;
     ChannelMask mScanChannelMask;
     uint8_t     mMaxFrameRetriesDirect;
-#if OPENTHREAD_FTD
-    uint8_t mMaxFrameRetriesIndirect;
+    uint8_t     mMaxFrameRetriesIndirect;
 #if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
     TimeMilli mCslTxFireTime;
-#endif
 #endif
 #if OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_ENABLE
     // When Mac::mCslChannel is 0, it indicates that CSL channel has not been specified by the upper layer.

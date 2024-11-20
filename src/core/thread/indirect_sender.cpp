@@ -33,8 +33,6 @@
 
 #include "indirect_sender.hpp"
 
-#if OPENTHREAD_FTD
-
 #include "instance/instance.hpp"
 
 namespace ot {
@@ -567,5 +565,3 @@ bool IndirectSender::AcceptSupervisionMessage(const Message &aMessage)
 }
 
 } // namespace ot
-
-#endif // #if OPENTHREAD_FTD

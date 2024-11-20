@@ -36,8 +36,6 @@
 
 #include "openthread-core-config.h"
 
-#if OPENTHREAD_FTD
-
 #include "common/locator.hpp"
 #include "common/message.hpp"
 #include "common/non_copyable.hpp"
@@ -68,7 +66,7 @@ class IndirectSender : public InstanceLocator, public IndirectSenderBase, privat
 {
     friend class Instance;
     friend class DataPollHandler::Callbacks;
-#if OPENTHREAD_FTD && OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
+#if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
     friend class CslTxScheduler::Callbacks;
 #endif
 
@@ -265,7 +263,7 @@ private:
     bool                  mEnabled;
     SourceMatchController mSourceMatchController;
     DataPollHandler       mDataPollHandler;
-#if OPENTHREAD_FTD && OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
+#if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
     CslTxScheduler mCslTxScheduler;
 #endif
 };
@@ -275,7 +273,5 @@ private:
  */
 
 } // namespace ot
-
-#endif // OPENTHREAD_FTD
 
 #endif // INDIRECT_SENDER_HPP_

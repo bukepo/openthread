@@ -41,8 +41,6 @@
 
 namespace ot {
 
-#if OPENTHREAD_FTD
-
 #if OPENTHREAD_CONFIG_MLE_IP_ADDRS_PER_CHILD < 2
 #error OPENTHREAD_CONFIG_MLE_IP_ADDRS_PER_CHILD should be at least set to 2.
 #endif
@@ -106,7 +104,7 @@ public:
          */
         bool Matches(const Ip6::Address &aAddress) const { return (*this == aAddress); }
 
-#if OPENTHREAD_CONFIG_TMF_PROXY_MLR_ENABLE
+#if OPENTHREAD_FTD && OPENTHREAD_CONFIG_TMF_PROXY_MLR_ENABLE
         /**
          * Gets the MLR state of the IPv6 address entry.
          *
@@ -395,8 +393,6 @@ private:
 };
 
 DefineCoreType(otChildInfo, Child::Info);
-
-#endif // OPENTHREAD_FTD
 
 } // namespace ot
 

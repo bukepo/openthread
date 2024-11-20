@@ -31,7 +31,7 @@
 
 #include "openthread-core-config.h"
 
-#if OPENTHREAD_FTD && OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
+#if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
 
 #include "common/locator.hpp"
 #include "common/message.hpp"
@@ -255,6 +255,6 @@ private:
 
 } // namespace ot
 
-#endif // OPENTHREAD_FTD && OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
+#endif // OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
 
 #endif // CSL_TX_SCHEDULER_HPP_
