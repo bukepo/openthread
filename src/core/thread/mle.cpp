@@ -1660,6 +1660,7 @@ void Mle::SendParentRequest(ParentRequestType aType)
 #if OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
     SuccessOrExit(error = message->AppendTimeRequestTlv());
 #endif
+    message->SetCslIeSuppressed(true);
 
 #if OPENTHREAD_FTD && OPENTHREAD_CONFIG_PARENT_SEARCH_ENABLE
     if (aType == kToSelectedRouter)
@@ -1773,6 +1774,8 @@ Error Mle::SendChildIdRequest(void)
     SuccessOrExit(error = message->AppendTimeoutTlv(mTimeout));
     SuccessOrExit(error = message->AppendVersionTlv());
     SuccessOrExit(error = message->AppendSupervisionIntervalTlvIfSleepyChild());
+
+    message->SetCslIeSuppressed(true);
 
     if (!IsFullThreadDevice())
     {
@@ -2477,11 +2480,12 @@ void Mle::HandleLinkAcceptMtd(RxInfo &aRxInfo, MessageType aMessageType)
         info.mExtAddress = aRxInfo.mNeighbor->GetExtAddress();
         info.mLinkMargin = Get<Mac::Mac>().ComputeLinkMargin(aRxInfo.mMessage.GetAverageRss());
 
+        Get<MeshForwarder>().SetRxOnWhenIdle(IsRxOnWhenIdle());
         SuccessOrExit(error = SendLinkAcceptMtd(info, true));
     }
     else if (mWedAttachTimer.IsRunning() && mWakeupTxScheduler.GetWedAddress() == neighbor.GetExtAddress())
     {
-        Get<MeshForwarder>().SetRxOnWhenIdle(false);
+        Get<MeshForwarder>().SetRxOnWhenIdle(IsRxOnWhenIdle());
         mWakeupCallback.Invoke(kErrorNone);
         mWedAttachTimer.Stop();
     }
@@ -5370,8 +5374,9 @@ Error Mle::TxMessage::SendTo(const Ip6::Address &aDestination)
     }
 
 #if OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_ENABLE
-    if (Get<Mac::Mac>().IsCslEnabled() && !(IsMleCommand(kCommandLinkAcceptAndRequest) ||
-                                            IsMleCommand(kCommandLinkRequest) || IsMleCommand(kCommandLinkAccept)))
+    if (Get<Mac::Mac>().IsCslEnabled() && !IsMleCommand(kCommandLinkAcceptAndRequest) &&
+        !IsMleCommand(kCommandLinkRequest) && !IsMleCommand(kCommandLinkAccept) &&
+        !IsMleCommand(kCommandParentRequest) && !IsMleCommand(kCommandChildIdRequest))
     {
         SetLinkSecurityEnabled(true);
     }

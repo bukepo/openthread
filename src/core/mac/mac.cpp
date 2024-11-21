@@ -573,7 +573,7 @@ void Mac::UpdateIdleMode(void)
 #endif
     }
 #if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
-    else if (IsPending(kOperationTransmitDataCsl))
+    if (IsPending(kOperationTransmitDataCsl))
     {
         mTimer.FireAt(mCslTxFireTime);
     }
@@ -1005,6 +1005,7 @@ void Mac::BeginTransmit(void)
         break;
 
     case kOperationTransmitPoll:
+        LogInfo("data poll now");
         txFrames.SetChannel(mRadioChannel);
         txFrames.SetMaxCsmaBackoffs(kMaxCsmaBackoffsDirect);
         txFrames.SetMaxFrameRetries(mMaxFrameRetriesDirect);
@@ -1041,6 +1042,7 @@ void Mac::BeginTransmit(void)
 
 #if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
     case kOperationTransmitDataCsl:
+        LogInfo("data csl now");
         txFrames.SetMaxCsmaBackoffs(kMaxCsmaBackoffsCsl);
         txFrames.SetMaxFrameRetries(kMaxFrameRetriesCsl);
         frame = Get<CslTxScheduler>().HandleFrameRequest(txFrames);
@@ -1538,7 +1540,14 @@ void Mac::HandleTimer(void)
         break;
 
     case kOperationIdle:
-        if (!mRxOnWhenIdle)
+#if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
+        if (IsPending(kOperationTransmitDataCsl))
+        {
+            PerformNextOperation();
+        }
+        else
+#endif
+            if (!mRxOnWhenIdle)
         {
 #if OPENTHREAD_CONFIG_MAC_STAY_AWAKE_BETWEEN_FRAGMENTS
             if (mDelayingSleep)
@@ -1549,12 +1558,6 @@ void Mac::HandleTimer(void)
             }
 #endif
         }
-#if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
-        else if (IsPending(kOperationTransmitDataCsl))
-        {
-            PerformNextOperation();
-        }
-#endif
         break;
 
     default:
@@ -2454,7 +2457,11 @@ bool Mac::IsCslCapable(void) const { return (GetCslPeriod() > 0) && IsCslSupport
 
 bool Mac::IsCslSupported(void) const
 {
+#if OPENTHREAD_CONFIG_MAC_CSL_PEER_ENABLE
+    return !Get<Mle::Mle>().IsRouterOrLeader();
+#else
     return Get<Mle::MleRouter>().IsChild() && Get<Mle::Mle>().GetParent().IsEnhancedKeepAliveSupported();
+#endif
 }
 #endif // OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_ENABLE
 
@@ -2570,14 +2577,6 @@ exit:
 Error Mac::SetWakeupListenEnabled(bool aEnable)
 {
     Error error = kErrorNone;
-
-#if OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_ENABLE
-    if (aEnable && GetCslPeriod() > 0)
-    {
-        LogWarn("Cannot enable wake-up frame listening while CSL is enabled");
-        ExitNow(error = kErrorInvalidState);
-    }
-#endif
 
     if (aEnable == mWakeupListenEnabled)
     {

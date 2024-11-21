@@ -181,8 +181,11 @@ Mac::TxFrame *CslTxScheduler::HandleFrameRequest(Mac::TxFrames &aTxFrames)
     uint32_t      txDelay;
     uint32_t      delay;
 
+    LogInfo("%s 1", __PRETTY_FUNCTION__);
     VerifyOrExit(mCslTxChild != nullptr);
+    LogInfo("%s 2", __PRETTY_FUNCTION__);
     VerifyOrExit(mCslTxChild->IsCslSynchronized());
+    LogInfo("%s 3", __PRETTY_FUNCTION__);
 
 #if OPENTHREAD_CONFIG_MULTI_RADIO
     frame = &aTxFrames.GetTxFrame(Mac::kRadioTypeIeee802154);
