@@ -36,6 +36,8 @@ send_user ">>> setup SSED2\n"
 spawn_node $SSED2
 setup_default_network
 run_command "mode -"
+run_command "csl period 1000000"
+run_command "csl timeout 10"
 attach "child"
 set ssed2_extaddr [get_extaddr]
 set ssed2_lladdr [get_ipaddr linklocal]
@@ -72,6 +74,8 @@ send_user ">>> setup WED2\n"
 spawn_node $WED2
 setup_default_network
 run_command "mode -"
+run_command "csl period 1000000"
+run_command "csl timeout 10"
 run_command "ifconfig up"
 run_command "wakeup channel 11"
 run_command "wakeup parameters 1000000 8000"
