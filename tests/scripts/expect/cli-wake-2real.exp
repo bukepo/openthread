@@ -57,4 +57,4 @@ sleep 15
 
 switch_node $WED1
 run_command "srp server host" "$wed2_lladdr"
-run_command "ping $wed2_lladdr"
+run_command "ping $wed2_lladdr 5 1 0 255 5"
