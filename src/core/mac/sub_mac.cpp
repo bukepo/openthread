@@ -197,7 +197,6 @@ void SubMac::SetRxOnWhenIdle(bool aRxOnWhenIdle)
 #endif
     }
 
-    mRxOnWhenIdle = true;
     LogDebg("RxOnWhenIdle: %d", mRxOnWhenIdle);
 }
 
@@ -244,7 +243,7 @@ Error SubMac::Sleep(void)
     VerifyOrExit(ShouldHandleTransitionToSleep());
 
     // TODO do sleep later
-    // error = Get<Radio>().Sleep();
+    error = Get<Radio>().Sleep();
 
 exit:
     if (error != kErrorNone)
