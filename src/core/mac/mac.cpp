@@ -508,6 +508,7 @@ exit:
 #if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
 void Mac::RequestCslFrameTransmission(uint32_t aDelay)
 {
+    LogInfo("Request CSL transmission");
     VerifyOrExit(mEnabled);
 
     mCslTxFireTime = TimerMilli::GetNow() + aDelay;

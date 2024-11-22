@@ -3043,6 +3043,27 @@ template <> otError Interpreter::Process<Cmd("fem")>(Arg aArgs[])
 {
     otError error = OT_ERROR_NONE;
 
+    {
+        const char acID[] = "SEGGER RTT";
+        char      *id;
+        bool       found = false;
+
+        for (uint32_t addr = 0x20000000; addr < 0x20040000; addr++)
+        {
+            id = (char *)(addr);
+
+            if (memcmp(id, acID, 10) == 0)
+            {
+                found = true;
+                OutputLine("Found RTT, Address=0x%08lx", addr);
+            }
+        }
+
+        if (!found)
+        {
+            OutputLine("Not Found RTT Address");
+        }
+    }
     /**
      * @cli fem
      * @code
