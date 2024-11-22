@@ -242,7 +242,6 @@ Error SubMac::Sleep(void)
 
     VerifyOrExit(ShouldHandleTransitionToSleep());
 
-    // TODO do sleep later
     error = Get<Radio>().Sleep();
 
 exit:

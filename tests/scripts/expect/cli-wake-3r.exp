@@ -13,7 +13,7 @@ set WED2 2
 set WED3 3
 
 send_user ">>> setup WED1\n"
-spawn_node $WED1
+spawn_node $WED1 "screen" "/dev/ttyACM0" "115200"
 setup_default_network
 run_command "mode -"
 run_command "csl period 1000000"
@@ -30,7 +30,7 @@ run_command "srp client service add ins1 _matter._tcp 5540"
 
 
 send_user ">>> setup WED2\n"
-spawn_node $WED2
+spawn_node $WED2 "screen" "/dev/ttyACM1" "115200"
 setup_default_network
 run_command "mode -"
 run_command "csl period 1000000"
@@ -47,7 +47,7 @@ run_command "srp client service add ins2 _matter._tcp 5540"
 
 
 send_user ">>> setup WED3\n"
-spawn_node $WED3
+spawn_node $WED3 "screen" "/dev/ttyACM3" "115200"
 setup_default_network
 run_command "mode -"
 run_command "csl period 1000000"
