@@ -1043,7 +1043,6 @@ void Mac::BeginTransmit(void)
 
 #if OPENTHREAD_CONFIG_MAC_CSL_TRANSMITTER_ENABLE
     case kOperationTransmitDataCsl:
-        LogInfo("data csl now");
         txFrames.SetMaxCsmaBackoffs(kMaxCsmaBackoffsCsl);
         txFrames.SetMaxFrameRetries(kMaxFrameRetriesCsl);
         frame = Get<CslTxScheduler>().HandleFrameRequest(txFrames);
