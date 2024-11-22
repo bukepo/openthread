@@ -4888,15 +4888,22 @@ void Mle::DelayedSender::Execute(const Schedule &aSchedule)
 
     case kTypeLinkRequest:
     {
-        uint16_t rlco16;
-        Router  *router;
-
-        IgnoreError(aSchedule.Read(sizeof(Header), rlco16));
-        router = Get<RouterTable>().FindRouterByRloc16(rlco16);
-
-        if (router != nullptr)
+        if (Get<Mle>().IsRouterOrLeader())
         {
-            Get<MleRouter>().SendLinkRequest(router);
+            uint16_t rlco16;
+            Router  *router;
+
+            IgnoreError(aSchedule.Read(sizeof(Header), rlco16));
+            router = Get<RouterTable>().FindRouterByRloc16(rlco16);
+
+            if (router != nullptr)
+            {
+                Get<MleRouter>().SendLinkRequest(router);
+            }
+        }
+        else
+        {
+            Get<Mle>().SendLinkRequestMtd(header.mDestination);
         }
 
         break;
@@ -4910,12 +4917,13 @@ void Mle::DelayedSender::Execute(const Schedule &aSchedule)
         IgnoreError(Get<MleRouter>().SendDiscoveryResponse(header.mDestination, info));
         break;
     }
-#endif // OPENTHREAD_FTD
+#else
     case kTypeLinkRequest:
     {
         Get<Mle>().SendLinkRequestMtd(header.mDestination);
         break;
     }
+#endif // OPENTHREAD_FTD
 
     default:
         break;

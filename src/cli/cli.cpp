@@ -3045,14 +3045,13 @@ template <> otError Interpreter::Process<Cmd("fem")>(Arg aArgs[])
 
     {
         const char acID[] = "SEGGER RTT";
-        char      *id;
-        bool       found = false;
+        bool       found  = false;
 
-        for (uint32_t addr = 0x20000000; addr < 0x20040000; addr++)
+        for (unsigned long addr = 0x20000000; addr < 0x20040000; addr++)
         {
-            id = (char *)(addr);
+            const char *id = reinterpret_cast<const char *>(addr);
 
-            if (memcmp(id, acID, 10) == 0)
+            if (memcmp(id, acID, sizeof(acID)) == 0)
             {
                 found = true;
                 OutputLine("Found RTT, Address=0x%08lx", addr);
