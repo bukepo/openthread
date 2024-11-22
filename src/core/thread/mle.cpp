@@ -137,6 +137,7 @@ Error Mle::Enable(void)
 #if OPENTHREAD_CONFIG_PARENT_SEARCH_ENABLE
     mParentSearch.SetEnabled(true);
 #endif
+
 exit:
     return error;
 }
@@ -2539,7 +2540,6 @@ void Mle::HandleUdpReceive(Message &aMessage, const Ip6::MessageInfo &aMessageIn
         ExitNow();
     }
 
-    VerifyOrExit(!IsDisabled(), error = kErrorInvalidState);
     VerifyOrExit(securitySuite == k154Security, error = kErrorParse);
 
     SuccessOrExit(error = aMessage.Read(aMessage.GetOffset(), header));
@@ -5732,7 +5732,6 @@ void Mle::ParentCandidate::CopyTo(Parent &aParent) const
 void Mle::LinkToWakeupParent(const Mac::ExtAddress &aCoord, uint32_t aDelayMs, uint32_t aWindowMs)
 {
     mWakeupLinkWindowMs = aWindowMs;
-    SetStateDetached();
 
     auto *peer = mChildTable.FindChild(aCoord, Child::kInStateAnyExceptInvalid);
     if (peer == nullptr)
