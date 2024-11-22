@@ -63,7 +63,7 @@ proc expect_line {line} {
     return $expect_out(1,string)
 }
 
-proc spawn_node {id {type ""} {radio_url ""}} {
+proc spawn_node {id {type ""} {radio_url ""} args} {
     global spawn_id
     global spawn_ids
     global dispose_commands
@@ -138,7 +138,7 @@ proc spawn_node {id {type ""} {radio_url ""}} {
             expect_line "Done"
         }
         screen {
-            spawn /usr/bin/env screen $radio_url
+            spawn /usr/bin/env screen $radio_url $args
             send "\r\n"
             send "factoryreset\n"
             wait_for "state" "disabled"
