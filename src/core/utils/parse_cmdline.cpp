@@ -38,7 +38,6 @@
 #include "common/code_utils.hpp"
 #include "common/numeric_limits.hpp"
 #include "common/string.hpp"
-#include "net/ip4_types.hpp"
 #include "net/ip6_address.hpp"
 
 namespace ot {
@@ -210,17 +209,17 @@ exit:
 
 Error ParseAsIp6Address(const char *aString, otIp6Address &aAddress)
 {
-    return (aString != nullptr) ? AsCoreType(&aAddress).FromString(aString) : kErrorInvalidArgs;
+    return (aString != nullptr) ? otIp6AddressFromString(aString, &aAddress) : kErrorInvalidArgs;
 }
 
 Error ParseAsIp4Address(const char *aString, otIp4Address &aAddress)
 {
-    return (aString != nullptr) ? AsCoreType(&aAddress).FromString(aString) : kErrorInvalidArgs;
+    return (aString != nullptr) ? otIp4AddressFromString(aString, &aAddress) : kErrorInvalidArgs;
 }
 
 Error ParseAsIp6Prefix(const char *aString, otIp6Prefix &aPrefix)
 {
-    return (aString != nullptr) ? Error(otIp6PrefixFromString(aString, &aPrefix)) : kErrorInvalidArgs;
+    return (aString != nullptr) ? otIp6PrefixFromString(aString, &aPrefix) : kErrorInvalidArgs;
 }
 #endif // #if OPENTHREAD_FTD || OPENTHREAD_MTD
 

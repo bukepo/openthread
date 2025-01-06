@@ -33,15 +33,12 @@
 
 #include "error.hpp"
 
-#include <stdio.h>
-
 #include "common/array.hpp"
 #include "common/code_utils.hpp"
-#include "common/log.hpp"
 
 namespace ot {
 
-const char *ErrorToString(otError aError)
+const char *ErrorToString(Error aError)
 {
     static const char *const kErrorStrings[kNumErrors] = {
         "OK",                         // (0)  kErrorNone
@@ -86,19 +83,5 @@ const char *ErrorToString(otError aError)
 
     return aError < GetArrayLength(kErrorStrings) ? kErrorStrings[aError] : "UnknownErrorType";
 }
-
-#if OPENTHREAD_CONFIG_ERROR_LINE_ENABLE
-const char *ErrorToString(const Error aError)
-{
-    // Size limit of the error string.
-    // Since mFile is not full path of source files, the size should be sufficient.
-    constexpr uint16_t kMaxErrorString = kMaxLogStringSize / 2;
-
-    static char str[kMaxErrorString];
-
-    snprintf(str, sizeof(str), "%s %s:%d", ErrorToString(aError.mError), aError.mFile, aError.mLine);
-    return str;
-}
-#endif
 
 } // namespace ot

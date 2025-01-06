@@ -1078,7 +1078,7 @@ void Diags::AppendErrorResult(Error aError)
 {
     if ((aError != kErrorNone) && (aError != kErrorPending))
     {
-        Output("failed\r\nstatus %#x\r\n", static_cast<otError>(aError));
+        Output("failed\r\nstatus %#x\r\n", aError);
     }
 }
 
