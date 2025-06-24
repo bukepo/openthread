@@ -336,6 +336,11 @@ public:
      */
     PanIdQueryClient &GetPanIdQueryClient(void) { return mPanIdQuery; }
 
+    Error SendTo(Message &aMessage, const Ip6::MessageInfo &aMessageInfo)
+    {
+        return SendRelayTransmit(aMessage, aMessageInfo);
+    }
+
 private:
     static constexpr uint32_t kPetitionAttemptDelay = 5;  // COMM_PET_ATTEMPT_DELAY (seconds)
     static constexpr uint8_t  kPetitionRetryCount   = 2;  // COMM_PET_RETRY_COUNT
@@ -429,8 +434,7 @@ private:
 
     void SendJoinFinalizeResponse(const Coap::Message &aRequest, StateTlv::State aState);
 
-    static Error SendRelayTransmit(void *aContext, Message &aMessage, const Ip6::MessageInfo &aMessageInfo);
-    Error        SendRelayTransmit(Message &aMessage, const Ip6::MessageInfo &aMessageInfo);
+    Error SendRelayTransmit(Message &aMessage, const Ip6::MessageInfo &aMessageInfo);
 
     void  ComputeBloomFilter(SteeringData &aSteeringData) const;
     void  SendCommissionerSet(void);

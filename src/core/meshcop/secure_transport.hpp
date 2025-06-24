@@ -35,6 +35,7 @@
 #define SECURE_TRANSPORT_HPP_
 
 #include "openthread-core-config.h"
+#include "common/error.hpp"
 
 #ifdef OPENTHREAD_CONFIG_TLS_API_ENABLE
 #error `OPENTHREAD_CONFIG_TLS_API_ENABLE` must not be defined directly, it is determined from `COAP_SECURE_API_ENABLE` and `BLE_TCAT_ENABLE`
@@ -82,6 +83,7 @@
 #include "common/random.hpp"
 #include "common/timer.hpp"
 #include "crypto/sha256.hpp"
+#include "lib/utils/proxy.hpp"
 #include "meshcop/meshcop.hpp"
 #include "meshcop/meshcop_tlvs.hpp"
 #include "net/socket.hpp"
@@ -302,6 +304,10 @@ private:
     mbedtls_ssl_cookie_ctx mCookieCtx;
 #endif
 };
+
+OT_PROXY_CLASS_BEGIN(MessageSender);
+OT_PROXY_CLASS_METHOD(Error, SendTo, Message &, const Ip6::MessageInfo &);
+OT_PROXY_CLASS_END(MessageSender);
 
 /**
  * Represents a secure transport, used as base class for `Dtls` and `Tls`.
@@ -671,7 +677,25 @@ public:
      * @retval kErrorInvalidState   The socket is not open.
      * @retval kErrorAlready        Already bound.
      */
-    Error Bind(TransportCallback aCallback, void *aContext);
+    template <typename T> Error Bind(T &aMessageSender)
+    {
+        Error error = kErrorNone;
+
+        if (!mIsOpen || !mSessions.IsEmpty())
+        {
+            error = kErrorInvalidState;
+        }
+        else if (mMessageSender.IsProxied())
+        {
+            error = kErrorAlready;
+        }
+        else
+        {
+            mMessageSender = MessageSender(aMessageSender);
+        }
+
+        return error;
+    }
 
     /**
      * Indicates whether or not the secure transpose socket is closed.
@@ -830,7 +854,7 @@ private:
     Callback<AutoCloseCallback>     mAutoCloseCallback;
     Callback<AcceptCallback>        mAcceptCallback;
     Callback<RemoveSessionCallback> mRemoveSessionCallback;
-    Callback<TransportCallback>     mTransportCallback;
+    MessageSender                   mMessageSender;
 #if OPENTHREAD_CONFIG_TLS_API_ENABLE
     Extension *mExtension;
 #endif

@@ -84,7 +84,7 @@ Error BleSecure::Start(ConnectCallback aConnectHandler, ReceiveCallback aReceive
     SuccessOrExit(error = mTls.Open());
     mTls.SetReceiveCallback(HandleTlsReceive, this);
     mTls.SetConnectCallback(HandleTlsConnectEvent, this);
-    SuccessOrExit(error = mTls.Bind(HandleTransport, this));
+    SuccessOrExit(error = mTls.Bind(*this));
 
 exit:
     if (error == kErrorNone)
@@ -507,12 +507,6 @@ void BleSecure::HandleTransmit(void)
 exit:
     FreeMessageOnError(message, error);
     LogWarnOnError(error, "transmit");
-}
-
-Error BleSecure::HandleTransport(void *aContext, ot::Message &aMessage, const Ip6::MessageInfo &aMessageInfo)
-{
-    OT_UNUSED_VARIABLE(aMessageInfo);
-    return static_cast<BleSecure *>(aContext)->HandleTransport(aMessage);
 }
 
 Error BleSecure::HandleTransport(ot::Message &aMessage)

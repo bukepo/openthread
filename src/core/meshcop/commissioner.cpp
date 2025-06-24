@@ -269,7 +269,7 @@ Error Commissioner::Start(StateCallback aStateCallback, JoinerCallback aJoinerCa
     VerifyOrExit(mState == kStateDisabled, error = kErrorAlready);
 
     SuccessOrExit(error = Get<Tmf::SecureAgent>().Open());
-    SuccessOrExit(error = Get<Tmf::SecureAgent>().Bind(SendRelayTransmit, this));
+    SuccessOrExit(error = Get<Tmf::SecureAgent>().Bind(*this));
 
     Get<Tmf::SecureAgent>().SetConnectCallback(HandleSecureAgentConnectEvent, this);
 
@@ -1037,11 +1037,6 @@ void Commissioner::SendJoinFinalizeResponse(const Coap::Message &aRequest, State
 
 exit:
     FreeMessageOnError(message, error);
-}
-
-Error Commissioner::SendRelayTransmit(void *aContext, Message &aMessage, const Ip6::MessageInfo &aMessageInfo)
-{
-    return static_cast<Commissioner *>(aContext)->SendRelayTransmit(aMessage, aMessageInfo);
 }
 
 Error Commissioner::SendRelayTransmit(Message &aMessage, const Ip6::MessageInfo &aMessageInfo)

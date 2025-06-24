@@ -30,6 +30,7 @@
 #define BLE_SECURE_HPP_
 
 #include "openthread-core-config.h"
+#include "openthread/platform/toolchain.h"
 
 #if OPENTHREAD_CONFIG_BLE_TCAT_ENABLE
 
@@ -276,6 +277,12 @@ public:
      */
     bool GetInstallCodeVerifyStatus(void) const { return mTcatAgent.GetInstallCodeVerifyStatus(); }
 
+    Error SendTo(ot::Message &aMessage, const Ip6::MessageInfo &aMessageInfo)
+    {
+        OT_UNUSED_VARIABLE(aMessageInfo);
+        return HandleTransport(aMessage);
+    }
+
 private:
     enum BleState : uint8_t
     {
@@ -298,8 +305,7 @@ private:
 
     void HandleTransmit(void);
 
-    static Error HandleTransport(void *aContext, ot::Message &aMessage, const Ip6::MessageInfo &aMessageInfo);
-    Error        HandleTransport(ot::Message &aMessage);
+    Error HandleTransport(ot::Message &aMessage);
 
     using TxTask = TaskletIn<BleSecure, &BleSecure::HandleTransmit>;
 

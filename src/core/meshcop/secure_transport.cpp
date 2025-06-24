@@ -745,27 +745,12 @@ Error SecureTransport::Bind(uint16_t aPort)
     Error error;
 
     VerifyOrExit(mIsOpen, error = kErrorInvalidState);
-    VerifyOrExit(!mTransportCallback.IsSet(), error = kErrorAlready);
 
     VerifyOrExit(mSessions.IsEmpty(), error = kErrorInvalidState);
 
     error = mSocket.Bind(aPort);
 
-exit:
-    return error;
-}
-
-Error SecureTransport::Bind(TransportCallback aCallback, void *aContext)
-{
-    Error error = kErrorNone;
-
-    VerifyOrExit(mIsOpen, error = kErrorInvalidState);
-    VerifyOrExit(!mSocket.IsBound(), error = kErrorAlready);
-    VerifyOrExit(!mTransportCallback.IsSet(), error = kErrorAlready);
-
-    VerifyOrExit(mSessions.IsEmpty(), error = kErrorInvalidState);
-
-    mTransportCallback.Set(aCallback, aContext);
+    mMessageSender = MessageSender(mSocket);
 
 exit:
     return error;
@@ -794,7 +779,6 @@ void SecureTransport::Close(void)
 
     mIsOpen    = false;
     mIsClosing = false;
-    mTransportCallback.Clear();
     IgnoreError(mSocket.Close());
     mTimer.Stop();
 
@@ -867,14 +851,7 @@ int SecureTransport::Transmit(const unsigned char    *aBuf,
 
     SuccessOrExit(error = message->AppendBytes(aBuf, static_cast<uint16_t>(aLength)));
 
-    if (mTransportCallback.IsSet())
-    {
-        error = mTransportCallback.Invoke(*message, aMessageInfo);
-    }
-    else
-    {
-        error = mSocket.SendTo(*message, aMessageInfo);
-    }
+    error = mMessageSender.SendTo(*message, aMessageInfo);
 
 exit:
     FreeMessageOnError(message, error);
