@@ -41,6 +41,8 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
+  issues: write
+  pull-requests: write
   contents: read
 
 jobs:
