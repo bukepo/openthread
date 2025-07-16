@@ -42,12 +42,14 @@ apply_dependencies()
     git config user.name || git config user.name 'OpenThread Git'
     git config user.email || git config user.email 'git@openthread'
 
+    # example
     while read -r dependency; do
         echo "${dependency}"
         depends_on_pr="$(echo "${dependency}" | tr -d '\r\n' | cut -d# -f2)"
         echo "pr: #${depends_on_pr}"
         git pull --no-edit --no-rebase origin "pull/${depends_on_pr}/merge"
-    done < <(grep -E "^Depends-On: *${project_name}" <<<"${PR_BODY:-}" || true)
+    done < <(sed -E 's@^Depends-On: *https://github.com/(.+)/(.+)/pull/([0-9]+) *$@Depends-On: \1/\2#\3@g" <<<"${PR_BODY:-}" \
+        | sed -n -E "/^Depends-On: *${project_name}#[0-9]+ *$/p")
 }
 
 try_update()
