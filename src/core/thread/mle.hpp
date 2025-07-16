@@ -2298,6 +2298,7 @@ private:
     RouterRoleRestorer         mRouterRoleRestorer;
     RouterRoleTransition       mRouterRoleTransition;
     Ip6::Netif::UnicastAddress mLeaderAloc;
+    char                       mUnused[100];
 #if OPENTHREAD_CONFIG_MLE_DEVICE_PROPERTY_LEADER_WEIGHT_ENABLE
     DeviceProperties mDeviceProperties;
 #endif
