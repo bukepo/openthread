@@ -100,7 +100,7 @@ public:
 class NetworkName : public otNetworkName, public Unequatable<NetworkName>
 {
 public:
-    static constexpr const char *kNetworkNameInit = "OpenThread";
+    static constexpr const char *kNetworkNameInit = "OpenThreadTest";
     static constexpr const char *kDomainNameInit  = "DefaultDomain"; // Section 5.22 Thread spec, MUST NOT change.
 
     /**
