@@ -50,7 +50,7 @@ jobs:
       with:
         egress-policy: audit # TODO: change to 'egress-policy: block' after couple of runs
 
-    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+    - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
     - name: Checkout Pull Request
       if: ${{ github.event_name == 'pull_request_target' }}
       run: |
@@ -69,18 +69,23 @@ jobs:
         name: report_pr
         path: /tmp/ot-size-report/report_pr
 
+
   size-report:
-    if: ${{ github.event_name == 'pull_request_target' }}
+    needs:
+    - size-check
     permissions:
       pull-requests: write
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-24.04
+    steps:
     - name: Download report
       uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
       with:
         name: report_pr
-        path: /tmp/ot-size-report/report_pr
+        path: /tmp/ot-size-report
 
-    - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
-      name: Post Report
+    - name: Post Report
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
       id: post-report
       with:
         script: |
