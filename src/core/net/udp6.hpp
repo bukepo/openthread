@@ -141,7 +141,11 @@ public:
          *
          * @param[in] aNetifId   The network interface identifier.
          */
-        void SetNetifId(NetifIdentifier aNetifId) { mNetifId = static_cast<otNetifIdentifier>(aNetifId); }
+        void SetNetifId(NetifIdentifier aNetifId)
+        {
+            OT_ASSERT(!IsBound());
+            mNetifId = static_cast<otNetifIdentifier>(aNetifId);
+        }
 
         /**
          * Indicates whether or not the socket can use platform UDP.
