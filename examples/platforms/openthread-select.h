@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2016, The OpenThread Authors.
+ *  Copyright (c) 2025, The OpenThread Authors.
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -29,11 +29,14 @@
 /**
  * @file
  * @brief
- *   This file defines the platform-specific functions needed by OpenThread's example applications.
+ *   This file defines the APIs for integrating with select() based event loop.
  */
 
-#ifndef OPENTHREAD_SYSTEM_H_
-#define OPENTHREAD_SYSTEM_H_
+#ifndef OPENTHREAD_SELECT_H_
+#define OPENTHREAD_SELECT_H_
+
+#include <stdint.h>
+#include <sys/select.h>
 
 #include <openthread/instance.h>
 
@@ -42,33 +45,21 @@ extern "C" {
 #endif
 
 /**
- * Performs all platform-specific initialization of OpenThread's drivers.
+ * Updates the file descriptor sets with file descriptors used by OpenThread drivers.
  *
- * @note This function is not called by the OpenThread library. Instead, the system/RTOS should call this function
- *       when initialization of OpenThread's drivers is most appropriate.
- *
- * @param[in]  argc  Number of arguments in @p argv.
- * @param[in]  argv  Argument vector.
+ * @param[in]       aInstance   The OpenThread instance structure.
+ * @param[in,out]   aMaxFd      A pointer to the max file descriptor.
+ * @param[in,out]   aReadFdSet  A pointer to the read file descriptors.
+ * @param[in,out]   aWriteFdSet A pointer to the write file descriptors.
+ * @param[in,out]   aErrorFdSet A pointer to the error file descriptors.
+ * @param[in,out]   aTimeout    A pointer to the timeout.
  */
-void otSysInit(int aArgCount, char *aArgVector[]);
-
-/**
- * Performs all platform-specific deinitialization for OpenThread's drivers.
- *
- * @note This function is not called by the OpenThread library. Instead, the system/RTOS should call this function
- *       when deinitialization of OpenThread's drivers is most appropriate.
- */
-void otSysDeinit(void);
-
-/**
- * Returns true if a pseudo-reset was requested.
- *
- * In such a case, the main loop should shut down and re-initialize the OpenThread instance.
- *
- * @note This function is not called by the OpenThread library. Instead, the system/RTOS should call this function
- *       in the main loop to determine when to shut down and re-initialize the OpenThread instance.
- */
-bool otSysPseudoResetWasRequested(void);
+void otSysUpdateEvents(otInstance     *aInstance,
+                       int            *aMaxFd,
+                       fd_set         *aReadFdSet,
+                       fd_set         *aWriteFdSet,
+                       fd_set         *aErrorFdSet,
+                       struct timeval *aTimeout);
 
 /**
  * Performs all platform-specific processing for OpenThread's example applications.
@@ -76,20 +67,18 @@ bool otSysPseudoResetWasRequested(void);
  * @note This function is not called by the OpenThread library. Instead, the system/RTOS should call this function
  *       in the main loop when processing OpenThread's drivers is most appropriate.
  *
- * @param[in]  aInstance  The OpenThread instance structure.
+ * @param[in]       aInstance   The OpenThread instance structure.
+ * @param[in]       aReadFdSet  A pointer to the read file descriptors.
+ * @param[in]       aWriteFdSet A pointer to the write file descriptors.
+ * @param[in]       aErrorFdSet A pointer to the error file descriptors.
  */
-void otSysProcessDrivers(otInstance *aInstance);
-
-/**
- * Is called whenever platform drivers needs processing.
- *
- * @note This function is not handled by the OpenThread library. Instead, the system/RTOS should handle this function
- *       and schedule a call to `otSysProcessDrivers()`.
- */
-extern void otSysEventSignalPending(void);
+void otSysProcessEvents(otInstance   *aInstance,
+                        const fd_set *aReadFdSet,
+                        const fd_set *aWriteFdSet,
+                        const fd_set *aErrorFdSet);
 
 #ifdef __cplusplus
 } // end of extern "C"
 #endif
 
-#endif // OPENTHREAD_SYSTEM_H_
+#endif // OPENTHREAD_SELECT_H_
