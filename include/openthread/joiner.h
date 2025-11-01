@@ -68,6 +68,8 @@ typedef enum otJoinerState
     OT_JOINER_STATE_CONNECTED = 3,
     OT_JOINER_STATE_ENTRUST   = 4,
     OT_JOINER_STATE_JOINED    = 5,
+
+    OT_JOINER_STATE_COMMISSIONING = 6,
 } otJoinerState;
 
 #define OT_JOINER_MAX_DISCERNER_LENGTH 64 ///< Maximum length of a Joiner Discerner in bits.

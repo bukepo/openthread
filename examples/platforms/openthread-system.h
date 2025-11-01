@@ -35,11 +35,46 @@
 #ifndef OPENTHREAD_SYSTEM_H_
 #define OPENTHREAD_SYSTEM_H_
 
+#include <sys/select.h>
+
 #include <openthread/instance.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/**
+ * Updates the file descriptor sets with file descriptors used by OpenThread drivers.
+ *
+ * @param[in]       aInstance   The OpenThread instance structure.
+ * @param[in,out]   aMaxFd      A pointer to the max file descriptor.
+ * @param[in,out]   aReadFdSet  A pointer to the read file descriptors.
+ * @param[in,out]   aWriteFdSet A pointer to the write file descriptors.
+ * @param[in,out]   aErrorFdSet A pointer to the error file descriptors.
+ * @param[in,out]   aTimeout    A pointer to the timeout.
+ */
+void otSysUpdateEvents(otInstance     *aInstance,
+                       int            *aMaxFd,
+                       fd_set         *aReadFdSet,
+                       fd_set         *aWriteFdSet,
+                       fd_set         *aErrorFdSet,
+                       struct timeval *aTimeout);
+
+/**
+ * Performs all platform-specific processing for OpenThread's example applications.
+ *
+ * @note This function is not called by the OpenThread library. Instead, the system/RTOS should call this function
+ *       in the main loop when processing OpenThread's drivers is most appropriate.
+ *
+ * @param[in]       aInstance   The OpenThread instance structure.
+ * @param[in]       aReadFdSet  A pointer to the read file descriptors.
+ * @param[in]       aWriteFdSet A pointer to the write file descriptors.
+ * @param[in]       aErrorFdSet A pointer to the error file descriptors.
+ */
+void otSysProcessEvents(otInstance   *aInstance,
+                        const fd_set *aReadFdSet,
+                        const fd_set *aWriteFdSet,
+                        const fd_set *aErrorFdSet);
 
 /**
  * Performs all platform-specific initialization of OpenThread's drivers.

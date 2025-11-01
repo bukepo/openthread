@@ -1036,6 +1036,7 @@ void Client::SendUpdate(void)
 
     SuccessOrExit(error = UpdateIdAndSignatureInUpdateMessage(info));
 
+    info.mMessage->SetLinkSecurityEnabled(!mUnsecured);
     SuccessOrExit(error = mSocket.SendTo(*info.mMessage, Ip6::MessageInfo()));
 
     // Ownership of the message is transferred to the socket upon a

@@ -32,12 +32,21 @@
  */
 
 #include "openthread-core-config.h"
+#include "openthread/joiner.h"
+#include "openthread/provisional/rendezvous.h"
 
 #if OPENTHREAD_CONFIG_JOINER_ENABLE
 
 #include "instance/instance.hpp"
 
 using namespace ot;
+
+otError otRendezvousStart(otInstance *aInstance, uint64_t aDiscerner, otJoinerCallback aCallback, void *aContext)
+{
+    return AsCoreType(aInstance).Get<MeshCoP::Joiner>().Rendezvous(aDiscerner, aCallback, aContext);
+}
+
+void otRendezvousStop(otInstance *aInstance) { AsCoreType(aInstance).Get<MeshCoP::Joiner>().Stop(); }
 
 otError otJoinerStart(otInstance      *aInstance,
                       const char      *aPskd,

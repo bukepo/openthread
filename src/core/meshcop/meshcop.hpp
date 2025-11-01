@@ -240,7 +240,7 @@ public:
     {
         static constexpr uint8_t kNumIndexes = 2; ///< Number of hash bit indexes.
 
-        uint16_t mIndex[kNumIndexes]; ///< The hash bit index array.
+        uint16_t mIndex[kNumIndexes];             ///< The hash bit index array.
     };
 
     /**

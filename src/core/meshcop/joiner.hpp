@@ -73,12 +73,13 @@ public:
      */
     enum State : uint8_t
     {
-        kStateIdle      = OT_JOINER_STATE_IDLE,
-        kStateDiscover  = OT_JOINER_STATE_DISCOVER,
-        kStateConnect   = OT_JOINER_STATE_CONNECT,
-        kStateConnected = OT_JOINER_STATE_CONNECTED,
-        kStateEntrust   = OT_JOINER_STATE_ENTRUST,
-        kStateJoined    = OT_JOINER_STATE_JOINED,
+        kStateIdle          = OT_JOINER_STATE_IDLE,
+        kStateDiscover      = OT_JOINER_STATE_DISCOVER,
+        kStateConnect       = OT_JOINER_STATE_CONNECT,
+        kStateConnected     = OT_JOINER_STATE_CONNECTED,
+        kStateEntrust       = OT_JOINER_STATE_ENTRUST,
+        kStateJoined        = OT_JOINER_STATE_JOINED,
+        kStateCommissioning = OT_JOINER_STATE_COMMISSIONING,
     };
 
     /**
@@ -113,6 +114,8 @@ public:
                 otJoinerCallback aCallback,
                 void            *aContext);
 
+    Error Rendezvous(uint64_t &aDiscerner, otJoinerCallback aCallback, void *aContext);
+
     /**
      * Stops the Joiner service.
      */
@@ -124,6 +127,8 @@ public:
      * @returns The Joiner state (see `State`).
      */
     State GetState(void) const { return mState; }
+
+    uint16_t GetJoinerRouterUdpPort(void) const { return mJoinerRouterUdpPort; }
 
     /**
      * Retrieves the Joiner ID.
@@ -166,6 +171,8 @@ public:
      */
     Error ClearDiscerner(void);
 
+    void FinishCommissioning(void) { Finish(kErrorNone); }
+
     /**
      * Converts a given Joiner state to its human-readable string representation.
      *
@@ -178,8 +185,9 @@ public:
 private:
     static constexpr uint16_t kJoinerUdpPort = OPENTHREAD_CONFIG_JOINER_UDP_PORT;
 
-    static constexpr uint32_t kConfigExtAddressDelay = 100;  // in msec.
-    static constexpr uint32_t kResponseTimeout       = 4000; ///< Max wait time to receive response (in msec).
+    static constexpr uint32_t kConfigExtAddressDelay = 100;    // in msec.
+    static constexpr uint32_t kResponseTimeout       = 4000;   ///< Max wait time to receive response (in msec).
+    static constexpr uint32_t kCommissioningTimeout  = 300000; ///< Max wait time to finish commissioning (in msec).
 
     struct JoinerRouter
     {
@@ -209,6 +217,7 @@ private:
     void    SetState(State aState);
     void    SetIdFromIeeeEui64(void);
     void    SaveDiscoveredJoinerRouter(const Mle::DiscoverScanner::ScanResult &aResult);
+    void    PrepareCommissioning(const Mle::DiscoverScanner::ScanResult &aResult);
     void    TryNextJoinerRouter(Error aPrevError);
     Error   Connect(JoinerRouter &aRouter);
     void    Finish(Error aError);
@@ -238,6 +247,8 @@ private:
     Coap::Message *mFinalizeMessage;
 
     JoinerTimer mTimer;
+
+    uint16_t mJoinerRouterUdpPort;
 };
 
 DeclareTmfHandler(Joiner, kUriJoinerEntrust);

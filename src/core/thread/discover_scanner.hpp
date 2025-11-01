@@ -159,7 +159,7 @@ private:
     void          Stop(void) { HandleDiscoverComplete(); }
 
     // Methods used from `Mle`
-    void HandleDiscoveryResponse(Mle::RxInfo &aRxInfo) const;
+    void HandleDiscoveryResponse(Mle::RxInfo &aRxInfo);
 
     void        HandleDiscoverComplete(void);
     void        HandleScanDoneTask(void);

@@ -33,6 +33,7 @@
 
 #include "ip6_filter.hpp"
 
+#include "common/error.hpp"
 #include "instance/instance.hpp"
 
 namespace ot {
@@ -63,6 +64,10 @@ Error Filter::Apply(const Message &aMessage) const
     }
 
     dstPort = headers.GetDestinationPort();
+    if (dstPort == 5540 || headers.GetSourcePort() == 5540)
+    {
+        ExitNow(error = kErrorNone);
+    }
 
     switch (headers.GetIpProto())
     {
@@ -72,6 +77,21 @@ Error Filter::Apply(const Message &aMessage) const
         {
             ExitNow(error = kErrorNone);
         }
+
+#if OPENTHREAD_FTD
+        if (dstPort == Get<MeshCoP::JoinerRouter>().GetJoinerUdpPort())
+        {
+            ExitNow(error = kErrorNone);
+        }
+#endif
+
+#if OPENTHREAD_CONFIG_JOINER_ENABLE
+        if (headers.GetSourcePort() == Get<MeshCoP::Joiner>().GetJoinerRouterUdpPort() &&
+            Get<MeshCoP::Joiner>().GetJoinerRouterUdpPort() != 0)
+        {
+            ExitNow(error = kErrorNone);
+        }
+#endif
 
 #if OPENTHREAD_CONFIG_BORDER_AGENT_ENABLE
         // Allow native commissioner traffic

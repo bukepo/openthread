@@ -34,6 +34,7 @@
 #include "openthread-core-config.h"
 
 #include "instance/instance.hpp"
+#include "meshcop/joiner.hpp"
 
 using namespace ot;
 
@@ -58,14 +59,31 @@ otError otDatasetSetActive(otInstance *aInstance, const otOperationalDataset *aD
 {
     AsCoreType(aInstance).Get<MeshCoP::ActiveDatasetManager>().SaveLocal(AsCoreType(aDataset));
 
+#if OPENTHREAD_CONFIG_JOINER_ENABLE
+    if (AsCoreType(aInstance).Get<MeshCoP::ActiveDatasetManager>().IsCommissioned())
+    {
+        AsCoreType(aInstance).Get<MeshCoP::Joiner>().FinishCommissioning();
+    }
+#endif // OPENTHREAD_CONFIG_JOINER_ENABLE
     return OT_ERROR_NONE;
 }
 
 otError otDatasetSetActiveTlvs(otInstance *aInstance, const otOperationalDatasetTlvs *aDataset)
 {
+    Error error;
     AssertPointerIsNotNull(aDataset);
 
-    return AsCoreType(aInstance).Get<MeshCoP::ActiveDatasetManager>().SaveLocal(*aDataset);
+    SuccessOrExit(error = AsCoreType(aInstance).Get<MeshCoP::ActiveDatasetManager>().SaveLocal(*aDataset));
+
+#if OPENTHREAD_CONFIG_JOINER_ENABLE
+    if (AsCoreType(aInstance).Get<MeshCoP::ActiveDatasetManager>().IsCommissioned())
+    {
+        AsCoreType(aInstance).Get<MeshCoP::Joiner>().FinishCommissioning();
+    }
+#endif
+
+exit:
+    return error;
 }
 
 otError otDatasetGetPending(otInstance *aInstance, otOperationalDataset *aDataset)

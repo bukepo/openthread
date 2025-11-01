@@ -34,6 +34,7 @@
 #include "udp6.hpp"
 
 #include "instance/instance.hpp"
+#include "meshcop/joiner.hpp"
 
 namespace ot {
 namespace Ip6 {

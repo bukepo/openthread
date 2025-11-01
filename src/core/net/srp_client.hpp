@@ -324,6 +324,11 @@ public:
      */
     Error Start(const Ip6::SockAddr &aServerSockAddr) { return Start(aServerSockAddr, kRequesterUser); }
 
+    Error StartUnsecured(const Ip6::SockAddr &aServerSockAddr)
+    {
+        mUnsecured = true;
+        return Start(aServerSockAddr, kRequesterAuto);
+    }
     /**
      * Stops the SRP client operation.
      *
@@ -333,7 +338,11 @@ public:
      * If `OPENTHREAD_CONFIG_SRP_CLIENT_AUTO_START_API_ENABLE` (auto-start feature) is enabled, a call to this method
      * also disables the auto-start mode.
      */
-    void Stop(void) { Stop(kRequesterUser, kResetRetryInterval); }
+    void Stop(void)
+    {
+        mUnsecured = false;
+        Stop(kRequesterUser, kResetRetryInterval);
+    }
 
 #if OPENTHREAD_CONFIG_SRP_CLIENT_AUTO_START_API_ENABLE
     /**
@@ -1081,6 +1090,7 @@ private:
     bool mServiceKeyRecordEnabled : 1;
     bool mUseShortLeaseOption : 1;
 #endif
+    bool mUnsecured : 1;
 
     uint16_t mCurMessageId;
     uint16_t mAutoHostAddressCount;

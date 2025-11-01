@@ -32,6 +32,9 @@
  */
 
 #include "joiner.hpp"
+#include "common/code_utils.hpp"
+#include "net/srp_client.hpp"
+#include "openthread/platform/toolchain.h"
 
 #if OPENTHREAD_CONFIG_JOINER_ENABLE
 
@@ -50,6 +53,7 @@ Joiner::Joiner(Instance &aInstance)
     , mJoinerRouterIndex(0)
     , mFinalizeMessage(nullptr)
     , mTimer(aInstance)
+    , mJoinerRouterUdpPort(0)
 {
     SetIdFromIeeeEui64();
     mDiscerner.Clear();
@@ -104,6 +108,36 @@ void Joiner::SetState(State aState)
     LogInfo("JoinerState: %s -> %s", StateToString(oldState), StateToString(aState));
 exit:
     return;
+}
+
+Error Joiner::Rendezvous(uint64_t &aDiscerner, otJoinerCallback aCallback, void *aContext)
+{
+    Error                        error;
+    SteeringData::HashBitIndexes filterIndexes;
+    Mac::ExtAddress              address;
+
+    LogInfo("Rendezvous starting");
+
+    VerifyOrExit(mState == kStateIdle, error = kErrorBusy);
+
+    BigEndian::WriteUint64(aDiscerner, address.m8);
+    SteeringData::CalculateHashBitIndexes(address, filterIndexes);
+
+    SuccessOrExit(error = Get<Mle::DiscoverScanner>().Discover(Mac::ChannelMask(0), Get<Mac::Mac>().GetPanId(),
+                                                               /* aJoiner */ true, /* aEnableFiltering */ true,
+                                                               &filterIndexes, HandleDiscoverResult, this));
+
+    mCallback.Set(aCallback, aContext);
+    SetState(kStateDiscover);
+
+exit:
+    if (error != kErrorNone)
+    {
+        FreeJoinerFinalizeMessage();
+    }
+
+    LogWarnOnError(error, "start rendezvous");
+    return error;
 }
 
 Error Joiner::Start(const char      *aPskd,
@@ -206,6 +240,17 @@ void Joiner::Finish(Error aError)
     case kStateDiscover:
         Get<Tmf::SecureAgent>().Close();
         break;
+
+    case kStateCommissioning:
+    {
+        IgnoreError(Get<Ip6::Filter>().RemoveUnsecurePort(kJoinerUdpPort));
+        mTimer.Stop();
+
+        mJoinerRouterUdpPort = 0;
+        // TODO do not change ll address to support concurrent connection during matter
+
+        Get<Srp::Client>().Stop();
+    }
     }
 
     SetState(kStateIdle);
@@ -251,7 +296,14 @@ void Joiner::HandleDiscoverResult(Mle::DiscoverScanner::ScanResult *aResult)
 
     if (aResult != nullptr)
     {
-        SaveDiscoveredJoinerRouter(*aResult);
+        if (aResult->mDiscover)
+        {
+            PrepareCommissioning(*aResult);
+        }
+        else
+        {
+            SaveDiscoveredJoinerRouter(*aResult);
+        }
     }
     else
     {
@@ -261,6 +313,32 @@ void Joiner::HandleDiscoverResult(Mle::DiscoverScanner::ScanResult *aResult)
         mJoinerRouterIndex = 0;
         TryNextJoinerRouter(kErrorNone);
     }
+
+exit:
+    return;
+}
+
+void Joiner::PrepareCommissioning(const Mle::DiscoverScanner::ScanResult &aResult)
+{
+    Get<Mac::Mac>().SetPanId(aResult.mPanId);
+    SuccessOrExit(Get<Mac::Mac>().SetPanChannel(aResult.mChannel));
+
+    SetState(kStateCommissioning);
+
+    // SRP client
+    {
+        Ip6::SockAddr serverSockAddr;
+
+        serverSockAddr.mPort = aResult.mJoinerUdpPort;
+        mJoinerRouterUdpPort = aResult.mJoinerUdpPort;
+        AsCoreType(&serverSockAddr.mAddress).SetToLinkLocalAddress(AsCoreType(&aResult.mExtAddress));
+        Error error = Get<Srp::Client>().StartUnsecured(serverSockAddr);
+
+        OT_UNUSED_VARIABLE(error);
+        LogInfo("PrepareCommissioning: %s", otThreadErrorToString(error));
+    }
+
+    mTimer.Start(kCommissioningTimeout);
 
 exit:
     return;
@@ -582,6 +660,10 @@ void Joiner::HandleTimer(void)
         error = kErrorNone;
         break;
 
+    case kStateCommissioning:
+        error = kErrorResponseTimeout;
+        break;
+
     case kStateIdle:
     case kStateDiscover:
     case kStateConnect:
@@ -596,12 +678,13 @@ void Joiner::HandleTimer(void)
 const char *Joiner::StateToString(State aState)
 {
     static const char *const kStateStrings[] = {
-        "Idle",       // (0) kStateIdle
-        "Discover",   // (1) kStateDiscover
-        "Connecting", // (2) kStateConnect
-        "Connected",  // (3) kStateConnected
-        "Entrust",    // (4) kStateEntrust
-        "Joined",     // (5) kStateJoined
+        "Idle",          // (0) kStateIdle
+        "Discover",      // (1) kStateDiscover
+        "Connecting",    // (2) kStateConnect
+        "Connected",     // (3) kStateConnected
+        "Entrust",       // (4) kStateEntrust
+        "Joined",        // (5) kStateJoined
+        "Commissioning", // (6) kCommissioning
     };
 
     struct EnumCheck
@@ -613,6 +696,7 @@ const char *Joiner::StateToString(State aState)
         ValidateNextEnum(kStateConnected);
         ValidateNextEnum(kStateEntrust);
         ValidateNextEnum(kStateJoined);
+        ValidateNextEnum(kStateCommissioning);
     };
 
     return kStateStrings[aState];

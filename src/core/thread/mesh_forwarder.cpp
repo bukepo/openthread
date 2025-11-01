@@ -685,6 +685,10 @@ Mac::TxFrame *MeshForwarder::HandleFrameRequest(Mac::TxFrames &aTxFrames)
             mSendMessage->SetLinkSecurityEnabled(true);
         }
 #endif
+        if (Get<Mle::Mle>().GetRole() == Mle::kRoleDisabled)
+        {
+            mSendMessage->SetLinkSecurityEnabled(false);
+        }
         mMessageNextOffset = Get<MessageFramer>().PrepareFrame(*frame, *mSendMessage, mMacAddrs, mAddMeshHeader,
                                                                mMeshSource, mMeshDest, addFragHeader);
 

@@ -1829,6 +1829,9 @@ template <> otError NcpBase::HandlePropertyGet<SPINEL_PROP_MESHCOP_JOINER_STATE>
     case OT_JOINER_STATE_JOINED:
         state = SPINEL_MESHCOP_JOINER_STATE_JOINED;
         break;
+    case OT_JOINER_STATE_COMMISSIONING:
+        state = SPINEL_MESHCOP_JOINER_STATE_JOINED;
+        break;
     }
 
     return mEncoder.WriteUint8(state);

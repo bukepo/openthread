@@ -311,7 +311,7 @@ exit:
     return;
 }
 
-void DiscoverScanner::HandleDiscoveryResponse(Mle::RxInfo &aRxInfo) const
+void DiscoverScanner::HandleDiscoveryResponse(Mle::RxInfo &aRxInfo)
 {
     Error                         error = kErrorNone;
     MeshCoP::DiscoveryResponseTlv discoveryResponse;
@@ -394,6 +394,11 @@ void DiscoverScanner::HandleDiscoveryResponse(Mle::RxInfo &aRxInfo) const
     }
 
     VerifyOrExit(!mEnableFiltering || didCheckSteeringData);
+
+    mState = kStateIdle;
+    mTimer.Stop();
+    Get<MeshForwarder>().ResumeMessageTransmissions();
+    Get<Mac::Mac>().ClearTemporaryChannel();
 
     mCallback.InvokeIfSet(&result);
 

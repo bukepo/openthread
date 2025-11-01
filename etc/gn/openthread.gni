@@ -195,6 +195,9 @@ if (openthread_enable_core_config_args) {
     # Enable Thread Test Harness reference device support
     openthread_config_reference_device_enable = false
 
+    # Enable support for TCP
+    openthread_config_tcp_enable = false
+
     # Enable support for injecting Service entries into the Thread Network Data
     openthread_config_tmf_netdata_service_enable = false
 
