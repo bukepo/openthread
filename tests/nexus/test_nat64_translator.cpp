@@ -137,7 +137,7 @@ void TestNat64StateChanges(void)
     VerifyOrQuit(node.Get<Nat64::Translator>().GetState() == Nat64::kStateActive);
 
     VerifyOrQuit(sNotifierCallbackInvoked);
-    VerifyOrQuit(sNotifierEvents & kEventNat64TranslatorStateChanged);
+    VerifyOrQuit(sNotifierEvents & OT_CHANGED_NAT64_TRANSLATOR_STATE);
 
     SuccessOrQuit(node.Get<Nat64::Translator>().GetNat64Prefix(prefix));
     VerifyOrQuit(prefix == testPrefix);
@@ -169,7 +169,7 @@ void TestNat64StateChanges(void)
     nexus.AdvanceTime(1);
 
     VerifyOrQuit(sNotifierCallbackInvoked);
-    VerifyOrQuit(sNotifierEvents & kEventNat64TranslatorStateChanged);
+    VerifyOrQuit(sNotifierEvents & OT_CHANGED_NAT64_TRANSLATOR_STATE);
 
     // Re-enable
 
@@ -181,7 +181,7 @@ void TestNat64StateChanges(void)
 
     VerifyOrQuit(node.Get<Nat64::Translator>().GetState() == Nat64::kStateActive);
     VerifyOrQuit(sNotifierCallbackInvoked);
-    VerifyOrQuit(sNotifierEvents & kEventNat64TranslatorStateChanged);
+    VerifyOrQuit(sNotifierEvents & OT_CHANGED_NAT64_TRANSLATOR_STATE);
 
     SuccessOrQuit(node.Get<Nat64::Translator>().GetNat64Prefix(prefix));
     VerifyOrQuit(prefix == testPrefix);
@@ -221,7 +221,7 @@ void TestNat64StateChanges(void)
     VerifyOrQuit(cidr == testCidr);
 
     VerifyOrQuit(sNotifierCallbackInvoked);
-    VerifyOrQuit(sNotifierEvents & kEventNat64TranslatorStateChanged);
+    VerifyOrQuit(sNotifierEvents & OT_CHANGED_NAT64_TRANSLATOR_STATE);
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     Log("Change NAT64 prefix and ensure NAT64 is again active");
@@ -241,7 +241,7 @@ void TestNat64StateChanges(void)
     VerifyOrQuit(cidr == testCidr);
 
     VerifyOrQuit(sNotifierCallbackInvoked);
-    VerifyOrQuit(sNotifierEvents & kEventNat64TranslatorStateChanged);
+    VerifyOrQuit(sNotifierEvents & OT_CHANGED_NAT64_TRANSLATOR_STATE);
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     Log("Clear the configured CIDR and ensure NAT64 is stopped");
@@ -260,7 +260,7 @@ void TestNat64StateChanges(void)
     VerifyOrQuit(node.Get<Nat64::Translator>().GetIp4Cidr(cidr) == kErrorNotFound);
 
     VerifyOrQuit(sNotifierCallbackInvoked);
-    VerifyOrQuit(sNotifierEvents & kEventNat64TranslatorStateChanged);
+    VerifyOrQuit(sNotifierEvents & OT_CHANGED_NAT64_TRANSLATOR_STATE);
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     Log("Set the CIDR again and ensure NAT64 becomes active");
@@ -280,7 +280,7 @@ void TestNat64StateChanges(void)
     VerifyOrQuit(cidr == testCidr);
 
     VerifyOrQuit(sNotifierCallbackInvoked);
-    VerifyOrQuit(sNotifierEvents & kEventNat64TranslatorStateChanged);
+    VerifyOrQuit(sNotifierEvents & OT_CHANGED_NAT64_TRANSLATOR_STATE);
 
     Log("End of TestNat64StateChanges");
 }

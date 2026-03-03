@@ -39,6 +39,37 @@ namespace ot {
 
 RegisterLogModule("Notifier");
 
+Events::Events(Flags aFlags)
+{
+    mEventFlags.Clear();
+    for (uint8_t i = 0; i < 32; i++)
+    {
+        if (aFlags & (1U << i))
+        {
+            mEventFlags.Add(i);
+        }
+    }
+}
+
+bool Events::ContainsAny(Flags aFlags) const { return (GetAsFlags() & aFlags) != 0; }
+
+bool Events::ContainsAll(Flags aFlags) const { return (GetAsFlags() & aFlags) == aFlags; }
+
+Events::Flags Events::GetAsFlags(void) const
+{
+    Flags flags = 0;
+
+    for (uint8_t i = 0; i < 32; i++)
+    {
+        if (mEventFlags.Has(i))
+        {
+            flags |= (1U << i);
+        }
+    }
+
+    return flags;
+}
+
 Notifier::Notifier(Instance &aInstance)
     : InstanceLocator(aInstance)
     , mTask(aInstance)
@@ -206,16 +237,15 @@ exit:
 
 void Notifier::LogEvents(Events aEvents) const
 {
-    Events::Flags                  flags    = aEvents.GetAsFlags();
     bool                           addSpace = false;
     bool                           didLog   = false;
     String<kFlagsStringBufferSize> string;
 
-    for (uint8_t bit = 0; bit < BitSizeOf(Events::Flags); bit++)
+    for (uint16_t bit = 0; bit < Events::kMaxEvents; bit++)
     {
-        VerifyOrExit(flags != 0);
+        Event event = static_cast<Event>(bit);
 
-        if (flags & (1 << bit))
+        if (aEvents.Contains(event))
         {
             if (string.GetLength() >= kFlagsStringLineLimit)
             {
@@ -226,14 +256,11 @@ void Notifier::LogEvents(Events aEvents) const
                 addSpace = false;
             }
 
-            string.Append("%s%s", addSpace ? " " : "", EventToString(static_cast<Event>(1 << bit)));
+            string.Append("%s%s", addSpace ? " " : "", EventToString(event));
             addSpace = true;
-
-            flags ^= (1 << bit);
         }
     }
 
-exit:
     LogInfo("StateChanged (0x%08lx) %s%s]", ToUlong(aEvents.GetAsFlags()), didLog ? "... " : "[", string.AsCString());
 }
 
@@ -245,47 +272,43 @@ const char *Notifier::EventToString(Event aEvent) const
     // strings from this method should have shorter length than
     // `kMaxFlagNameLength` value.
     static const char *const kEventStrings[] = {
-        "Ip6+",              // kEventIp6AddressAdded                  (1 << 0)
-        "Ip6-",              // kEventIp6AddressRemoved                (1 << 1)
-        "Role",              // kEventThreadRoleChanged                (1 << 2)
-        "LLAddr",            // kEventThreadLinkLocalAddrChanged       (1 << 3)
-        "MLAddr",            // kEventThreadMeshLocalAddrChanged       (1 << 4)
-        "Rloc+",             // kEventThreadRlocAdded                  (1 << 5)
-        "Rloc-",             // kEventThreadRlocRemoved                (1 << 6)
-        "PartitionId",       // kEventThreadPartitionIdChanged         (1 << 7)
-        "KeySeqCntr",        // kEventThreadKeySeqCounterChanged       (1 << 8)
-        "NetData",           // kEventThreadNetdataChanged             (1 << 9)
-        "Child+",            // kEventThreadChildAdded                 (1 << 10)
-        "Child-",            // kEventThreadChildRemoved               (1 << 11)
-        "Ip6Mult+",          // kEventIp6MulticastSubscribed           (1 << 12)
-        "Ip6Mult-",          // kEventIp6MulticastUnsubscribed         (1 << 13)
-        "Channel",           // kEventThreadChannelChanged             (1 << 14)
-        "PanId",             // kEventThreadPanIdChanged               (1 << 15)
-        "NetName",           // kEventThreadNetworkNameChanged         (1 << 16)
-        "ExtPanId",          // kEventThreadExtPanIdChanged            (1 << 17)
-        "NetworkKey",        // kEventNetworkKeyChanged                (1 << 18)
-        "PSKc",              // kEventPskcChanged                      (1 << 19)
-        "SecPolicy",         // kEventSecurityPolicyChanged            (1 << 20)
-        "CMNewChan",         // kEventChannelManagerNewChannelChanged  (1 << 21)
-        "ChanMask",          // kEventSupportedChannelMaskChanged      (1 << 22)
-        "CommissionerState", // kEventCommissionerStateChanged         (1 << 23)
-        "NetifState",        // kEventThreadNetifStateChanged          (1 << 24)
-        "BbrState",          // kEventThreadBackboneRouterStateChanged (1 << 25)
-        "BbrLocal",          // kEventThreadBackboneRouterLocalChanged (1 << 26)
-        "JoinerState",       // kEventJoinerStateChanged               (1 << 27)
-        "ActDset",           // kEventActiveDatasetChanged             (1 << 28)
-        "PndDset",           // kEventPendingDatasetChanged            (1 << 29)
-        "Nat64",             // kEventNat64TranslatorStateChanged      (1 << 30)
-        "ParentLq",          // kEventParentLinkQualityChanged         (1 << 31)
+        "Ip6+",              // kEventIp6AddressAdded                  (0)
+        "Ip6-",              // kEventIp6AddressRemoved                (1)
+        "Role",              // kEventThreadRoleChanged                (2)
+        "LLAddr",            // kEventThreadLinkLocalAddrChanged       (3)
+        "MLAddr",            // kEventThreadMeshLocalAddrChanged       (4)
+        "Rloc+",             // kEventThreadRlocAdded                  (5)
+        "Rloc-",             // kEventThreadRlocRemoved                (6)
+        "PartitionId",       // kEventThreadPartitionIdChanged         (7)
+        "KeySeqCntr",        // kEventThreadKeySeqCounterChanged       (8)
+        "NetData",           // kEventThreadNetdataChanged             (9)
+        "Child+",            // kEventThreadChildAdded                 (10)
+        "Child-",            // kEventThreadChildRemoved               (11)
+        "Ip6Mult+",          // kEventIp6MulticastSubscribed           (12)
+        "Ip6Mult-",          // kEventIp6MulticastUnsubscribed         (13)
+        "Channel",           // kEventThreadChannelChanged             (14)
+        "PanId",             // kEventThreadPanIdChanged               (15)
+        "NetName",           // kEventThreadNetworkNameChanged         (16)
+        "ExtPanId",          // kEventThreadExtPanIdChanged            (17)
+        "NetworkKey",        // kEventNetworkKeyChanged                (18)
+        "PSKc",              // kEventPskcChanged                      (19)
+        "SecPolicy",         // kEventSecurityPolicyChanged            (20)
+        "CMNewChan",         // kEventChannelManagerNewChannelChanged  (21)
+        "ChanMask",          // kEventSupportedChannelMaskChanged      (22)
+        "CommissionerState", // kEventCommissionerStateChanged         (23)
+        "NetifState",        // kEventThreadNetifStateChanged          (24)
+        "BbrState",          // kEventThreadBackboneRouterStateChanged (25)
+        "BbrLocal",          // kEventThreadBackboneRouterLocalChanged (26)
+        "JoinerState",       // kEventJoinerStateChanged               (27)
+        "ActDset",           // kEventActiveDatasetChanged             (28)
+        "PndDset",           // kEventPendingDatasetChanged            (29)
+        "Nat64",             // kEventNat64TranslatorStateChanged      (30)
+        "ParentLq",          // kEventParentLinkQualityChanged         (31)
     };
 
-    for (uint8_t index = 0; index < GetArrayLength(kEventStrings); index++)
+    if (static_cast<uint16_t>(aEvent) < GetArrayLength(kEventStrings))
     {
-        if (static_cast<uint32_t>(aEvent) == (1U << index))
-        {
-            retval = kEventStrings[index];
-            break;
-        }
+        retval = kEventStrings[aEvent];
     }
 
     return retval;

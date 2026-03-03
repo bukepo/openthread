@@ -125,6 +125,43 @@ public:
         return isEmpty;
     }
 
+    /**
+     * Indicates whether the bit-set intersects with another bit-set (have any common bits set).
+     *
+     * @param[in] aOther  Another bit-set.
+     *
+     * @retval TRUE   The two bit-sets intersect.
+     * @retval FALSE  The two bit-sets do not intersect.
+     */
+    bool Intersects(const BitSet &aOther) const
+    {
+        bool intersects = false;
+
+        for (uint8_t i = 0; i < sizeof(mMask); i++)
+        {
+            if ((mMask[i] & aOther.mMask[i]) != 0)
+            {
+                intersects = true;
+                break;
+            }
+        }
+
+        return intersects;
+    }
+
+    /**
+     * Adds all bits from another bit-set to the set.
+     *
+     * @param[in] aOther  Another bit-set.
+     */
+    void Add(const BitSet &aOther)
+    {
+        for (uint8_t i = 0; i < sizeof(mMask); i++)
+        {
+            mMask[i] |= aOther.mMask[i];
+        }
+    }
+
 private:
     static uint8_t BitMaskFor(uint16_t aIndex) { return (0x80 >> (aIndex & 7)); }
 

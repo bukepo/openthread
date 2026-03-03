@@ -43,6 +43,7 @@
 #include <openthread/platform/toolchain.h>
 
 #include "common/array.hpp"
+#include "common/bit_set.hpp"
 #include "common/callback.hpp"
 #include "common/error.hpp"
 #include "common/locator.hpp"
@@ -63,48 +64,53 @@ namespace ot {
 /**
  * Type represents events emitted from OpenThread Notifier.
  */
-enum Event : uint32_t
+enum Event : uint16_t
 {
-    kEventIp6AddressAdded                  = OT_CHANGED_IP6_ADDRESS_ADDED,            ///< IPv6 address was added
-    kEventIp6AddressRemoved                = OT_CHANGED_IP6_ADDRESS_REMOVED,          ///< IPv6 address was removed
-    kEventThreadRoleChanged                = OT_CHANGED_THREAD_ROLE,                  ///< Role changed
-    kEventThreadLinkLocalAddrChanged       = OT_CHANGED_THREAD_LL_ADDR,               ///< Link-local address changed
-    kEventThreadMeshLocalAddrChanged       = OT_CHANGED_THREAD_ML_ADDR,               ///< Mesh-local address changed
-    kEventThreadRlocAdded                  = OT_CHANGED_THREAD_RLOC_ADDED,            ///< RLOC was added
-    kEventThreadRlocRemoved                = OT_CHANGED_THREAD_RLOC_REMOVED,          ///< RLOC was removed
-    kEventThreadPartitionIdChanged         = OT_CHANGED_THREAD_PARTITION_ID,          ///< Partition ID changed
-    kEventThreadKeySeqCounterChanged       = OT_CHANGED_THREAD_KEY_SEQUENCE_COUNTER,  ///< Key Sequence changed
-    kEventThreadNetdataChanged             = OT_CHANGED_THREAD_NETDATA,               ///< Network Data changed
-    kEventThreadChildAdded                 = OT_CHANGED_THREAD_CHILD_ADDED,           ///< Child was added
-    kEventThreadChildRemoved               = OT_CHANGED_THREAD_CHILD_REMOVED,         ///< Child was removed
-    kEventIp6MulticastSubscribed           = OT_CHANGED_IP6_MULTICAST_SUBSCRIBED,     ///< Multicast address added
-    kEventIp6MulticastUnsubscribed         = OT_CHANGED_IP6_MULTICAST_UNSUBSCRIBED,   ///< Multicast address removed
-    kEventThreadChannelChanged             = OT_CHANGED_THREAD_CHANNEL,               ///< Network channel changed
-    kEventThreadPanIdChanged               = OT_CHANGED_THREAD_PANID,                 ///< Network PAN ID changed
-    kEventThreadNetworkNameChanged         = OT_CHANGED_THREAD_NETWORK_NAME,          ///< Network name changed
-    kEventThreadExtPanIdChanged            = OT_CHANGED_THREAD_EXT_PANID,             ///< Extended PAN ID changed
-    kEventNetworkKeyChanged                = OT_CHANGED_NETWORK_KEY,                  ///< Network Key changed
-    kEventPskcChanged                      = OT_CHANGED_PSKC,                         ///< PSKc changed
-    kEventSecurityPolicyChanged            = OT_CHANGED_SECURITY_POLICY,              ///< Security Policy changed
-    kEventChannelManagerNewChannelChanged  = OT_CHANGED_CHANNEL_MANAGER_NEW_CHANNEL,  ///< New Channel (channel-manager)
-    kEventSupportedChannelMaskChanged      = OT_CHANGED_SUPPORTED_CHANNEL_MASK,       ///< Channel mask changed
-    kEventCommissionerStateChanged         = OT_CHANGED_COMMISSIONER_STATE,           ///< Commissioner state changed
-    kEventThreadNetifStateChanged          = OT_CHANGED_THREAD_NETIF_STATE,           ///< Netif state changed
-    kEventThreadBackboneRouterStateChanged = OT_CHANGED_THREAD_BACKBONE_ROUTER_STATE, ///< Backbone Router state changed
-    kEventThreadBackboneRouterLocalChanged = OT_CHANGED_THREAD_BACKBONE_ROUTER_LOCAL, ///< Local Backbone Router changed
-    kEventJoinerStateChanged               = OT_CHANGED_JOINER_STATE,                 ///< Joiner state changed
-    kEventActiveDatasetChanged             = OT_CHANGED_ACTIVE_DATASET,               ///< Active Dataset changed
-    kEventPendingDatasetChanged            = OT_CHANGED_PENDING_DATASET,              ///< Pending Dataset changed
-    kEventNat64TranslatorStateChanged      = OT_CHANGED_NAT64_TRANSLATOR_STATE,       ///< Nat64Translator state changed
-    kEventParentLinkQualityChanged         = OT_CHANGED_PARENT_LINK_QUALITY,          ///< Parent link quality changed
+    kEventIp6AddressAdded                  = 0,  ///< IPv6 address was added
+    kEventIp6AddressRemoved                = 1,  ///< IPv6 address was removed
+    kEventThreadRoleChanged                = 2,  ///< Role changed
+    kEventThreadLinkLocalAddrChanged       = 3,  ///< Link-local address changed
+    kEventThreadMeshLocalAddrChanged       = 4,  ///< Mesh-local address changed
+    kEventThreadRlocAdded                  = 5,  ///< RLOC was added
+    kEventThreadRlocRemoved                = 6,  ///< RLOC was removed
+    kEventThreadPartitionIdChanged         = 7,  ///< Partition ID changed
+    kEventThreadKeySeqCounterChanged       = 8,  ///< Key Sequence changed
+    kEventThreadNetdataChanged             = 9,  ///< Network Data changed
+    kEventThreadChildAdded                 = 10, ///< Child was added
+    kEventThreadChildRemoved               = 11, ///< Child was removed
+    kEventIp6MulticastSubscribed           = 12, ///< Multicast address added
+    kEventIp6MulticastUnsubscribed         = 13, ///< Multicast address removed
+    kEventThreadChannelChanged             = 14, ///< Network channel changed
+    kEventThreadPanIdChanged               = 15, ///< Network PAN ID changed
+    kEventThreadNetworkNameChanged         = 16, ///< Network name changed
+    kEventThreadExtPanIdChanged            = 17, ///< Extended PAN ID changed
+    kEventNetworkKeyChanged                = 18, ///< Network Key changed
+    kEventPskcChanged                      = 19, ///< PSKc changed
+    kEventSecurityPolicyChanged            = 20, ///< Security Policy changed
+    kEventChannelManagerNewChannelChanged  = 21, ///< New Channel (channel-manager)
+    kEventSupportedChannelMaskChanged      = 22, ///< Channel mask changed
+    kEventCommissionerStateChanged         = 23, ///< Commissioner state changed
+    kEventThreadNetifStateChanged          = 24, ///< Netif state changed
+    kEventThreadBackboneRouterStateChanged = 25, ///< Backbone Router state changed
+    kEventThreadBackboneRouterLocalChanged = 26, ///< Local Backbone Router changed
+    kEventJoinerStateChanged               = 27, ///< Joiner state changed
+    kEventActiveDatasetChanged             = 28, ///< Active Dataset changed
+    kEventPendingDatasetChanged            = 29, ///< Pending Dataset changed
+    kEventNat64TranslatorStateChanged      = 30, ///< Nat64Translator state changed
+    kEventParentLinkQualityChanged         = 31, ///< Parent link quality changed
 };
 
 /**
  * Represents a list of events.
  */
-class Events
+class Events : public Equatable<Events>
 {
 public:
+    /**
+     * Maximum number of events.
+     */
+    static constexpr uint16_t kMaxEvents = 64;
+
     /**
      * Represents a bit-field indicating a list of events (with values from `Event`)
      */
@@ -113,15 +119,30 @@ public:
     /**
      * Initializes the `Events` list (as empty).
      */
-    Events(void)
-        : mEventFlags(0)
+    Events(void) { mEventFlags.Clear(); }
+
+    /**
+     * Initializes the `Events` list with a given event.
+     *
+     * @param[in] aEvent  The event to initialize the list with.
+     */
+    explicit Events(Event aEvent)
     {
+        mEventFlags.Clear();
+        mEventFlags.Add(aEvent);
     }
+
+    /**
+     * Initializes the `Events` list from a bit-field `Flags` value.
+     *
+     * @param[in] aFlags  The bit-field `Flags` value.
+     */
+    explicit Events(Flags aFlags);
 
     /**
      * Clears the `Events` list.
      */
-    void Clear(void) { mEventFlags = 0; }
+    void Clear(void) { mEventFlags.Clear(); }
 
     /**
      * Indicates whether the `Events` list contains a given event.
@@ -130,50 +151,109 @@ public:
      *
      * @returns TRUE if the list contains the @p aEvent, FALSE otherwise.
      */
-    bool Contains(Event aEvent) const { return (mEventFlags & aEvent) != 0; }
+    bool Contains(Event aEvent) const { return mEventFlags.Has(aEvent); }
 
     /**
      * Indicates whether the `Events` list contains any of a given set of events.
      *
-     * @param[in] aEvents  The events set to check (must be a collection of `Event` constants combined using `|`).
+     * @param[in] aOther  The events set to check.
      *
-     * @returns TRUE if the list contains any of the @p aEvents set, FALSE otherwise.
+     * @returns TRUE if the list contains any of the @p aOther set, FALSE otherwise.
      */
-    bool ContainsAny(Flags aEvents) const { return (mEventFlags & aEvents) != 0; }
+    bool ContainsAny(const Events &aOther) const { return mEventFlags.Intersects(aOther.mEventFlags); }
+
+    /**
+     * Indicates whether the `Events` list contains any of a given set of events.
+     *
+     * @param[in] aFlags  The events set to check (as bit-field `Flags` value).
+     *
+     * @returns TRUE if the list contains any of the @p aFlags set, FALSE otherwise.
+     */
+    bool ContainsAny(Flags aFlags) const;
 
     /**
      * Indicates whether the `Events` list contains all of a given set of events.
      *
-     * @param[in] aEvents  The events set to check (must be collection of `Event` constants combined using `|`).
+     * @param[in] aFlags  The events set to check (as bit-field `Flags` value).
      *
-     * @returns TRUE if the list contains all of the @p aEvents set, FALSE otherwise.
+     * @returns TRUE if the list contains all of the @p aFlags set, FALSE otherwise.
      */
-    bool ContainsAll(Flags aEvents) const { return (mEventFlags & aEvents) == aEvents; }
+    bool ContainsAll(Flags aFlags) const;
 
     /**
      * Adds a given event to the `Events` list.
      *
      * @param[in] aEvent  The event to add.
      */
-    void Add(Event aEvent) { mEventFlags |= aEvent; }
+    void Add(Event aEvent) { mEventFlags.Add(aEvent); }
+
+    /**
+     * Adds a given set of events to the `Events` list.
+     *
+     * @param[in] aOther  The events set to add.
+     */
+    void Add(const Events &aOther) { mEventFlags.Add(aOther.mEventFlags); }
 
     /**
      * Indicates whether the `Events` list is empty.
      *
      * @returns TRUE if the list is empty, FALSE otherwise.
      */
-    bool IsEmpty(void) const { return (mEventFlags == 0); }
+    bool IsEmpty(void) const { return mEventFlags.IsEmpty(); }
 
     /**
      * Gets the `Events` list as bit-field `Flags` value.
      *
      * @returns The list as bit-field `Flags` value.
      */
-    Flags GetAsFlags(void) const { return mEventFlags; }
+    Flags GetAsFlags(void) const;
+
+    /**
+     * Overloads bitwise OR operator to combine an `Events` list with an `Event`.
+     *
+     * @param[in] aEvent  The event to combine with.
+     *
+     * @returns A new `Events` list containing the combined events.
+     */
+    Events operator|(Event aEvent) const
+    {
+        Events events(*this);
+        events.Add(aEvent);
+        return events;
+    }
+
+    /**
+     * Overloads bitwise OR operator to combine two `Events` lists.
+     *
+     * @param[in] aOther  The other `Events` list to combine with.
+     *
+     * @returns A new `Events` list containing the combined events.
+     */
+    Events operator|(const Events &aOther) const
+    {
+        Events events(*this);
+        events.Add(aOther);
+        return events;
+    }
 
 private:
-    Flags mEventFlags;
+    BitSet<kMaxEvents> mEventFlags;
 };
+
+/**
+ * Overloads bitwise OR operator to combine two `Event` values into an `Events` list.
+ *
+ * @param[in] aLhs  The first event.
+ * @param[in] aRhs  The second event.
+ *
+ * @returns A new `Events` list containing both events.
+ */
+inline Events operator|(Event aLhs, Event aRhs)
+{
+    Events events(aLhs);
+    events.Add(aRhs);
+    return events;
+}
 
 /**
  * Implements the OpenThread Notifier.
