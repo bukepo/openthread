@@ -352,7 +352,24 @@ Error SubMac::Send(void)
     }
 #endif
 
-    ProcessTransmitSecurity();
+#if OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT
+    if (mTransmitFrame.GetSecurityEnabled() && !mTransmitFrame.IsSecurityProcessed() &&
+        mTransmitFrame.GetMaxFrameRetries() && mTransmitFrame.HasHeaderIe())
+    {
+        mBackupLength = mTransmitFrame.GetLength();
+        memcpy(mBackupPsdu, mTransmitFrame.GetPsdu(), mBackupLength);
+#if OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
+        if (mTransmitFrame.mInfo.mTxInfo.mIeInfo != nullptr)
+        {
+            memcpy(&mBackupIeInfo, mTransmitFrame.mInfo.mTxInfo.mIeInfo, sizeof(otRadioIeInfo));
+        }
+#endif
+    }
+    else
+    {
+        mBackupLength = 0;
+    }
+#endif // OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT
 
     mCsmaBackoffs    = 0;
     mTransmitRetries = 0;
@@ -506,6 +523,8 @@ void SubMac::BeginTransmit(void)
         SuccessOrAssert(Get<Radio>().Receive(mTransmitFrame.GetChannel()));
     }
 
+    ProcessTransmitSecurity();
+
     SetState(kStateTransmit);
 
     error = Get<Radio>().Transmit(mTransmitFrame);
@@ -600,6 +619,22 @@ void SubMac::HandleTransmitDone(TxFrame &aFrame, RxFrame *aAckFrame, Error aErro
     {
         mTransmitRetries++;
         aFrame.SetIsARetransmission(true);
+
+#if OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT
+        if (mBackupLength > 0 && aFrame.GetSecurityEnabled() && aFrame.HasHeaderIe())
+        {
+            aFrame.SetLength(mBackupLength);
+            memcpy(aFrame.GetPsdu(), mBackupPsdu, mBackupLength);
+#if OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
+            if (aFrame.mInfo.mTxInfo.mIeInfo != nullptr)
+            {
+                memcpy(aFrame.mInfo.mTxInfo.mIeInfo, &mBackupIeInfo, sizeof(otRadioIeInfo));
+            }
+#endif
+            aFrame.SetIsSecurityProcessed(false);
+            aFrame.SetIsHeaderUpdated(false);
+        }
+#endif // OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT
 
 #if OPENTHREAD_CONFIG_MAC_ADD_DELAY_ON_NO_ACK_ERROR_BEFORE_RETRY
         if (aError == kErrorNoAck)

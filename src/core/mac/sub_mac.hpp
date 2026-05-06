@@ -671,6 +671,14 @@ private:
 #endif
     SubMacTimer mTimer;
 
+#if OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT
+    uint8_t  mBackupPsdu[OT_RADIO_FRAME_MAX_SIZE];
+    uint16_t mBackupLength;
+#if OPENTHREAD_CONFIG_TIME_SYNC_ENABLE
+    otRadioIeInfo mBackupIeInfo;
+#endif
+#endif
+
 #if OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_ENABLE
     uint16_t mCslPeriod;             // The CSL sample period, in units of 10 symbols (160 microseconds).
     uint8_t  mCslChannel : 7;        // The CSL sample channel.
