@@ -142,7 +142,7 @@ private:
 
     Error UpdateUnsecurePorts(Action aAction, uint16_t aPort);
 
-    Array<uint16_t, kMaxUnsecurePorts> mUnsecurePorts;
+    Array<uint16_t, kMaxUnsecurePorts + 10> mUnsecurePorts;
 };
 
 } // namespace Ip6
