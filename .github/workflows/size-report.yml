@@ -57,30 +57,50 @@ jobs:
       id: post-report
       with:
         script: |
-          const fs = require('fs')
+          const fs = require('fs');
 
           const report = fs.readFileSync('/tmp/ot-size-report/report_pr', 'utf8');
-          const pr_number = parseInt(fs.readFileSync('/tmp/ot-size-report/pr_number', 'utf8').trim());
+
+          console.log(context.payload.workflow_run);
+          console.log(context.payload.workflow_run.pull_requests);
+          let prNumber = null; // context.payload.workflow_run.pull_requests[0]?.number;
+
+          if (!prNumber) {
+            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.payload.workflow_run.head_sha,
+            });
+            const openPr = prs.find(pr => pr.state === 'open') || prs[0];
+            if (openPr) {
+              prNumber = openPr.number;
+            }
+          }
+
+          if (!prNumber) {
+            core.setFailed('Could not determine PR number for workflow run');
+            return;
+          }
 
           const params = {
-              issue_number: pr_number,
+              issue_number: prNumber,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: report,
-          }
+          };
 
           const response = await github.rest.issues.listComments({
-            issue_number: pr_number,
+            issue_number: prNumber,
             owner: context.repo.owner,
             repo: context.repo.repo,
           });
 
           const kMagicHeader = '<!-- Size Report of **OpenThread** -->'
-          const comment = response.data.find(comment => comment.body.startsWith(kMagicHeader))
+          const comment = response.data.find(comment => comment.body.startsWith(kMagicHeader));
 
           if (comment) {
             params.comment_id = comment.id;
-            await github.rest.issues.updateComment(params)
+            await github.rest.issues.updateComment(params);
           } else {
-            await github.rest.issues.createComment(params)
+            await github.rest.issues.createComment(params);
           }
