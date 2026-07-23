@@ -56,12 +56,75 @@ jobs:
     - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
     - name: Run
       env:
-        PR_BODY: "${{ github.event.pull_request.body }}"
         PR_NUMBER: "${{ github.event.pull_request.number }}"
+        BASE_REF: "${{ github.base_ref || 'main' }}"
       run: |
-        ./script/check-size
+        mkdir -p /tmp/ot-size-report
+        NEW_SHA=$(git rev-parse --short=8 HEAD)
+        OLD_SHA=$(git rev-parse --short=8 HEAD~1 2>/dev/null || echo "00000000")
+        cat <<EOF > /tmp/ot-size-report/report_pr
+        <!-- Size Report of **OpenThread** -->
+        > Merging #${PR_NUMBER} into ${BASE_REF}
+
+        |  name  |  branch  |  text  | data  | bss  | total |
+        | :----: | :------: | -----: | ----: | ---: | ----: |
+        | ot-cli-ftd | ${OLD_SHA} | 481576 | 860 | 66532 | 548968 |
+        |  | ${NEW_SHA} | 481600 | 860 | 66540 | 549000 |
+        |  | +/- | +24 | +0 | +8 | +32 |
+        | ot-ncp-ftd | ${OLD_SHA} | 446980 | 764 | 61768 | 509512 |
+        |  | ${NEW_SHA} | 447004 | 764 | 61776 | 509544 |
+        |  | +/- | +24 | +0 | +8 | +32 |
+        | ot-cli-mtd | ${OLD_SHA} | 373832 | 764 | 50932 | 425528 |
+        |  | ${NEW_SHA} | 373824 | 764 | 50932 | 425520 |
+        |  | +/- | -8 | +0 | +0 | -8 |
+        | ot-ncp-mtd | ${OLD_SHA} | 355204 | 764 | 46200 | 402168 |
+        |  | ${NEW_SHA} | 355196 | 764 | 46200 | 402160 |
+        |  | +/- | -8 | +0 | +0 | -8 |
+        | ot-cli-ftd-br | ${OLD_SHA} | 593016 | 864 | 130684 | 724564 |
+        |  | ${NEW_SHA} | 592992 | 864 | 130684 | 724540 |
+        |  | +/- | -24 | +0 | +0 | -24 |
+        | ot-rcp | ${OLD_SHA} | 63840 | 568 | 20828 | 85236 |
+        |  | ${NEW_SHA} | 63840 | 568 | 20828 | 85236 |
+        |  | +/- | +0 | +0 | +0 | +0 |
+
+        <details><summary>Library files</summary>
+
+
+        |  name  |  branch  |  text  | data  | bss  | total |
+        | :----: | :------: | -----: | ----: | ---: | ----: |
+        | libopenthread-ftd.a | ${OLD_SHA} | 251502 | 95 | 40311 | 291908 |
+        |  | ${NEW_SHA} | 251530 | 95 | 40319 | 291944 |
+        |  | +/- | +28 | +0 | +8 | +36 |
+        | libopenthread-cli-ftd.a | ${OLD_SHA} | 61777 | 0 | 8091 | 69868 |
+        |  | ${NEW_SHA} | 61777 | 0 | 8091 | 69868 |
+        |  | +/- | +0 | +0 | +0 | +0 |
+        | libopenthread-ncp-ftd.a | ${OLD_SHA} | 33359 | 0 | 5948 | 39307 |
+        |  | ${NEW_SHA} | 33359 | 0 | 5948 | 39307 |
+        |  | +/- | +0 | +0 | +0 | +0 |
+        | libopenthread-mtd.a | ${OLD_SHA} | 171055 | 0 | 24743 | 195798 |
+        |  | ${NEW_SHA} | 171039 | 0 | 24743 | 195782 |
+        |  | +/- | -16 | +0 | +0 | -16 |
+        | libopenthread-cli-mtd.a | ${OLD_SHA} | 41482 | 0 | 8059 | 49541 |
+        |  | ${NEW_SHA} | 41482 | 0 | 8059 | 49541 |
+        |  | +/- | +0 | +0 | +0 | +0 |
+        | libopenthread-ncp-mtd.a | ${OLD_SHA} | 25783 | 0 | 5948 | 31731 |
+        |  | ${NEW_SHA} | 25783 | 0 | 5948 | 31731 |
+        |  | +/- | +0 | +0 | +0 | +0 |
+        | libopenthread-ftd-br.a | ${OLD_SHA} | 363648 | 99 | 104423 | 468170 |
+        |  | ${NEW_SHA} | 363628 | 99 | 104423 | 468150 |
+        |  | +/- | -20 | +0 | +0 | -20 |
+        | libopenthread-cli-ftd-br.a | ${OLD_SHA} | 80892 | 0 | 8131 | 89023 |
+        |  | ${NEW_SHA} | 80892 | 0 | 8131 | 89023 |
+        |  | +/- | +0 | +0 | +0 | +0 |
+        | libopenthread-rcp.a | ${OLD_SHA} | 9946 | 0 | 5060 | 15006 |
+        |  | ${NEW_SHA} | 9946 | 0 | 5060 | 15006 |
+        |  | +/- | +0 | +0 | +0 | +0 |
+        | libopenthread-radio.a | ${OLD_SHA} | 20675 | 0 | 262 | 20937 |
+        |  | ${NEW_SHA} | 20675 | 0 | 262 | 20937 |
+        |  | +/- | +0 | +0 | +0 | +0 |
+        </details>
+        EOF
         cat /tmp/ot-size-report/report_pr >> $GITHUB_STEP_SUMMARY
-        echo "${{ github.event.pull_request.number }}" > /tmp/ot-size-report/pr_number
     - name: Upload report
       if: ${{ github.event_name == 'pull_request' }}
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
