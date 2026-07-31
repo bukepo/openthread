@@ -718,6 +718,7 @@ private:
         void               HandleRxRaTrackerChanged(void);
         bool               ShouldPublishUlaRoute(void) const;
         Error              AppendAsPiosTo(RouterAdvert::TxMessage &aRaMessage);
+        void               HandleRaTxSuccess(void);
         void               HandleNetDataChange(void);
         void               HandleExtPanIdChange(void);
         void               HandleTimer(void);
@@ -731,9 +732,10 @@ private:
         enum State : uint8_t // State of `mLocalPrefix`
         {
             kIdle,
-            kPublishing,
-            kAdvertising,
-            kDeprecating,
+            kPublishing,  // Staged in RAM Network Data Publisher
+            kAdvertising, // Appended to pending RA message buffer in memory
+            kAdvertised,  // Successfully transmitted in an RA on infrastructure link
+            kDeprecating, // Deprecating (PreferredLifetime = 0) on infrastructure link
         };
 
         struct OldPrefix

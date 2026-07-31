@@ -555,6 +555,8 @@ void RoutingManager::SendRouterAdvertisement(RouterAdvTxMode aRaTxMode)
     LogInfo("Sent RA on %s", Get<InfraIf>().ToString().AsCString());
     DumpDebg("[BR-CERT] direction=send | type=RA |", packet.GetBytes(), packet.GetLength());
 
+    mOnLinkPrefixManager.HandleRaTxSuccess();
+
 exit:
     if (error != kErrorNone)
     {
@@ -1385,6 +1387,7 @@ void RoutingManager::OnLinkPrefixManager::Stop(void)
 
     case kPublishing:
     case kAdvertising:
+    case kAdvertised:
     case kDeprecating:
         SetState(kDeprecating);
         break;
@@ -1482,6 +1485,7 @@ void RoutingManager::OnLinkPrefixManager::PublishAndAdvertise(void)
 
     case kPublishing:
     case kAdvertising:
+    case kAdvertised:
         ExitNow();
     }
 
@@ -1506,18 +1510,20 @@ exit:
 
 void RoutingManager::OnLinkPrefixManager::Deprecate(void)
 {
-    // Deprecate the local on-link prefix if it was being advertised
-    // before. While depreciating the prefix, we wait for the lifetime
-    // timer to expire before unpublishing the prefix from the Network
-    // Data. We also continue to include it as a PIO in the RA message
-    // with zero preferred lifetime and the remaining valid lifetime
-    // until the timer expires.
+    // Deprecate the local on-link prefix if it was being advertised on the link
+    // before (in `kAdvertised` state). If it was only in `kPublishing` or `kAdvertising`
+    // (never sent in a successfully transmitted RA on the infrastructure link),
+    // transition directly to `kIdle` to avoid sending an unneeded deprecation PIO on the link.
 
     switch (GetState())
     {
+    case kAdvertised:
+        SetState(kDeprecating);
+        break;
+
     case kPublishing:
     case kAdvertising:
-        SetState(kDeprecating);
+        SetState(kIdle);
         break;
 
     case kIdle:
@@ -1529,7 +1535,7 @@ void RoutingManager::OnLinkPrefixManager::Deprecate(void)
 bool RoutingManager::OnLinkPrefixManager::ShouldPublishUlaRoute(void) const
 {
     // Determine whether or not we should publish ULA prefix. We need
-    // to publish if we are in any of `kPublishing`, `kAdvertising`,
+    // to publish if we are in any of `kPublishing`, `kAdvertising`, `kAdvertised`,
     // or `kDeprecating` states, or if there is at least one old local
     // prefix being deprecated.
 
@@ -1545,7 +1551,7 @@ void RoutingManager::OnLinkPrefixManager::ResetExpireTime(TimeMilli aNow)
 
 bool RoutingManager::OnLinkPrefixManager::IsPublishingOrAdvertising(void) const
 {
-    return (GetState() == kPublishing) || (GetState() == kAdvertising);
+    return (GetState() == kPublishing) || (GetState() == kAdvertising) || (GetState() == kAdvertised);
 }
 
 Error RoutingManager::OnLinkPrefixManager::AppendAsPiosTo(RouterAdvert::TxMessage &aRaMessage)
@@ -1562,9 +1568,11 @@ exit:
 Error RoutingManager::OnLinkPrefixManager::AppendCurPrefix(RouterAdvert::TxMessage &aRaMessage)
 {
     // Append the local on-link prefix to the `aRaMessage` as a PIO
-    // only if it is being advertised or deprecated.
+    // if it is being published, advertised, or deprecated.
     //
-    // If in `kAdvertising` state, we reset the expire time.
+    // If in `kPublishing` state, transition to `kAdvertising` while constructing
+    // the RA message.
+    // If in `kAdvertising` or `kAdvertised` state, we reset the expire time.
     // If in `kDeprecating` state, we include it as PIO with zero
     // preferred lifetime and the remaining valid lifetime.
 
@@ -1576,7 +1584,13 @@ Error RoutingManager::OnLinkPrefixManager::AppendCurPrefix(RouterAdvert::TxMessa
 
     switch (GetState())
     {
+    case kPublishing:
+        SetState(kAdvertising);
+        ResetExpireTime(now);
+        break;
+
     case kAdvertising:
+    case kAdvertised:
         ResetExpireTime(now);
         break;
 
@@ -1587,7 +1601,6 @@ Error RoutingManager::OnLinkPrefixManager::AppendCurPrefix(RouterAdvert::TxMessa
         break;
 
     case kIdle:
-    case kPublishing:
         ExitNow();
     }
 
@@ -1599,6 +1612,18 @@ Error RoutingManager::OnLinkPrefixManager::AppendCurPrefix(RouterAdvert::TxMessa
 
 exit:
     return error;
+}
+
+void RoutingManager::OnLinkPrefixManager::HandleRaTxSuccess(void)
+{
+    // Transition to `kAdvertised` only after an RA containing the local
+    // on-link prefix PIO option has actually been transmitted on the
+    // infrastructure link.
+
+    if (mState == kAdvertising)
+    {
+        SetState(kAdvertised);
+    }
 }
 
 Error RoutingManager::OnLinkPrefixManager::AppendOldPrefixes(RouterAdvert::TxMessage &aRaMessage)
@@ -1644,11 +1669,11 @@ exit:
 
 void RoutingManager::OnLinkPrefixManager::HandleExtPanIdChange(void)
 {
-    // If the current local prefix is being advertised or deprecated,
+    // If the current local prefix is being published, advertised, or deprecated,
     // we save it in `mOldLocalPrefixes` and keep deprecating it. It will
     // be included in emitted RAs as PIO with zero preferred lifetime.
     // It will still be present in Network Data until its expire time
-    // so to allow Thread nodes to continue to communicate with `InfraIf`
+    // to allow Thread nodes to continue to communicate with `InfraIf`
     // device using addresses based on this prefix.
 
     uint16_t    oldState  = GetState();
@@ -1661,12 +1686,15 @@ void RoutingManager::OnLinkPrefixManager::HandleExtPanIdChange(void)
     switch (oldState)
     {
     case kIdle:
-    case kPublishing:
         break;
 
+    case kPublishing:
     case kAdvertising:
+    case kAdvertised:
     case kDeprecating:
         DeprecateOldPrefix(oldPrefix, mExpireTime);
+        SetState(kPublishing);
+        ResetExpireTime(TimerMilli::GetNow());
         break;
     }
 
@@ -1742,6 +1770,7 @@ void RoutingManager::OnLinkPrefixManager::HandleTimer(void)
         break;
     case kPublishing:
     case kAdvertising:
+    case kAdvertised:
     case kDeprecating:
         if (nextExpireTime.GetNow() >= mExpireTime)
         {
@@ -1785,6 +1814,7 @@ const char *RoutingManager::OnLinkPrefixManager::StateToString(State aState)
     _(kIdle, "Removed")                    \
     _(kPublishing, "Publishing")           \
     _(kAdvertising, "Advertising")         \
+    _(kAdvertised, "Advertised")           \
     _(kDeprecating, "Deprecating")
 
     DefineEnumStringArray(OnLinkPrefixManagerStateMapList);
