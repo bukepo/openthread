@@ -740,15 +740,15 @@ void Logger::LogSpinelFrame(const uint8_t *aFrame, uint16_t aLength, bool aTx)
     }
     break;
 
-    case SPINEL_PROP_PHY_CHAN_TARGET_POWER:
+    case SPINEL_PROP_PHY_CHAN_MAX_POWER_IN_MBM:
     {
         uint8_t channel;
-        int16_t targetPower;
+        int16_t maxPower;
 
         unpacked =
-            spinel_datatype_unpack(data, len, SPINEL_DATATYPE_UINT8_S SPINEL_DATATYPE_INT16_S, &channel, &targetPower);
+            spinel_datatype_unpack(data, len, SPINEL_DATATYPE_UINT8_S SPINEL_DATATYPE_INT16_S, &channel, &maxPower);
         VerifyOrExit(unpacked > 0, error = OT_ERROR_PARSE);
-        start += Snprintf(start, static_cast<uint32_t>(end - start), ", ch:%u, targetPower:%d", channel, targetPower);
+        start += Snprintf(start, static_cast<uint32_t>(end - start), ", ch:%u, maxPower:%d", channel, maxPower);
     }
     break;
     }

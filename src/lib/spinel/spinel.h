@@ -1739,14 +1739,14 @@ enum
      */
     SPINEL_PROP_PHY_CALIBRATED_POWER = SPINEL_PROP_PHY__BEGIN + 13,
 
-    /// Target power for a channel
-    /** Format: `t(Cs)` - Write only
+    /// Signal the max power in mBm (0.01 dBm) for a channel
+    /** Format: `Cs` - Write only
      *
      * Structure Parameters:
      *  `C`: Channel.
-     *  `s`: Target power in 0.01 dBm.
+     *  `s`: Max power in mBm (0.01 dBm).
      */
-    SPINEL_PROP_PHY_CHAN_TARGET_POWER = SPINEL_PROP_PHY__BEGIN + 14,
+    SPINEL_PROP_PHY_CHAN_MAX_POWER_IN_MBM = SPINEL_PROP_PHY__BEGIN + 14,
 
     SPINEL_PROP_PHY__END = 0x30,
 

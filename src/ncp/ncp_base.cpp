@@ -2530,6 +2530,20 @@ exit:
     return error;
 }
 
+template <> otError NcpBase::HandlePropertySet<SPINEL_PROP_PHY_CHAN_MAX_POWER_IN_MBM>(void)
+{
+    uint8_t channel;
+    int16_t maxPower;
+    otError error = OT_ERROR_NONE;
+
+    SuccessOrExit(error = mDecoder.ReadUint8(channel));
+    SuccessOrExit(error = mDecoder.ReadInt16(maxPower));
+    error = otPlatRadioSetChannelTargetPower(mInstance, channel, maxPower);
+
+exit:
+    return error;
+}
+
 template <> otError NcpBase::HandlePropertyGet<SPINEL_PROP_PHY_REGION_CODE>(void)
 {
     uint16_t regionCode;
@@ -2768,20 +2782,6 @@ exit:
 #endif
 
 #if OPENTHREAD_CONFIG_PLATFORM_POWER_CALIBRATION_ENABLE
-template <> otError NcpBase::HandlePropertySet<SPINEL_PROP_PHY_CHAN_TARGET_POWER>(void)
-{
-    otError error;
-    uint8_t channel;
-    int16_t targetPower;
-
-    SuccessOrExit(error = mDecoder.ReadUint8(channel));
-    SuccessOrExit(error = mDecoder.ReadInt16(targetPower));
-    error = otPlatRadioSetChannelTargetPower(mInstance, channel, targetPower);
-
-exit:
-    return error;
-}
-
 template <> otError NcpBase::HandlePropertyInsert<SPINEL_PROP_PHY_CALIBRATED_POWER>(void)
 {
     otError        error;

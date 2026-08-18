@@ -1170,6 +1170,20 @@ exit:
     return error;
 }
 
+OT_TOOL_WEAK otError otPlatRadioSetChannelTargetPower(otInstance *aInstance, uint8_t aChannel, int16_t aTargetPower)
+{
+    OT_UNUSED_VARIABLE(aInstance);
+
+    otError error = OT_ERROR_NONE;
+
+    otEXPECT_ACTION(aChannel >= kMinChannel && aChannel <= kMaxChannel, error = OT_ERROR_INVALID_ARGS);
+    sChannelMaxTransmitPower[aChannel - kMinChannel] =
+        (aTargetPower == OT_RADIO_POWER_INVALID_IN_MBM) ? OT_RADIO_POWER_INVALID : (int8_t)(aTargetPower / 100);
+
+exit:
+    return error;
+}
+
 #if OPENTHREAD_CONFIG_MLE_LINK_METRICS_SUBJECT_ENABLE
 otError otPlatRadioConfigureEnhAckProbing(otInstance          *aInstance,
                                           otLinkMetrics        aLinkMetrics,

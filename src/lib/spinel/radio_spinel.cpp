@@ -120,6 +120,7 @@ RadioSpinel::RadioSpinel(void)
 #endif
     , mTimeSyncEnabled(false)
     , mTimeSyncOn(false)
+    , mSupportsChanMaxPowerInMbm(true)
     , mSpinelDriver(nullptr)
 {
     memset(&mCallbacks, 0, sizeof(mCallbacks));
@@ -2274,9 +2275,9 @@ void RadioSpinel::RestoreProperties(void)
 #if OPENTHREAD_POSIX_CONFIG_MAX_POWER_TABLE_ENABLE
     for (uint8_t channel = Radio::kChannelMin; channel <= Radio::kChannelMax; channel++)
     {
-        int8_t power = mMaxPowerTable.GetTransmitPower(channel);
+        int16_t power = mMaxPowerTable.GetTransmitPower(channel);
 
-        if (power != OT_RADIO_POWER_INVALID)
+        if (power != MaxPowerTable::kPowerInvalid)
         {
             // Some old RCPs doesn't support max transmit power
             otError error = SetChannelMaxTransmitPower(channel, power);
@@ -2334,12 +2335,38 @@ exit:
     return error;
 }
 
-otError RadioSpinel::SetChannelMaxTransmitPower(uint8_t aChannel, int8_t aMaxPower)
+otError RadioSpinel::SetChannelMaxTransmitPower(uint8_t aChannel, int16_t aMaxPower)
 {
     otError error = OT_ERROR_NONE;
     VerifyOrExit(aChannel >= Radio::kChannelMin && aChannel <= Radio::kChannelMax, error = OT_ERROR_INVALID_ARGS);
     mMaxPowerTable.SetTransmitPower(aChannel, aMaxPower);
-    error = Set(SPINEL_PROP_PHY_CHAN_MAX_POWER, SPINEL_DATATYPE_UINT8_S SPINEL_DATATYPE_INT8_S, aChannel, aMaxPower);
+
+    if (mSupportsChanMaxPowerInMbm)
+    {
+        error = Set(SPINEL_PROP_PHY_CHAN_MAX_POWER_IN_MBM, SPINEL_DATATYPE_UINT8_S SPINEL_DATATYPE_INT16_S, aChannel,
+                    aMaxPower);
+
+        if (error == OT_ERROR_NOT_FOUND || error == OT_ERROR_NOT_IMPLEMENTED)
+        {
+            mSupportsChanMaxPowerInMbm = false;
+        }
+    }
+
+    if (!mSupportsChanMaxPowerInMbm)
+    {
+        int8_t maxPower;
+
+        if (aMaxPower == MaxPowerTable::kPowerInvalid)
+        {
+            maxPower = OT_RADIO_POWER_INVALID;
+        }
+        else
+        {
+            maxPower = static_cast<int8_t>(aMaxPower / 100);
+        }
+
+        error = Set(SPINEL_PROP_PHY_CHAN_MAX_POWER, SPINEL_DATATYPE_UINT8_S SPINEL_DATATYPE_INT8_S, aChannel, maxPower);
+    }
 
 exit:
     return error;
@@ -2452,17 +2479,6 @@ exit:
 }
 
 otError RadioSpinel::ClearCalibratedPowers(void) { return Set(SPINEL_PROP_PHY_CALIBRATED_POWER, nullptr); }
-
-otError RadioSpinel::SetChannelTargetPower(uint8_t aChannel, int16_t aTargetPower)
-{
-    otError error = OT_ERROR_NONE;
-    VerifyOrExit(aChannel >= Radio::kChannelMin && aChannel <= Radio::kChannelMax, error = OT_ERROR_INVALID_ARGS);
-    error =
-        Set(SPINEL_PROP_PHY_CHAN_TARGET_POWER, SPINEL_DATATYPE_UINT8_S SPINEL_DATATYPE_INT16_S, aChannel, aTargetPower);
-
-exit:
-    return error;
-}
 #endif // OPENTHREAD_CONFIG_PLATFORM_POWER_CALIBRATION_ENABLE
 
 #if OPENTHREAD_SPINEL_CONFIG_COMPATIBILITY_ERROR_CALLBACK_ENABLE

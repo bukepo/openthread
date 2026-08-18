@@ -81,9 +81,10 @@ enum
     OT_RADIO_SYMBOL_TIME = 1000000 * 1 / OT_RADIO_SYMBOL_RATE, ///< Symbol duration time in unit of microseconds
     OT_RADIO_TEN_SYMBOLS_TIME = 10 * OT_RADIO_SYMBOL_TIME,     ///< Time for 10 symbols in unit of microseconds
 
-    OT_RADIO_LQI_NONE      = 0,   ///< LQI measurement not supported
-    OT_RADIO_RSSI_INVALID  = 127, ///< Invalid or unknown RSSI value
-    OT_RADIO_POWER_INVALID = 127, ///< Invalid or unknown power value
+    OT_RADIO_LQI_NONE             = 0,         ///< LQI measurement not supported
+    OT_RADIO_RSSI_INVALID         = 127,       ///< Invalid or unknown RSSI value
+    OT_RADIO_POWER_INVALID        = 127,       ///< Invalid or unknown power value in dBm
+    OT_RADIO_POWER_INVALID_IN_MBM = INT16_MAX, ///< Invalid or unknown power value in mBm (0.01 dBm)
 
     OT_RADIO_INVALID_SHORT_ADDR   = 0xfffe, ///< Invalid short address.
     OT_RADIO_BROADCAST_SHORT_ADDR = 0xffff, ///< Broadcast short address.

@@ -355,13 +355,14 @@ template <> otError RcpCapsDiag::HandleSpinelCommand<SPINEL_CMD_PROP_VALUE_SET, 
                             kMaxPower);
 }
 
-template <> otError RcpCapsDiag::HandleSpinelCommand<SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_PHY_CHAN_TARGET_POWER>(void)
+template <>
+otError RcpCapsDiag::HandleSpinelCommand<SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_PHY_CHAN_MAX_POWER_IN_MBM>(void)
 {
-    static constexpr uint8_t  kChannel     = 20;
-    static constexpr uint16_t kTargetPower = 1000;
+    static constexpr uint8_t kChannel  = 20;
+    static constexpr int16_t kMaxPower = 1000;
 
-    return mRadioSpinel.Set(SPINEL_PROP_PHY_CHAN_TARGET_POWER, SPINEL_DATATYPE_UINT8_S SPINEL_DATATYPE_INT16_S,
-                            kChannel, kTargetPower);
+    return mRadioSpinel.Set(SPINEL_PROP_PHY_CHAN_MAX_POWER_IN_MBM, SPINEL_DATATYPE_UINT8_S SPINEL_DATATYPE_INT16_S,
+                            kChannel, kMaxPower);
 }
 
 template <> otError RcpCapsDiag::HandleSpinelCommand<SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_PHY_FEM_LNA_GAIN>(void)
@@ -440,7 +441,7 @@ const struct RcpCapsDiag::SpinelEntry RcpCapsDiag::sSpinelEntries[] = {
     SPINEL_ENTRY(kCategoryUtils, SPINEL_CMD_PROP_VALUE_GET, SPINEL_PROP_RCP_MIN_HOST_API_VERSION),
     SPINEL_ENTRY(kCategoryUtils, SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_PHY_CCA_THRESHOLD),
     SPINEL_ENTRY(kCategoryUtils, SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_PHY_CHAN_MAX_POWER),
-    SPINEL_ENTRY(kCategoryUtils, SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_PHY_CHAN_TARGET_POWER),
+    SPINEL_ENTRY(kCategoryUtils, SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_PHY_CHAN_MAX_POWER_IN_MBM),
     SPINEL_ENTRY(kCategoryUtils, SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_PHY_FEM_LNA_GAIN),
     SPINEL_ENTRY(kCategoryUtils, SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_PHY_REGION_CODE),
     SPINEL_ENTRY(kCategoryUtils, SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_PHY_TX_POWER),

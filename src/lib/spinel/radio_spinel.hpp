@@ -858,12 +858,12 @@ public:
      * Sets the max transmit power.
      *
      * @param[in] aChannel    The radio channel.
-     * @param[in] aMaxPower   The max transmit power in dBm.
+     * @param[in] aMaxPower   The max transmit power in 0.01 dBm. Passing `INT16_MAX` will disable this channel.
      *
      * @retval  OT_ERROR_NONE           Successfully set the max transmit power.
      * @retval  OT_ERROR_INVALID_ARGS   Channel is not in valid range.
      */
-    otError SetChannelMaxTransmitPower(uint8_t aChannel, int8_t aMaxPower);
+    otError SetChannelMaxTransmitPower(uint8_t aChannel, int16_t aMaxPower);
 
     /**
      * Tries to retrieve a spinel property from OpenThread transceiver.
@@ -984,20 +984,6 @@ public:
      * @retval  OT_ERROR_RESPONSE_TIMEOUT  Failed due to no response received from the transceiver.
      */
     otError ClearCalibratedPowers(void);
-
-    /**
-     * Set the target power for the given channel.
-     *
-     * @param[in]  aChannel      The radio channel.
-     * @param[in]  aTargetPower  The target power in 0.01dBm. Passing `INT16_MAX` will disable this channel.
-     *
-     * @retval  OT_ERROR_NONE              Successfully set the target power.
-     * @retval  OT_ERROR_INVALID_ARGS      The @p aChannel or @p aTargetPower is invalid..
-     * @retval  OT_ERROR_NOT_IMPLEMENTED   The feature is not implemented.
-     * @retval  OT_ERROR_BUSY              Failed due to another operation is on going.
-     * @retval  OT_ERROR_RESPONSE_TIMEOUT  Failed due to no response received from the transceiver.
-     */
-    otError SetChannelTargetPower(uint8_t aChannel, int16_t aTargetPower);
 #endif
 
 #if OPENTHREAD_SPINEL_CONFIG_RCP_RESTORATION_MAX_COUNT > 0
@@ -1362,6 +1348,7 @@ private:
 
     bool mTimeSyncEnabled : 1;
     bool mTimeSyncOn : 1;
+    bool mSupportsChanMaxPowerInMbm : 1;
 
     SpinelDriver *mSpinelDriver;
 };
