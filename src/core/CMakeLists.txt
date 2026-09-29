@@ -151,6 +151,7 @@ set(COMMON_SOURCES
     mac/channel_mask.cpp
     mac/data_poll_handler.cpp
     mac/data_poll_sender.cpp
+    mac/link_ext.cpp
     mac/link_raw.cpp
     mac/mac.cpp
     mac/mac_beacon.cpp
@@ -326,6 +327,8 @@ set(RADIO_COMMON_SOURCES
     crypto/storage.cpp
     diags/factory_diags.cpp
     instance/instance.cpp
+    mac/channel_mask.cpp
+    mac/link_ext.cpp
     mac/link_raw.cpp
     mac/mac_frame.cpp
     mac/mac_header_ie.cpp

@@ -123,6 +123,7 @@ class SubMac : public InstanceLocator, private NonCopyable
 {
     friend class Radio::Callbacks;
     friend class LinkRaw;
+    friend class LinkExt;
 
 public:
     using Capability   = Radio::Capability;   ///< A radio capability.

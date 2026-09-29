@@ -478,10 +478,35 @@ template <> otError NcpBase::HandlePropertySet<SPINEL_PROP_PHY_ENABLED>(void)
     if (!value)
     {
         error = otLinkRawSetReceiveDone(mInstance, nullptr);
+
+        if (error == OT_ERROR_NONE)
+        {
+            // Disabling drops an ongoing transmission or energy scan
+            // without completing it, and leaves the radio not receiving
+            // until requested again (`SPINEL_PROP_MAC_RAW_STREAM_ENABLED`).
+            mCurTransmitTID[mCurCommandIid]     = 0;
+            mCurScanChannel[mCurCommandIid]     = kInvalidScanChannel;
+            mIsRawStreamEnabled[mCurCommandIid] = false;
+        }
     }
     else
     {
-        error = otLinkRawSetReceiveDone(mInstance, &NcpBase::LinkRawReceiveDone);
+        bool wasEnabled = otLinkRawIsEnabled(mInstance);
+
+        SuccessOrExit(error = otLinkRawSetReceiveDone(mInstance, &NcpBase::LinkRawReceiveDone));
+
+        // Receiving may have been requested while disabled. If it fails,
+        // the raw link-layer is disabled again, so that the request fails
+        // as a whole.
+        if (!wasEnabled && mIsRawStreamEnabled[mCurCommandIid])
+        {
+            error = otLinkRawReceive(mInstance);
+
+            if (error != OT_ERROR_NONE)
+            {
+                IgnoreError(otLinkRawSetReceiveDone(mInstance, nullptr));
+            }
+        }
     }
 
 exit:
@@ -605,6 +630,12 @@ otError NcpBase::HandlePropertySet_SPINEL_PROP_STREAM_RAW(uint8_t aHeader)
 
     VerifyOrExit(otLinkRawIsEnabled(mInstance), error = OT_ERROR_INVALID_STATE);
 
+#if OPENTHREAD_RADIO && OPENTHREAD_CONFIG_LINK_EXT_ENABLE
+    // Decoding the request would overwrite the transmit buffer in use by the
+    // ongoing burst.
+    VerifyOrExit(!IsLinkExtBurstOngoing(), error = OT_ERROR_INVALID_STATE);
+#endif
+
     frame = otLinkRawGetTransmitBuffer(mInstance);
     VerifyOrExit(frame != nullptr, error = OT_ERROR_NO_BUFS);
 
@@ -630,6 +661,109 @@ exit:
 
     return error;
 }
+
+#if OPENTHREAD_RADIO && OPENTHREAD_CONFIG_LINK_EXT_ENABLE
+otError NcpBase::EncodeLinkExtBurstConfig(Instance &aInstance)
+{
+    otError                   error;
+    Mac::LinkExt::BurstConfig config;
+
+    aInstance.Get<Mac::LinkExt>().GetBurstConfig(config);
+
+    SuccessOrExit(error = mEncoder.OpenStruct());
+    SuccessOrExit(error = mEncoder.WriteUint16(config.mCount));
+    SuccessOrExit(error = mEncoder.WriteUint32(config.mPeriodUs));
+    SuccessOrExit(error = mEncoder.WriteUint32(config.mChannelMask));
+    SuccessOrExit(error = mEncoder.CloseStruct());
+
+exit:
+    return error;
+}
+
+void NcpBase::LinkExtBurstDone(void *aContext)
+{
+    sNcpInstance->LinkExtBurstDone(GetNcpBaseIid(static_cast<Instance *>(aContext)));
+}
+
+void NcpBase::LinkExtBurstDone(uint8_t aIid)
+{
+    OT_ASSERT(aIid < kSpinelInterfaceCount);
+
+    // Queued with the responses, so that it keeps its order relative to
+    // them (e.g., it precedes the response to a write to stop a burst that
+    // has already ended), and it is sent once there is room in the TX
+    // buffer. If the queue is full, `SPINEL_STATUS_DROPPED` is reported.
+    IgnoreError(EnqueueResponse(SPINEL_HEADER_FLAG | SPINEL_HEADER_IID(aIid), kResponseTypeBurstDone,
+                                SPINEL_PROP_RCP_TX_BURST));
+    IgnoreError(SendQueuedResponses());
+}
+
+otError NcpBase::WriteLinkExtBurstDoneFrame(uint8_t aHeader)
+{
+    // The value read when no burst is ongoing (all fields zero). It is
+    // encoded explicitly, since another burst may have started by the time
+    // the queued notification is written. The frame is written with the
+    // priority of responses (rather than the low priority of TID 0 frames),
+    // so that responses written after it do not overtake it.
+
+    otError error;
+
+    SuccessOrExit(error = mEncoder.BeginFrame(Spinel::Buffer::kPriorityHigh));
+    SuccessOrExit(error = mEncoder.WriteUint8(aHeader));
+    SuccessOrExit(error = mEncoder.WriteUintPacked(SPINEL_CMD_PROP_VALUE_IS));
+    SuccessOrExit(error = mEncoder.WriteUintPacked(SPINEL_PROP_RCP_TX_BURST));
+    SuccessOrExit(error = mEncoder.OpenStruct());
+    SuccessOrExit(error = mEncoder.WriteUint16(0));
+    SuccessOrExit(error = mEncoder.WriteUint32(0));
+    SuccessOrExit(error = mEncoder.WriteUint32(0));
+    SuccessOrExit(error = mEncoder.CloseStruct());
+    SuccessOrExit(error = mEncoder.EndFrame());
+
+exit:
+    return error;
+}
+
+template <> otError NcpBase::HandlePropertyGet<SPINEL_PROP_RCP_TX_BURST>(void)
+{
+    return EncodeLinkExtBurstConfig(*mInstance);
+}
+
+template <> otError NcpBase::HandlePropertySet<SPINEL_PROP_RCP_TX_BURST>(void)
+{
+    otError                   error = OT_ERROR_NONE;
+    Mac::LinkExt::BurstConfig config;
+    otRadioFrame             *frame;
+
+    VerifyOrExit(otLinkRawIsEnabled(mInstance), error = OT_ERROR_INVALID_STATE);
+
+    SuccessOrExit(error = mDecoder.OpenStruct());
+    SuccessOrExit(error = mDecoder.ReadUint16(config.mCount));
+    // The response reads the remaining ticks: zero if the burst is stopped
+    // right away, otherwise the burst end is notified later.
+    VerifyOrExit(config.mCount > 0, error = mInstance->Get<Mac::LinkExt>().StopBurst());
+
+    SuccessOrExit(error = mDecoder.ReadUint32(config.mPeriodUs));
+    SuccessOrExit(error = mDecoder.ReadUint32(config.mChannelMask));
+    SuccessOrExit(error = mDecoder.CloseStruct());
+
+    // Decoding the frame would overwrite the transmit buffer in use by an
+    // ongoing transmission, and the burst would abort an ongoing energy
+    // scan.
+    VerifyOrExit(!IsLinkExtBurstOngoing() && (mCurTransmitTID[mCurCommandIid] == 0) &&
+                     !mInstance->Get<Mac::LinkRaw>().IsTransmitPending() &&
+                     (mCurScanChannel[mCurCommandIid] == kInvalidScanChannel),
+                 error = OT_ERROR_BUSY);
+
+    frame = otLinkRawGetTransmitBuffer(mInstance);
+    VerifyOrExit(frame != nullptr, error = OT_ERROR_NO_BUFS);
+
+    SuccessOrExit(error = DecodeStreamRawTxRequest(*frame));
+    error = mInstance->Get<Mac::LinkExt>().TransmitBurst(config, &NcpBase::LinkExtBurstDone, mInstance);
+
+exit:
+    return error;
+}
+#endif // OPENTHREAD_RADIO && OPENTHREAD_CONFIG_LINK_EXT_ENABLE
 
 template <> otError NcpBase::HandlePropertySet<SPINEL_PROP_RCP_MAC_KEY>(void)
 {

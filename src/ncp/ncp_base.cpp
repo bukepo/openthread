@@ -814,7 +814,7 @@ otError NcpBase::EnqueueResponse(uint8_t aHeader, ResponseType aType, unsigned i
     spinel_tid_t   tid   = SPINEL_HEADER_GET_TID(aHeader);
     ResponseEntry *entry;
 
-    if (tid == 0)
+    if ((tid == 0) && (aType != kResponseTypeBurstDone))
     {
         // No response is required for TID zero. But we may emit a
         // `LAST_STATUS` error status (if not filtered) for TID
@@ -843,7 +843,7 @@ otError NcpBase::EnqueueResponse(uint8_t aHeader, ResponseType aType, unsigned i
     // get an out of sequence TID, check if we already have a response
     // queued for this TID and if so mark the old entry as deleted.
 
-    if (tid != mNextExpectedTid[iid])
+    if ((tid != 0) && (tid != mNextExpectedTid[iid]))
     {
         for (uint8_t cur = mResponseQueueHead; cur < mResponseQueueTail; cur++)
         {
@@ -896,6 +896,12 @@ otError NcpBase::SendQueuedResponses(void)
 
                 SuccessOrExit(error = WriteLastStatusFrame(header, status));
             }
+#if OPENTHREAD_RADIO && OPENTHREAD_CONFIG_LINK_EXT_ENABLE
+            else if (entry.mType == kResponseTypeBurstDone)
+            {
+                SuccessOrExit(error = WriteLinkExtBurstDoneFrame(header));
+            }
+#endif
             else
             {
                 spinel_prop_key_t propKey       = static_cast<spinel_prop_key_t>(entry.mPropKeyOrStatus);
@@ -1685,11 +1691,11 @@ template <> otError NcpBase::HandlePropertySet<SPINEL_PROP_MAC_RAW_STREAM_ENABLE
     {
         if (enabled)
         {
-            error = otLinkRawReceive(mInstance);
+            SuccessOrExit(error = otLinkRawReceive(mInstance));
         }
         else
         {
-            error = otLinkRawSleep(mInstance);
+            SuccessOrExit(error = otLinkRawSleep(mInstance));
         }
     }
 
@@ -1875,6 +1881,11 @@ template <> otError NcpBase::HandlePropertySet<SPINEL_PROP_MAC_SCAN_STATE>(void)
             mCurScanChannel[mCurCommandIid] = static_cast<int8_t>(scanChannel);
 
             error = otLinkRawEnergyScan(mInstance, scanChannel, mScanPeriod, LinkRawEnergyScanDone);
+
+            if (error != OT_ERROR_NONE)
+            {
+                mCurScanChannel[mCurCommandIid] = kInvalidScanChannel;
+            }
         }
         else
 #endif // OPENTHREAD_RADIO || OPENTHREAD_CONFIG_LINK_RAW_ENABLE
