@@ -541,7 +541,7 @@ otRadioFrame *otPlatRadioGetTransmitBuffer(otInstance *) { return FakePlatform::
 
 int8_t otPlatRadioGetRssi(otInstance *) { return 0; }
 
-otRadioCaps otPlatRadioGetCaps(otInstance *) { return OT_RADIO_CAPS_NONE; }
+otRadioCaps otPlatRadioGetCaps(otInstance *) { return FakePlatform::CurrentPlatform().GetCaps(); }
 
 bool otPlatRadioGetPromiscuous(otInstance *) { return false; }
 

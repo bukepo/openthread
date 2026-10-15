@@ -1770,6 +1770,81 @@ exit:
     return error;
 }
 
+otError RadioSpinel::SetPeriodicRxSchedules(const PeriodicRxSchedule *aSchedules, uint8_t aNumSchedules)
+{
+    otError        error = OT_ERROR_NONE;
+    uint8_t        buffer[SPINEL_FRAME_MAX_SIZE];
+    spinel_ssize_t length = 0;
+
+    VerifyOrExit(aSchedules != nullptr || aNumSchedules == 0, error = OT_ERROR_INVALID_ARGS);
+
+    // The number of schedules is only limited by the RCP (and the Spinel
+    // frame size). The RCP rejects a table larger than it supports.
+
+    for (uint8_t i = 0; i < aNumSchedules; i++)
+    {
+        spinel_ssize_t packed = spinel_datatype_pack(
+            buffer + length, sizeof(buffer) - static_cast<spinel_size_t>(length),
+            SPINEL_DATATYPE_STRUCT_S(
+                SPINEL_DATATYPE_UINT32_S SPINEL_DATATYPE_UINT32_S SPINEL_DATATYPE_UINT16_S SPINEL_DATATYPE_UINT8_S),
+            aSchedules[i].mPhaseUs, aSchedules[i].mPeriodUs, aSchedules[i].mDurationUs, aSchedules[i].mChannel);
+
+        VerifyOrExit(packed > 0 && packed <= static_cast<spinel_ssize_t>(sizeof(buffer)) - length,
+                     error = OT_ERROR_NO_BUFS);
+        length += packed;
+    }
+
+    error =
+        Set(SPINEL_PROP_RCP_PERIODIC_RX_SCHEDULES, SPINEL_DATATYPE_DATA_S, buffer, static_cast<spinel_size_t>(length));
+
+exit:
+    return error;
+}
+
+otError RadioSpinel::GetPeriodicRxSchedules(PeriodicRxSchedule *aSchedules, uint8_t &aNumSchedules)
+{
+    otError        error;
+    uint8_t        buffer[SPINEL_FRAME_MAX_SIZE];
+    const uint8_t *cur    = buffer;
+    spinel_size_t  length = sizeof(buffer);
+    uint8_t        count  = 0;
+
+    SuccessOrExit(error = Get(SPINEL_PROP_RCP_PERIODIC_RX_SCHEDULES, SPINEL_DATATYPE_DATA_S, buffer, &length));
+
+    while (length > 0)
+    {
+        PeriodicRxSchedule schedule;
+        spinel_ssize_t     unpacked;
+
+        unpacked = spinel_datatype_unpack(
+            cur, length,
+            SPINEL_DATATYPE_STRUCT_S(
+                SPINEL_DATATYPE_UINT32_S SPINEL_DATATYPE_UINT32_S SPINEL_DATATYPE_UINT16_S SPINEL_DATATYPE_UINT8_S),
+            &schedule.mPhaseUs, &schedule.mPeriodUs, &schedule.mDurationUs, &schedule.mChannel);
+        VerifyOrExit(unpacked > 0, error = OT_ERROR_PARSE);
+
+        // All schedules are decoded to count them, but only as many as fit
+        // are written (none if `aSchedules` is `nullptr`).
+        if ((aSchedules != nullptr) && (count < aNumSchedules))
+        {
+            aSchedules[count] = schedule;
+        }
+
+        count++;
+        cur += unpacked;
+        length -= static_cast<spinel_size_t>(unpacked);
+    }
+
+    if ((aSchedules != nullptr) && (count > aNumSchedules))
+    {
+        error = OT_ERROR_NO_BUFS;
+    }
+
+exit:
+    aNumSchedules = ((error == OT_ERROR_NONE) || (error == OT_ERROR_NO_BUFS)) ? count : 0;
+    return error;
+}
+
 otError RadioSpinel::Sleep(void)
 {
     otError error = OT_ERROR_NONE;
