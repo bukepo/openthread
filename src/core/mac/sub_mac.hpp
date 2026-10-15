@@ -641,7 +641,7 @@ private:
         uint8_t       GetChannel(void) const { return mChannel; }
         bool          HasStarted(const Radio::SyncedTime &aNow) const { return mStartTime <= aNow.GetAsTime64(); }
         bool          HasEnded(const Radio::SyncedTime &aNow) const { return GetEndTime() <= aNow.GetAsTime64(); }
-        void          ScheduleOnRadio(Radio::Radio &aRadio) const;
+        Error         ScheduleOnRadio(Radio::Radio &aRadio) const;
         bool          operator==(const TimedRx &aOther) const;
 
     private:
@@ -672,6 +672,16 @@ private:
     private:
         static constexpr uint32_t kCslTransitionToNextAheadTime = OPENTHREAD_CONFIG_CSL_RECEIVE_TIME_AHEAD;
 
+        // A window that the radio failed to schedule (`otPlatRadioReceiveAt()` returning `OT_ERROR_FAILED`, e.g. a
+        // radio that holds a single timed RX window and is still busy with the current one) is scheduled again once
+        // the radio is expected to be free: at the end of the window scheduled on the radio, or `kRetryInterval`
+        // after a failed retry. A window whose start time has passed is scheduled `kRetryLeadTime` from now (for
+        // the radio to be able to schedule it) with its remaining duration. Up to `kMaxRetryTimedRx` windows are
+        // kept, as touching windows may fail one after another while the radio is busy.
+        static constexpr uint32_t kRetryInterval   = 1000; // in usec
+        static constexpr uint32_t kRetryLeadTime   = 500;  // in usec
+        static constexpr uint8_t  kMaxRetryTimedRx = 2;
+
         class SchedInfo
         {
         public:
@@ -690,6 +700,9 @@ private:
         };
 
         void Schedule(void);
+        void ScheduleRetries(SchedInfo &aInfo);
+        void AddRetry(const TimedRx &aTimedRx, const Radio::SyncedTime &aNow);
+        void RemoveRetry(uint8_t aIndex);
 #if OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_ENABLE
         void ScheduleCsl(SchedInfo &aInfo);
 #endif
@@ -699,7 +712,9 @@ private:
 
         using ListenTimer = TimerMicroIn<SubMac, &SubMac::HandleListenSchedulerTimer>;
 
-        ListenTimer mTimer;
+        ListenTimer   mTimer;
+        TimedRx       mRetryTimedRx[kMaxRetryTimedRx]; // Sorted by start time, unused entries are not specified.
+        Radio::Time64 mRetryTime;
     };
 
 #endif // OT_CONFIG_MAC_TARGET_TIME_RX_ENABLE
@@ -771,9 +786,9 @@ private:
     void HandleTimer(void);
 
 #if OT_CONFIG_MAC_TARGET_TIME_RX_ENABLE
-    void ReceiveAt(const TimedRx &aTimedRx);
-    void StartPendingTimedRx(void);
-    void ProcessTimedRx(void);
+    Error ReceiveAt(const TimedRx &aTimedRx);
+    void  StartPendingTimedRx(void);
+    void  ProcessTimedRx(void);
 #endif
 
     void               SetState(State aState);
@@ -809,6 +824,7 @@ private:
 #if OT_CONFIG_MAC_TARGET_TIME_RX_ENABLE
     TimedRx         mActiveTimedRx;
     TimedRx         mPendingTimedRx;
+    TimedRx         mRadioTimedRx; // The last window scheduled on the radio (when it handles `kCapReceiveTiming`).
     ListenScheduler mListenScheduler;
 #endif
 

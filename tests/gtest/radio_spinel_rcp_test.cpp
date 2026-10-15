@@ -2794,6 +2794,27 @@ public:
     uint32_t            mNumCancels = 0;
 };
 
+/**
+ * Emulates a radio that holds a single timed RX window: `otPlatRadioReceiveAt()` fails with `OT_ERROR_FAILED` while
+ * the window scheduled on the radio has not ended yet (as the nRF 802.15.4 driver does).
+ */
+class SingleSlotPeriodicRxPlatform : public PeriodicRxPlatform
+{
+public:
+    otError ReceiveAt(uint8_t aChannel, uint32_t aStart, uint32_t aDuration) override
+    {
+        if ((aDuration != 0) && (mReceiveAtEnd != kAlarmStop) && (mReceiveAtEnd > mNow))
+        {
+            mNumRejects++;
+            return OT_ERROR_FAILED;
+        }
+
+        return PeriodicRxPlatform::ReceiveAt(aChannel, aStart, aDuration);
+    }
+
+    uint32_t mNumRejects = 0;
+};
+
 } // namespace
 
 TEST(RadioSpinelPeriodicRx, shouldGetTheSchedulesThatWereSet)
@@ -3443,24 +3464,33 @@ TEST(RadioSpinelPeriodicRx, shouldNotScheduleTheRestOfAnActiveWindowAgainWhenSch
 {
     // Updating the schedules while a window is active does not change it,
     // so the radio is not asked to receive the rest of it again, and the
-    // following window is scheduled once.
+    // following window (already scheduled on the radio at the start of the
+    // active one) is not scheduled again.
     constexpr uint32_t kPeriodUs = 50000;
 
     const PeriodicRxSchedule kSchedules[] = {{0, kPeriodUs, 10000, 11}};
 
-    PeriodicRxPlatform platform;
+    PeriodicRxPlatform                      platform;
+    std::vector<PeriodicRxPlatform::Window> windows;
 
     ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
     ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 1), kErrorNone);
     platform.GoInUs(2 * kPeriodUs + 9000 - platform.GetNow());
-    platform.mWindows.clear();
 
     ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 1), kErrorNone);
     platform.GoInUs(2 * kPeriodUs);
 
-    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(platform.GetNow());
+    // The first window may be a partial one, as the schedules were set after
+    // the start of the first period.
+    for (const PeriodicRxPlatform::Window &window : platform.GetWindowsBefore(platform.GetNow()))
+    {
+        if (window.mStart >= kPeriodUs)
+        {
+            windows.push_back(window);
+        }
+    }
 
-    ASSERT_GE(windows.size(), 2u);
+    ASSERT_GE(windows.size(), 4u);
 
     for (const PeriodicRxPlatform::Window &window : windows)
     {
@@ -3557,6 +3587,120 @@ TEST(RadioSpinelPeriodicRx, shouldDropTheShortRemainderOfAWindowTheRadioWasNotRe
     EXPECT_EQ(windows[0].mStart, 2 * kPeriodUs);
     EXPECT_EQ(windows[0].mDuration, kDurationUs);
     EXPECT_EQ(windows[0].mChannel, 11);
+}
+
+TEST(RadioSpinelPeriodicRx, shouldRetryAWindowRejectedByASingleSlotRadio)
+{
+    // The next window is provided at the start of the current one, which
+    // a single-slot radio rejects. The rejected window is retried at the
+    // end of the current one, so that no window is lost.
+    constexpr uint32_t kPhaseUs    = 3000;
+    constexpr uint32_t kPeriodUs   = 100000;
+    constexpr uint16_t kDurationUs = 1250;
+    constexpr uint8_t  kChannel    = 15;
+
+    const PeriodicRxSchedule kSchedules[] = {{kPhaseUs, kPeriodUs, kDurationUs, kChannel}};
+
+    SingleSlotPeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 1), kErrorNone);
+
+    platform.GoInMs(1000);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(platform.GetNow());
+
+    EXPECT_GT(platform.mNumRejects, 0u);
+    ASSERT_GE(windows.size(), 9u);
+
+    for (size_t i = 0; i < windows.size(); i++)
+    {
+        EXPECT_EQ(windows[i].mStart % kPeriodUs, kPhaseUs);
+        EXPECT_EQ(windows[i].mDuration, kDurationUs);
+        EXPECT_EQ(windows[i].mChannel, kChannel);
+        EXPECT_LE(windows[i].mCalledAt, windows[i].mStart);
+
+        if (i > 0)
+        {
+            EXPECT_EQ(windows[i].mStart - windows[i - 1].mStart, kPeriodUs);
+        }
+    }
+}
+
+TEST(RadioSpinelPeriodicRx, shouldRetryTouchingWindowsRejectedByASingleSlotRadio)
+{
+    // Schedule 1 on channel 15 at [16000, 32000) is preempted by schedule 0
+    // on channel 11 at [20000, 28000), which results in touching windows:
+    //
+    //   channel 15: [16000, 20000 - guard)
+    //   channel 11: [20000 - guard, 28000)
+    //   channel 15: [28000, 32000)
+    //
+    // A single-slot radio rejects a window while the previous one is on the
+    // radio. A rejected window is retried when the previous one ends, with
+    // a lead time for the radio to be able to schedule it, so it starts a
+    // bit late and ends on time.
+    constexpr uint32_t kGuardUs    = OPENTHREAD_CONFIG_LINK_EXT_PERIODIC_RX_CHANNEL_SWITCH_GUARD_US;
+    constexpr uint32_t kPeriodUs   = 100000;
+    constexpr uint32_t kMaxDelayUs = 600;
+
+    const PeriodicRxSchedule kSchedules[] = {
+        {20000, kPeriodUs, 8000, 11},
+        {16000, kPeriodUs, 16000, 15},
+    };
+
+    SingleSlotPeriodicRxPlatform platform;
+    uint32_t                     numLeading  = 0;
+    uint32_t                     numMiddle   = 0;
+    uint32_t                     numTrailing = 0;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 2), kErrorNone);
+
+    platform.GoInMs(1000);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(platform.GetNow());
+
+    EXPECT_GT(platform.mNumRejects, 0u);
+
+    for (size_t i = 0; i < windows.size(); i++)
+    {
+        const PeriodicRxPlatform::Window &window = windows[i];
+        uint64_t                          start  = window.mStart % kPeriodUs;
+        uint64_t                          end    = start + window.mDuration;
+
+        EXPECT_LE(window.mCalledAt, window.mStart);
+
+        if (i > 0)
+        {
+            EXPECT_GE(window.mStart, windows[i - 1].mStart + windows[i - 1].mDuration);
+        }
+
+        if ((window.mChannel == 15) && (start == 16000) && (end == 20000 - kGuardUs))
+        {
+            numLeading++;
+        }
+        else if ((window.mChannel == 11) && (start >= 20000 - kGuardUs) && (start <= 20000 - kGuardUs + kMaxDelayUs) &&
+                 (end == 28000))
+        {
+            numMiddle++;
+        }
+        else if ((window.mChannel == 15) && (start >= 28000) && (start <= 28000 + kMaxDelayUs) && (end == 32000))
+        {
+            numTrailing++;
+        }
+        else if (i > 0)
+        {
+            // The first window may be a partial one if the schedules were set
+            // in the middle of a period.
+            ADD_FAILURE() << "unexpected window start " << window.mStart << " duration " << window.mDuration
+                          << " channel " << static_cast<int>(window.mChannel);
+        }
+    }
+
+    EXPECT_GE(numLeading, 9u);
+    EXPECT_GE(numMiddle, 9u);
+    EXPECT_GE(numTrailing, 9u);
 }
 
 #else // OPENTHREAD_CONFIG_LINK_EXT_ENABLE && (OPENTHREAD_CONFIG_LINK_EXT_PERIODIC_RX_MAX_SCHEDULES > 0)

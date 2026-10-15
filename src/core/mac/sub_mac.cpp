@@ -92,6 +92,7 @@ void SubMac::Init(void)
 #if OT_CONFIG_MAC_TARGET_TIME_RX_ENABLE
     mActiveTimedRx.Clear();
     mPendingTimedRx.Clear();
+    mRadioTimedRx.Clear();
     mListenScheduler.Stop();
 #endif
 
@@ -232,6 +233,7 @@ Error SubMac::Disable(void)
 #if OT_CONFIG_MAC_TARGET_TIME_RX_ENABLE
     mActiveTimedRx.Clear();
     mPendingTimedRx.Clear();
+    mRadioTimedRx.Clear();
     mListenScheduler.Stop();
 #endif
 
@@ -856,11 +858,12 @@ void SubMac::ReceiveAt(Radio::Time64 aStartTime, uint32_t aDuration, uint8_t aCh
     TimedRx timedRx;
 
     timedRx.Init(aStartTime, aDuration, aChannel);
-    ReceiveAt(timedRx);
+    IgnoreError(ReceiveAt(timedRx));
 }
 
-void SubMac::ReceiveAt(const TimedRx &aTimedRx)
+Error SubMac::ReceiveAt(const TimedRx &aTimedRx)
 {
+    Error             error = kErrorNone;
     Radio::SyncedTime now;
 
     VerifyOrExit(mState != kStateDisabled);
@@ -884,7 +887,12 @@ void SubMac::ReceiveAt(const TimedRx &aTimedRx)
 
     if (!ShouldHandle(kCapReceiveTiming))
     {
-        aTimedRx.ScheduleOnRadio(Get<Radio::Radio>());
+        // Skip a window already scheduled on the radio (e.g., provided
+        // again when the listen scheduler evaluates its sources).
+        VerifyOrExit(aTimedRx != mRadioTimedRx);
+
+        SuccessOrExit(error = aTimedRx.ScheduleOnRadio(Get<Radio::Radio>()));
+        mRadioTimedRx = aTimedRx;
         ExitNow();
     }
 
@@ -927,7 +935,7 @@ void SubMac::ReceiveAt(const TimedRx &aTimedRx)
     }
 
 exit:
-    return;
+    return error;
 }
 
 void SubMac::CancelPendingReceiveAt(void)
@@ -1034,11 +1042,9 @@ void SubMac::TimedRx::Init(Radio::Time64 aStartTime, uint32_t aDuration, uint8_t
     mIsSpecified = true;
 }
 
-void SubMac::TimedRx::ScheduleOnRadio(Radio::Radio &aRadio) const
+Error SubMac::TimedRx::ScheduleOnRadio(Radio::Radio &aRadio) const
 {
-    Error error = aRadio.ReceiveAt(mChannel, Radio::ConvertTime64To32(mStartTime), mDuration);
-
-    LogWarnOnError(error, "Radio::ReceiveAt()");
+    return aRadio.ReceiveAt(mChannel, Radio::ConvertTime64To32(mStartTime), mDuration);
 }
 
 bool SubMac::TimedRx::operator==(const TimedRx &aOther) const
@@ -1312,16 +1318,29 @@ exit:
 SubMac::ListenScheduler::ListenScheduler(Instance &aInstance)
     : InstanceLocator(aInstance)
     , mTimer(aInstance)
+    , mRetryTime(0)
 {
 }
 
-void SubMac::ListenScheduler::Stop(void) { mTimer.Stop(); }
+void SubMac::ListenScheduler::Stop(void)
+{
+    mTimer.Stop();
+
+    for (TimedRx &retry : mRetryTimedRx)
+    {
+        retry.Clear();
+    }
+}
 
 void SubMac::ListenScheduler::Schedule(void)
 {
     SchedInfo info(GetInstance());
+    TimedRx   timedRx;
+    Error     error;
 
     VerifyOrExit(Get<SubMac>().IsEnabled());
+
+    ScheduleRetries(info);
 
 #if OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_ENABLE
     ScheduleCsl(info);
@@ -1330,12 +1349,149 @@ void SubMac::ListenScheduler::Schedule(void)
     SchedulePeriodicRx(info);
 #endif
 
-    Get<SubMac>().ReceiveAt(info.GetTimedRx());
+    timedRx = info.GetTimedRx();
+    error   = Get<SubMac>().ReceiveAt(timedRx);
+
+    if (error == kErrorFailed)
+    {
+        AddRetry(timedRx, info.GetNow());
+    }
+    else if ((error == kErrorNone) && timedRx.IsSpecified())
+    {
+        // Windows to retry starting before the window now scheduled on
+        // the radio are superseded by it.
+        while (mRetryTimedRx[0].IsSpecified() && (mRetryTimedRx[0].GetStartTime() < timedRx.GetStartTime()))
+        {
+            RemoveRetry(0);
+        }
+    }
+
+    if (mRetryTimedRx[0].IsSpecified())
+    {
+        info.UpdateNextFireTime(mRetryTime);
+    }
 
     info.ScheduleNextFireTimeOn(mTimer);
 
 exit:
     return;
+}
+
+void SubMac::ListenScheduler::ScheduleRetries(SchedInfo &aInfo)
+{
+    // Schedules again the earliest window that the radio failed to
+    // schedule, once the retry time is reached.
+
+    const Radio::SyncedTime &now = aInfo.GetNow();
+
+    for (uint8_t i = 0; i < kMaxRetryTimedRx;)
+    {
+        if (mRetryTimedRx[i].IsSpecified() && mRetryTimedRx[i].HasEnded(now))
+        {
+            RemoveRetry(i);
+        }
+        else
+        {
+            i++;
+        }
+    }
+
+    VerifyOrExit(mRetryTimedRx[0].IsSpecified());
+
+    if (now.GetAsTime64() >= mRetryTime)
+    {
+        TimedRx       retry = mRetryTimedRx[0];
+        Radio::Time64 start = Max(retry.GetStartTime(), now.GetAsTime64() + kRetryLeadTime);
+        Error         error = kErrorNone;
+
+        if (start < retry.GetEndTime())
+        {
+            retry.Init(start, ClampToUint32(retry.GetEndTime() - start), retry.GetChannel());
+            error = Get<SubMac>().ReceiveAt(retry);
+        }
+
+        if (error == kErrorFailed)
+        {
+            mRetryTime = now.GetAsTime64() + kRetryInterval;
+        }
+        else
+        {
+            LogWarnOnError(error, "retry Radio::ReceiveAt()");
+            RemoveRetry(0);
+
+            // The radio is busy with the window just scheduled until it ends.
+            mRetryTime = Get<SubMac>().mRadioTimedRx.GetEndTime();
+        }
+    }
+
+    if (mRetryTimedRx[0].IsSpecified())
+    {
+        aInfo.UpdateNextFireTime(mRetryTime);
+    }
+
+exit:
+    return;
+}
+
+void SubMac::ListenScheduler::AddRetry(const TimedRx &aTimedRx, const Radio::SyncedTime &aNow)
+{
+    // Adds `aTimedRx` (failed to be scheduled on the radio) to the
+    // windows to retry, sorted by start time. The retry time is the end
+    // of the window scheduled on the radio if it is not over yet.
+
+    const TimedRx &radioTimedRx = Get<SubMac>().mRadioTimedRx;
+    uint8_t        index;
+
+    // A window covered by the one scheduled on the radio is not retried
+    // (e.g., provided again after it was scheduled as a retry with a
+    // later start time).
+    VerifyOrExit(!radioTimedRx.IsSpecified() || (aTimedRx.GetChannel() != radioTimedRx.GetChannel()) ||
+                 (aTimedRx.GetEndTime() > radioTimedRx.GetEndTime()));
+
+    for (index = 0; index < kMaxRetryTimedRx; index++)
+    {
+        if (!mRetryTimedRx[index].IsSpecified() || (aTimedRx.GetStartTime() < mRetryTimedRx[index].GetStartTime()))
+        {
+            break;
+        }
+
+        VerifyOrExit(mRetryTimedRx[index] != aTimedRx);
+    }
+
+    // The latest window is dropped if all entries are in use.
+    VerifyOrExit(index < kMaxRetryTimedRx, LogWarn("Dropped timed RX window to retry"));
+
+    for (uint8_t i = kMaxRetryTimedRx - 1; i > index; i--)
+    {
+        mRetryTimedRx[i] = mRetryTimedRx[i - 1];
+    }
+
+    mRetryTimedRx[index] = aTimedRx;
+
+    if (radioTimedRx.IsSpecified() && !radioTimedRx.HasEnded(aNow))
+    {
+        mRetryTime = radioTimedRx.GetEndTime();
+    }
+    else
+    {
+        mRetryTime = aNow.GetAsTime64() + kRetryInterval;
+    }
+
+    LogDebg("Retry timed RX window at %lu, start:%lu", ToUlong(static_cast<uint32_t>(mRetryTime)),
+            ToUlong(static_cast<uint32_t>(aTimedRx.GetStartTime())));
+
+exit:
+    return;
+}
+
+void SubMac::ListenScheduler::RemoveRetry(uint8_t aIndex)
+{
+    for (uint8_t i = aIndex; i < kMaxRetryTimedRx - 1; i++)
+    {
+        mRetryTimedRx[i] = mRetryTimedRx[i + 1];
+    }
+
+    mRetryTimedRx[kMaxRetryTimedRx - 1].Clear();
 }
 
 #if OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_ENABLE
