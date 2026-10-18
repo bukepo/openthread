@@ -3839,6 +3839,8 @@ void PrepareSecuredFrame(Mac::TxFrame             &aTxFrame,
                          uint32_t                  aFrameCounter,
                          const uint8_t            *aPayload,
                          uint16_t                  aPayloadLength,
+                         const otMacKey           *aKey,
+                         const Mac::ExtAddress    *aNonceExtAddr,
                          Mac::Frame::SecurityLevel aSecurityLevel = Mac::Frame::kSecurityEncMic32)
 {
     aTxFrame.mPsdu = aPsdu;
@@ -3848,8 +3850,15 @@ void PrepareSecuredFrame(Mac::TxFrame             &aTxFrame,
     buildInfo.mVersion            = aVersion;
     buildInfo.mAddrs.mSource      = aSrcAddr;
     buildInfo.mAddrs.mDestination = aDstAddr;
-    buildInfo.mPanIds.SetSource(aSrcPanId);
-    buildInfo.mPanIds.SetDestination(aDstPanId);
+    // `kPanIdBroadcast` omits the PAN ID.
+    if (aSrcPanId != Mac::kPanIdBroadcast)
+    {
+        buildInfo.mPanIds.SetSource(aSrcPanId);
+    }
+    if (aDstPanId != Mac::kPanIdBroadcast)
+    {
+        buildInfo.mPanIds.SetDestination(aDstPanId);
+    }
     buildInfo.mSecurityLevel = aSecurityLevel;
     buildInfo.mKeyIdMode     = aKeyIdMode;
 
@@ -3873,6 +3882,15 @@ void PrepareSecuredFrame(Mac::TxFrame             &aTxFrame,
     {
         parseInfo.WriteKeySource(aKeyId);
         parseInfo.WriteKeyIndex(aKeyId[4]);
+    }
+
+    if (aKey != nullptr && aNonceExtAddr != nullptr)
+    {
+        Mac::KeyMaterial keyMaterial;
+
+        keyMaterial.SetFrom(AsCoreType(aKey));
+        aTxFrame.SetAesKey(keyMaterial);
+        parseInfo.ProcessTransmitAesCcm(*aNonceExtAddr);
     }
 
     aLength = aTxFrame.GetLength();
@@ -3903,22 +3921,26 @@ TEST(RadioSpinelMacFilter, PolicySetAndGet)
     EXPECT_EQ(policy, SPINEL_MAC_FILTER_POLICY_DROP_MALFORMED | SPINEL_MAC_FILTER_POLICY_DROP_UNSECURED);
 
 #if (OPENTHREAD_CONFIG_LINK_EXT_MAC_KEY_TABLE_MAX_ENTRIES > 0)
-    EXPECT_EQ(platform.mRadioSpinel.SetMacFilterPolicy(SPINEL_MAC_FILTER_POLICY_DROP_MALFORMED |
-                                                       SPINEL_MAC_FILTER_POLICY_DROP_UNSECURED |
-                                                       SPINEL_MAC_FILTER_POLICY_DROP_UNKNOWN_KEY),
+    EXPECT_EQ(platform.mRadioSpinel.SetMacFilterPolicy(
+                  SPINEL_MAC_FILTER_POLICY_DROP_MALFORMED | SPINEL_MAC_FILTER_POLICY_DROP_UNSECURED |
+                  SPINEL_MAC_FILTER_POLICY_DROP_UNKNOWN_KEY | SPINEL_MAC_FILTER_POLICY_DROP_UNKNOWN_NEIGHBOR |
+                  SPINEL_MAC_FILTER_POLICY_DROP_REPLAYED),
               kErrorNone);
     ASSERT_EQ(platform.mRadioSpinel.GetMacFilterPolicy(policy), kErrorNone);
-    EXPECT_EQ(policy, 0x07);
+    EXPECT_EQ(policy, 0x1f);
 #else
     EXPECT_EQ(platform.mRadioSpinel.SetMacFilterPolicy(SPINEL_MAC_FILTER_POLICY_DROP_UNKNOWN_KEY),
               kErrorNotImplemented);
+    EXPECT_EQ(platform.mRadioSpinel.SetMacFilterPolicy(SPINEL_MAC_FILTER_POLICY_DROP_UNKNOWN_NEIGHBOR),
+              kErrorNotImplemented);
+    EXPECT_EQ(platform.mRadioSpinel.SetMacFilterPolicy(SPINEL_MAC_FILTER_POLICY_DROP_REPLAYED), kErrorNotImplemented);
 #endif
 
-    // Reserved bits (bits 3-7) must be rejected
-    EXPECT_EQ(platform.mRadioSpinel.SetMacFilterPolicy(0x08), kErrorInvalidArgs);
-    EXPECT_EQ(platform.mRadioSpinel.SetMacFilterPolicy(0x10), kErrorInvalidArgs);
+    // Reserved bits (bits 5-7) must be rejected
+    EXPECT_EQ(platform.mRadioSpinel.SetMacFilterPolicy(0x20), kErrorInvalidArgs);
+    EXPECT_EQ(platform.mRadioSpinel.SetMacFilterPolicy(0x40), kErrorInvalidArgs);
     EXPECT_EQ(platform.mRadioSpinel.SetMacFilterPolicy(0x80), kErrorInvalidArgs);
-    EXPECT_EQ(platform.mRadioSpinel.SetMacFilterPolicy(0xf8), kErrorInvalidArgs);
+    EXPECT_EQ(platform.mRadioSpinel.SetMacFilterPolicy(0xe0), kErrorInvalidArgs);
 
     // Reset back to 0
     EXPECT_EQ(platform.mRadioSpinel.SetMacFilterPolicy(0), kErrorNone);
@@ -3948,12 +3970,14 @@ TEST(RadioSpinelMacFilter, KeyTableSetAndGet)
         entry.mAllowedSecLevels = (1 << Mac::Frame::kSecurityEncMic32);
     }
 
-    // Entry 0: Key ID Mode 2 (4-byte Key Source + 1-byte Key Index)
+    // Entry 0: Key ID Mode 2 (4-byte Key Source + 1-byte Key Index) with a key
     setEntries[0].mKeyIdLength = 5;
     for (uint8_t i = 0; i < 5; i++)
     {
         setEntries[0].mKeyId[i] = i + 0x01;
     }
+    setEntries[0].mHasKey = true;
+    memset(setEntries[0].mKeyMaterial.m8, 0x11, sizeof(otMacKey));
 
     // Entry 1: Key ID Mode 1 (1-byte Key Index) with all security levels allowed
     setEntries[1].mKeyIdLength      = 1;
@@ -3974,7 +3998,11 @@ TEST(RadioSpinelMacFilter, KeyTableSetAndGet)
     {
         EXPECT_EQ(entries[i].mKeyIdLength, setEntries[i].mKeyIdLength);
         EXPECT_EQ(memcmp(entries[i].mKeyId, setEntries[i].mKeyId, setEntries[i].mKeyIdLength), 0);
-        EXPECT_FALSE(entries[i].mHasKey);
+        EXPECT_EQ(entries[i].mHasKey, setEntries[i].mHasKey);
+        if (setEntries[i].mHasKey)
+        {
+            EXPECT_EQ(memcmp(entries[i].mKeyMaterial.m8, setEntries[i].mKeyMaterial.m8, sizeof(otMacKey)), 0);
+        }
         EXPECT_EQ(entries[i].mAllowedSecLevels, setEntries[i].mAllowedSecLevels);
     }
 
@@ -4000,6 +4028,15 @@ TEST(RadioSpinelMacFilter, KeyTableSetAndGet)
     }
 
     EXPECT_EQ(entries[kNumEntries - 1].mAllowedSecLevels, 0);
+    // An entry with a key must allow only Security Levels 5, 6, and 7
+    setEntries[0].mAllowedSecLevels = (1 << Mac::Frame::kSecurityEncMic32) | (1 << Mac::Frame::kSecurityEncMic64) |
+                                      (1 << Mac::Frame::kSecurityEncMic128);
+    EXPECT_EQ(platform.mRadioSpinel.SetMacKeyTable(setEntries, 1), kErrorNone);
+    setEntries[0].mAllowedSecLevels = (1 << Mac::Frame::kSecurityEnc);
+    EXPECT_EQ(platform.mRadioSpinel.SetMacKeyTable(setEntries, 1), kErrorNotCapable);
+    setEntries[0].mAllowedSecLevels = (1 << Mac::Frame::kSecurityEncMic32) | (1 << Mac::Frame::kSecurityMic32);
+    EXPECT_EQ(platform.mRadioSpinel.SetMacKeyTable(setEntries, 1), kErrorNotCapable);
+    setEntries[0].mAllowedSecLevels = (1 << Mac::Frame::kSecurityEncMic32);
 
     // Clear key table
     ASSERT_EQ(platform.mRadioSpinel.SetMacKeyTable(nullptr, 0), kErrorNone);
@@ -4020,12 +4057,6 @@ TEST(RadioSpinelMacFilter, KeyTableSetAndGet)
     setEntries[0].mKeyIdLength = Spinel::RadioSpinel::MacKeyTableEntry::kMaxKeyIdLength + 1; // Rejected by host
     EXPECT_EQ(platform.mRadioSpinel.SetMacKeyTable(setEntries, 1), kErrorInvalidArgs);
     setEntries[0].mKeyIdLength = 5;
-
-    // An entry with a key (MIC verification) is not supported
-    setEntries[0].mHasKey = true;
-    memset(setEntries[0].mKeyMaterial.m8, 0x11, sizeof(otMacKey));
-    EXPECT_EQ(platform.mRadioSpinel.SetMacKeyTable(setEntries, 1), kErrorNotCapable);
-    setEntries[0].mHasKey = false;
 
     // Bit 0 (Security Level 0: None) or 0 must return kErrorInvalidArgs
     setEntries[0].mAllowedSecLevels = (1 << Mac::Frame::kSecurityNone);
@@ -4065,6 +4096,220 @@ TEST(RadioSpinelMacFilter, KeyTableSetAndGet)
     entry.Clear();
     EXPECT_EQ(platform.mRadioSpinel.SetMacKeyTable(&entry, 1), kErrorNotImplemented);
     EXPECT_EQ(platform.mRadioSpinel.GetMacKeyTable(&entry, count), kErrorNotImplemented);
+#endif
+}
+
+TEST(RadioSpinelMacFilter, NeighborTableSetAndGet)
+{
+    FakeCoprocessorPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+
+#if (OPENTHREAD_CONFIG_LINK_EXT_MAC_KEY_TABLE_MAX_ENTRIES > 0)
+    Spinel::RadioSpinel::MacKeyTableEntry      keys[3];
+    Spinel::RadioSpinel::MacNeighborTableEntry setNeighbors[2];
+    Spinel::RadioSpinel::MacNeighborTableEntry neighbors[OPENTHREAD_CONFIG_LINK_EXT_MAC_NEIGHBOR_TABLE_MAX_ENTRIES];
+    uint8_t                                    count;
+
+    // Key table: entry 0 without a key, entries 1 and 2 with keys
+    for (uint8_t i = 0; i < OT_ARRAY_LENGTH(keys); i++)
+    {
+        keys[i].Clear();
+        keys[i].mKeyIdLength      = 1;
+        keys[i].mKeyId[0]         = 0x81 + i;
+        keys[i].mAllowedSecLevels = (1 << Mac::Frame::kSecurityEncMic32);
+        keys[i].mHasKey           = (i != 0);
+        memset(keys[i].mKeyMaterial.m8, 0x10 + i, sizeof(otMacKey));
+    }
+    ASSERT_EQ(platform.mRadioSpinel.SetMacKeyTable(keys, OT_ARRAY_LENGTH(keys)), kErrorNone);
+
+    // Initial table is empty
+    count = OT_ARRAY_LENGTH(neighbors);
+    ASSERT_EQ(platform.mRadioSpinel.GetMacNeighborTable(neighbors, count), kErrorNone);
+    EXPECT_EQ(count, 0);
+
+    for (uint8_t i = 0; i < OT_ARRAY_LENGTH(setNeighbors); i++)
+    {
+        setNeighbors[i].Clear();
+        memset(setNeighbors[i].mExtAddress.m8, 0x20 + i, sizeof(otExtAddress));
+    }
+    setNeighbors[0].mKeyIndex     = 1;
+    setNeighbors[0].mFrameCounter = 100;
+    setNeighbors[0].mPanId        = 0xabcd;
+    setNeighbors[0].mShortAddress = 0x1234;
+    setNeighbors[1].mKeyIndex     = 2;
+    setNeighbors[1].mFrameCounter = 5;
+    setNeighbors[1].mPanId        = 0x4321;
+
+    ASSERT_EQ(platform.mRadioSpinel.SetMacNeighborTable(setNeighbors, 2), kErrorNone);
+
+    count = OT_ARRAY_LENGTH(neighbors);
+    ASSERT_EQ(platform.mRadioSpinel.GetMacNeighborTable(neighbors, count), kErrorNone);
+    ASSERT_EQ(count, 2);
+
+    for (uint8_t i = 0; i < 2; i++)
+    {
+        EXPECT_EQ(memcmp(neighbors[i].mExtAddress.m8, setNeighbors[i].mExtAddress.m8, sizeof(otExtAddress)), 0);
+        EXPECT_EQ(neighbors[i].mKeyIndex, setNeighbors[i].mKeyIndex);
+        EXPECT_EQ(neighbors[i].mFrameCounter, setNeighbors[i].mFrameCounter);
+        EXPECT_EQ(neighbors[i].mPanId, setNeighbors[i].mPanId);
+        EXPECT_EQ(neighbors[i].mShortAddress, setNeighbors[i].mShortAddress);
+    }
+
+    // A `nullptr` table gets the number of entries
+    count = 0;
+    ASSERT_EQ(platform.mRadioSpinel.GetMacNeighborTable(nullptr, count), kErrorNone);
+    EXPECT_EQ(count, 2);
+
+    // A too small table gets the entries which fit and the number of entries
+    neighbors[0].Clear();
+    neighbors[1].Clear();
+    count = 1;
+    ASSERT_EQ(platform.mRadioSpinel.GetMacNeighborTable(neighbors, count), kErrorNoBufs);
+    EXPECT_EQ(count, 2);
+    EXPECT_EQ(memcmp(neighbors[0].mExtAddress.m8, setNeighbors[0].mExtAddress.m8, sizeof(otExtAddress)), 0);
+    EXPECT_EQ(neighbors[0].mFrameCounter, setNeighbors[0].mFrameCounter);
+    EXPECT_EQ(neighbors[1].mFrameCounter, 0u);
+
+    // The same extended address and key index must not appear twice
+    {
+        Spinel::RadioSpinel::MacNeighborTableEntry duplicates[2] = {setNeighbors[0], setNeighbors[0]};
+
+        EXPECT_EQ(platform.mRadioSpinel.SetMacNeighborTable(duplicates, 2), kErrorInvalidArgs);
+
+        // The same extended address with a different key index is a different neighbor
+        duplicates[1].mKeyIndex = 2;
+        EXPECT_EQ(platform.mRadioSpinel.SetMacNeighborTable(duplicates, 2), kErrorNone);
+        ASSERT_EQ(platform.mRadioSpinel.SetMacNeighborTable(setNeighbors, 2), kErrorNone);
+    }
+
+    // The frame counter of an existing neighbor never moves backwards
+    setNeighbors[0].mFrameCounter = 50;
+    ASSERT_EQ(platform.mRadioSpinel.SetMacNeighborTable(setNeighbors, 1), kErrorNone);
+    count = OT_ARRAY_LENGTH(neighbors);
+    ASSERT_EQ(platform.mRadioSpinel.GetMacNeighborTable(neighbors, count), kErrorNone);
+    ASSERT_EQ(count, 1);
+    EXPECT_EQ(neighbors[0].mFrameCounter, 100u);
+
+    setNeighbors[0].mFrameCounter = 200;
+    ASSERT_EQ(platform.mRadioSpinel.SetMacNeighborTable(setNeighbors, 1), kErrorNone);
+    count = OT_ARRAY_LENGTH(neighbors);
+    ASSERT_EQ(platform.mRadioSpinel.GetMacNeighborTable(neighbors, count), kErrorNone);
+    ASSERT_EQ(count, 1);
+    EXPECT_EQ(neighbors[0].mFrameCounter, 200u);
+
+    // A key table entry without a key or out of range must be rejected
+    setNeighbors[0].mKeyIndex = 0;
+    EXPECT_EQ(platform.mRadioSpinel.SetMacNeighborTable(setNeighbors, 1), kErrorInvalidArgs);
+    setNeighbors[0].mKeyIndex = 3;
+    EXPECT_EQ(platform.mRadioSpinel.SetMacNeighborTable(setNeighbors, 1), kErrorInvalidArgs);
+    setNeighbors[0].mKeyIndex = 1;
+
+    // The short address 0xfffe (no short address assigned) is invalid
+    {
+        Spinel::RadioSpinel::MacNeighborTableEntry invalid = setNeighbors[0];
+
+        invalid.mShortAddress = OT_RADIO_INVALID_SHORT_ADDR;
+        EXPECT_EQ(platform.mRadioSpinel.SetMacNeighborTable(&invalid, 1), kErrorInvalidArgs);
+    }
+
+    // A null table with entries is rejected by the host
+    EXPECT_EQ(platform.mRadioSpinel.SetMacNeighborTable(nullptr, 1), kErrorInvalidArgs);
+
+    // Setting the key table with the same keys keeps the neighbors and their frame counters
+    ASSERT_EQ(platform.mRadioSpinel.SetMacNeighborTable(setNeighbors, 2), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetMacKeyTable(keys, OT_ARRAY_LENGTH(keys)), kErrorNone);
+    count = OT_ARRAY_LENGTH(neighbors);
+    ASSERT_EQ(platform.mRadioSpinel.GetMacNeighborTable(neighbors, count), kErrorNone);
+    ASSERT_EQ(count, 2);
+    EXPECT_EQ(neighbors[0].mKeyIndex, 1);
+    EXPECT_EQ(neighbors[0].mFrameCounter, 200u);
+    EXPECT_EQ(neighbors[1].mKeyIndex, 2);
+    EXPECT_EQ(neighbors[1].mFrameCounter, setNeighbors[1].mFrameCounter);
+
+    // Changing the key of an entry removes only the neighbors using that entry
+    keys[2].mKeyMaterial.m8[0] ^= 0xff;
+    ASSERT_EQ(platform.mRadioSpinel.SetMacKeyTable(keys, OT_ARRAY_LENGTH(keys)), kErrorNone);
+    count = OT_ARRAY_LENGTH(neighbors);
+    ASSERT_EQ(platform.mRadioSpinel.GetMacNeighborTable(neighbors, count), kErrorNone);
+    ASSERT_EQ(count, 1);
+    EXPECT_EQ(neighbors[0].mKeyIndex, 1);
+    EXPECT_EQ(neighbors[0].mFrameCounter, 200u);
+    keys[2].mKeyMaterial.m8[0] ^= 0xff;
+
+    // Removing an entry removes the neighbors using it
+    ASSERT_EQ(platform.mRadioSpinel.SetMacKeyTable(keys, 1), kErrorNone);
+    count = OT_ARRAY_LENGTH(neighbors);
+    ASSERT_EQ(platform.mRadioSpinel.GetMacNeighborTable(neighbors, count), kErrorNone);
+    EXPECT_EQ(count, 0);
+
+    // Failed SETs leave both tables unchanged
+    ASSERT_EQ(platform.mRadioSpinel.SetMacKeyTable(keys, OT_ARRAY_LENGTH(keys)), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetMacNeighborTable(setNeighbors, 2), kErrorNone);
+
+    {
+        Spinel::RadioSpinel::MacNeighborTableEntry duplicates[2] = {setNeighbors[0], setNeighbors[0]};
+        Spinel::RadioSpinel::MacNeighborTableEntry badIndex[2]   = {setNeighbors[1], setNeighbors[0]};
+        Spinel::RadioSpinel::MacKeyTableEntry      badKeys[3]    = {keys[0], keys[1], keys[2]};
+
+        badIndex[1].mKeyIndex     = 0;
+        badIndex[0].mFrameCounter = 1000;
+        EXPECT_EQ(platform.mRadioSpinel.SetMacNeighborTable(duplicates, 2), kErrorInvalidArgs);
+        EXPECT_EQ(platform.mRadioSpinel.SetMacNeighborTable(badIndex, 2), kErrorInvalidArgs);
+
+        // The last entry is invalid
+        badKeys[2].mAllowedSecLevels = 0;
+        EXPECT_EQ(platform.mRadioSpinel.SetMacKeyTable(badKeys, 3), kErrorInvalidArgs);
+        badKeys[2].mAllowedSecLevels = (1 << Mac::Frame::kSecurityEnc);
+        EXPECT_EQ(platform.mRadioSpinel.SetMacKeyTable(badKeys, 3), kErrorNotCapable);
+    }
+
+    count = OT_ARRAY_LENGTH(neighbors);
+    ASSERT_EQ(platform.mRadioSpinel.GetMacNeighborTable(neighbors, count), kErrorNone);
+    ASSERT_EQ(count, 2);
+
+    for (uint8_t i = 0; i < 2; i++)
+    {
+        EXPECT_EQ(memcmp(neighbors[i].mExtAddress.m8, setNeighbors[i].mExtAddress.m8, sizeof(otExtAddress)), 0);
+        EXPECT_EQ(neighbors[i].mKeyIndex, setNeighbors[i].mKeyIndex);
+        EXPECT_EQ(neighbors[i].mPanId, setNeighbors[i].mPanId);
+        EXPECT_EQ(neighbors[i].mShortAddress, setNeighbors[i].mShortAddress);
+    }
+
+    EXPECT_EQ(neighbors[0].mFrameCounter, 200u);
+    EXPECT_EQ(neighbors[1].mFrameCounter, setNeighbors[1].mFrameCounter);
+
+    {
+        Spinel::RadioSpinel::MacKeyTableEntry gotKeys[OT_ARRAY_LENGTH(keys)];
+
+        count = OT_ARRAY_LENGTH(gotKeys);
+        ASSERT_EQ(platform.mRadioSpinel.GetMacKeyTable(gotKeys, count), kErrorNone);
+        ASSERT_EQ(count, OT_ARRAY_LENGTH(keys));
+
+        for (uint8_t i = 0; i < OT_ARRAY_LENGTH(keys); i++)
+        {
+            EXPECT_EQ(gotKeys[i].mHasKey, keys[i].mHasKey);
+            EXPECT_EQ(memcmp(gotKeys[i].mKeyMaterial.m8, keys[i].mKeyMaterial.m8, keys[i].GetKeyLength()), 0);
+            EXPECT_EQ(gotKeys[i].mAllowedSecLevels, keys[i].mAllowedSecLevels);
+        }
+    }
+
+    // More entries than supported must be rejected
+    Spinel::RadioSpinel::MacNeighborTableEntry overflow[OPENTHREAD_CONFIG_LINK_EXT_MAC_NEIGHBOR_TABLE_MAX_ENTRIES + 1];
+
+    for (uint8_t i = 0; i < OT_ARRAY_LENGTH(overflow); i++)
+    {
+        overflow[i]                   = setNeighbors[0];
+        overflow[i].mExtAddress.m8[7] = i;
+    }
+    EXPECT_EQ(platform.mRadioSpinel.SetMacNeighborTable(overflow, OT_ARRAY_LENGTH(overflow)), kErrorNoBufs);
+#else
+    Spinel::RadioSpinel::MacNeighborTableEntry entry;
+    uint8_t                                    count = 1;
+
+    entry.Clear();
+    EXPECT_EQ(platform.mRadioSpinel.SetMacNeighborTable(&entry, 1), kErrorNotImplemented);
+    EXPECT_EQ(platform.mRadioSpinel.GetMacNeighborTable(&entry, count), kErrorNotImplemented);
 #endif
 }
 
@@ -4164,7 +4409,7 @@ TEST(RadioSpinelMacFilter, FrameFilteringPolicy)
     auto prepareSecuredFrame = [&](Mac::Frame::Version aVersion, const Mac::Address &aSrcAddr, Mac::PanId aSrcPanId,
                                    Mac::PanId aDstPanId, Mac::Frame::KeyIdMode aKeyIdMode, const uint8_t *aKeyId) {
         PrepareSecuredFrame(txFrame, frameBuffer, frameLength, aVersion, aSrcAddr, dstAddr, aSrcPanId, aDstPanId,
-                            aKeyIdMode, aKeyId, 100, kPayload, sizeof(kPayload));
+                            aKeyIdMode, aKeyId, 100, kPayload, sizeof(kPayload), &testKey, &srcExt);
     };
 
 #if (OPENTHREAD_CONFIG_LINK_EXT_MAC_KEY_TABLE_MAX_ENTRIES > 0)
@@ -4280,8 +4525,8 @@ TEST(RadioSpinelMacFilter, FrameFilteringPolicy)
         // Case 4e: The MAC key index is known only for Security Level 5
         keyIndex[0] = kCurKeyIndex;
         PrepareSecuredFrame(txFrame, frameBuffer, frameLength, Mac::Frame::kVersion2006, srcAddr, dstAddr, kPanId,
-                            kPanId, Mac::Frame::kKeyIdMode1, keyIndex, 100, kPayload, sizeof(kPayload),
-                            Mac::Frame::kSecurityEnc);
+                            kPanId, Mac::Frame::kKeyIdMode1, keyIndex, 100, kPayload, sizeof(kPayload), nullptr,
+                            nullptr, Mac::Frame::kSecurityEnc);
         deliverFrame(frameBuffer, frameLength);
         EXPECT_FALSE(sMacFilterFrameReceived);
 
@@ -4297,8 +4542,8 @@ TEST(RadioSpinelMacFilter, FrameFilteringPolicy)
         EXPECT_FALSE(sMacFilterFrameReceived);
 
         PrepareSecuredFrame(txFrame, frameBuffer, frameLength, Mac::Frame::kVersion2006, srcAddr, dstAddr, kPanId,
-                            kPanId, Mac::Frame::kKeyIdMode1, keyIndex, 100, kPayload, sizeof(kPayload),
-                            Mac::Frame::kSecurityEncMic64);
+                            kPanId, Mac::Frame::kKeyIdMode1, keyIndex, 100, kPayload, sizeof(kPayload), nullptr,
+                            nullptr, Mac::Frame::kSecurityEncMic64);
         deliverFrame(frameBuffer, frameLength);
         expectDeliveredUnmodified();
 
@@ -4307,6 +4552,268 @@ TEST(RadioSpinelMacFilter, FrameFilteringPolicy)
         prepareSecuredFrame(Mac::Frame::kVersion2006, srcAddr, kPanId, kPanId, Mac::Frame::kKeyIdMode1, keyIndex);
         deliverFrame(frameBuffer, frameLength);
         expectDeliveredUnmodified();
+    }
+
+    // 5. MIC verification and frame counters
+    {
+        constexpr uint16_t                         kShortSrcAddr = 0x2468;
+        otMacKey                                   otherKey;
+        Mac::Address                               shortSrcAddr;
+        Mac::Address                               otherShortSrcAddr;
+        Mac::Address                               noSrcAddr;
+        Mac::Address                               otherExtSrcAddr;
+        Spinel::RadioSpinel::MacNeighborTableEntry neighbors[2];
+        uint8_t                                    count;
+
+        auto prepare = [&](const Mac::Address &aSrcAddr, uint32_t aFrameCounter, const otMacKey &aKey,
+                           const Mac::ExtAddress &aNonceExtAddr) {
+            PrepareSecuredFrame(txFrame, frameBuffer, frameLength, Mac::Frame::kVersion2006, aSrcAddr, dstAddr, kPanId,
+                                kPanId, Mac::Frame::kKeyIdMode2, kKeyIdMode2, aFrameCounter, kPayload, sizeof(kPayload),
+                                &aKey, &aNonceExtAddr);
+        };
+
+        memset(otherKey.m8, 0x66, sizeof(otherKey.m8));
+        shortSrcAddr.SetShort(kShortSrcAddr);
+        otherShortSrcAddr.SetShort(kShortSrcAddr + 1);
+        noSrcAddr.SetNone();
+        otherExtSrcAddr.SetExtended(dstExt);
+
+        keyEntry.Clear();
+        keyEntry.mKeyIdLength = sizeof(kKeyIdMode2);
+        memcpy(keyEntry.mKeyId, kKeyIdMode2, sizeof(kKeyIdMode2));
+        keyEntry.mAllowedSecLevels = (1 << Mac::Frame::kSecurityEncMic32);
+        keyEntry.mHasKey           = true;
+        memcpy(keyEntry.mKeyMaterial.m8, testKey.m8, sizeof(otMacKey));
+        ASSERT_EQ(platform.mRadioSpinel.SetMacKeyTable(&keyEntry, 1), kErrorNone);
+        ASSERT_EQ(platform.mRadioSpinel.SetMacFilterPolicy(SPINEL_MAC_FILTER_POLICY_DROP_UNKNOWN_KEY), kErrorNone);
+
+        // Case 5a: No neighbor, extended source address, valid MIC: delivered unmodified
+        prepare(srcAddr, 100, testKey, srcExt);
+        deliverFrame(frameBuffer, frameLength);
+        expectDeliveredUnmodified();
+
+        // Case 5b: Invalid MIC: dropped
+        frameBuffer[frameLength - 3] ^= 0xff;
+        deliverFrame(frameBuffer, frameLength);
+        EXPECT_FALSE(sMacFilterFrameReceived);
+
+        // Case 5c: Same Key ID secured with a different key: dropped
+        prepare(srcAddr, 100, otherKey, srcExt);
+        deliverFrame(frameBuffer, frameLength);
+        EXPECT_FALSE(sMacFilterFrameReceived);
+
+        // Case 5d: No neighbor with DROP_UNKNOWN_NEIGHBOR: dropped
+        ASSERT_EQ(platform.mRadioSpinel.SetMacFilterPolicy(SPINEL_MAC_FILTER_POLICY_DROP_UNKNOWN_KEY |
+                                                           SPINEL_MAC_FILTER_POLICY_DROP_UNKNOWN_NEIGHBOR |
+                                                           SPINEL_MAC_FILTER_POLICY_DROP_REPLAYED),
+                  kErrorNone);
+        prepare(srcAddr, 100, testKey, srcExt);
+        deliverFrame(frameBuffer, frameLength);
+        EXPECT_FALSE(sMacFilterFrameReceived);
+
+        // Case 5e: Known neighbor: delivered, and the neighbor's frame counter is updated
+        neighbors[0].Clear();
+        memcpy(neighbors[0].mExtAddress.m8, srcExt.m8, sizeof(otExtAddress));
+        neighbors[0].mKeyIndex     = 0;
+        neighbors[0].mShortAddress = kShortSrcAddr;
+        ASSERT_EQ(platform.mRadioSpinel.SetMacNeighborTable(neighbors, 1), kErrorNone);
+
+        deliverFrame(frameBuffer, frameLength);
+        expectDeliveredUnmodified();
+
+        count = OT_ARRAY_LENGTH(neighbors);
+        ASSERT_EQ(platform.mRadioSpinel.GetMacNeighborTable(neighbors, count), kErrorNone);
+        ASSERT_EQ(count, 1);
+        EXPECT_EQ(neighbors[0].mFrameCounter, 101u);
+
+        // Case 5f: Replayed frame: dropped
+        deliverFrame(frameBuffer, frameLength);
+        EXPECT_FALSE(sMacFilterFrameReceived);
+
+        // Case 5p: The frame counter 0xffffffff is never accepted, and the neighbor's frame counter is
+        // left unchanged
+        prepare(srcAddr, UINT32_MAX, testKey, srcExt);
+        deliverFrame(frameBuffer, frameLength);
+        EXPECT_FALSE(sMacFilterFrameReceived);
+
+        count = OT_ARRAY_LENGTH(neighbors);
+        ASSERT_EQ(platform.mRadioSpinel.GetMacNeighborTable(neighbors, count), kErrorNone);
+        ASSERT_EQ(count, 1);
+        EXPECT_EQ(neighbors[0].mFrameCounter, 101u);
+
+        // Case 5g: Short source address of the neighbor: the neighbor's extended address is used for
+        // the nonce.
+        prepare(shortSrcAddr, 101, testKey, srcExt);
+        deliverFrame(frameBuffer, frameLength);
+        expectDeliveredUnmodified();
+
+        // Case 5h: Unknown short source address: the MIC cannot be verified, so
+        // DROP_UNKNOWN_NEIGHBOR applies.
+        prepare(otherShortSrcAddr, 102, testKey, srcExt);
+        deliverFrame(frameBuffer, frameLength);
+        EXPECT_FALSE(sMacFilterFrameReceived);
+
+        ASSERT_EQ(platform.mRadioSpinel.SetMacFilterPolicy(SPINEL_MAC_FILTER_POLICY_DROP_UNKNOWN_KEY |
+                                                           SPINEL_MAC_FILTER_POLICY_DROP_REPLAYED),
+                  kErrorNone);
+        deliverFrame(frameBuffer, frameLength);
+        expectDeliveredUnmodified();
+
+        // Case 5i: No source address: verified by the neighbor
+        prepare(noSrcAddr, 200, testKey, srcExt);
+        deliverFrame(frameBuffer, frameLength);
+        expectDeliveredUnmodified();
+
+        // Case 5j: Two neighbors share the key with separate frame counters
+        neighbors[1].Clear();
+        memcpy(neighbors[1].mExtAddress.m8, dstExt.m8, sizeof(otExtAddress));
+        neighbors[1].mKeyIndex = 0;
+        ASSERT_EQ(platform.mRadioSpinel.SetMacNeighborTable(neighbors, 2), kErrorNone);
+
+        prepare(otherExtSrcAddr, 50, testKey, dstExt);
+        deliverFrame(frameBuffer, frameLength);
+        expectDeliveredUnmodified();
+
+        // Case 5k: No source address: the frame from the second neighbor is verified after the first
+        // neighbor fails.
+        prepare(noSrcAddr, 60, testKey, dstExt);
+        deliverFrame(frameBuffer, frameLength);
+        expectDeliveredUnmodified();
+
+        deliverFrame(frameBuffer, frameLength);
+        EXPECT_FALSE(sMacFilterFrameReceived);
+
+        // Case 5l: Without DROP_REPLAYED, a replayed frame is delivered
+        ASSERT_EQ(platform.mRadioSpinel.SetMacFilterPolicy(SPINEL_MAC_FILTER_POLICY_DROP_UNKNOWN_KEY), kErrorNone);
+        deliverFrame(frameBuffer, frameLength);
+        expectDeliveredUnmodified();
+
+        // Case 5n: A neighbor with a PAN ID matches only frames with that source PAN ID
+        ASSERT_EQ(platform.mRadioSpinel.SetMacFilterPolicy(SPINEL_MAC_FILTER_POLICY_DROP_UNKNOWN_KEY |
+                                                           SPINEL_MAC_FILTER_POLICY_DROP_UNKNOWN_NEIGHBOR |
+                                                           SPINEL_MAC_FILTER_POLICY_DROP_REPLAYED),
+                  kErrorNone);
+        neighbors[0].mPanId = kPanId;
+        ASSERT_EQ(platform.mRadioSpinel.SetMacNeighborTable(neighbors, 1), kErrorNone);
+
+        prepare(shortSrcAddr, 1000, testKey, srcExt);
+        deliverFrame(frameBuffer, frameLength);
+        expectDeliveredUnmodified();
+
+        PrepareSecuredFrame(txFrame, frameBuffer, frameLength, Mac::Frame::kVersion2006, shortSrcAddr, dstAddr, 0x5678,
+                            kPanId, Mac::Frame::kKeyIdMode2, kKeyIdMode2, 1001, kPayload, sizeof(kPayload), &testKey,
+                            &srcExt);
+        deliverFrame(frameBuffer, frameLength);
+        EXPECT_FALSE(sMacFilterFrameReceived);
+
+        // An extended source address matches the neighbor regardless of the PAN ID, so the frame
+        // counter is checked and updated
+        PrepareSecuredFrame(txFrame, frameBuffer, frameLength, Mac::Frame::kVersion2006, srcAddr, dstAddr, 0x5678,
+                            kPanId, Mac::Frame::kKeyIdMode2, kKeyIdMode2, 1001, kPayload, sizeof(kPayload), &testKey,
+                            &srcExt);
+        deliverFrame(frameBuffer, frameLength);
+        expectDeliveredUnmodified();
+
+        deliverFrame(frameBuffer, frameLength);
+        EXPECT_FALSE(sMacFilterFrameReceived); // Replayed
+
+        // Case 5o: A frame whose source PAN ID is unknown (2015 frame without PAN IDs, such as a
+        // wake frame) still matches the neighbor by its extended source address, so its frame
+        // counter is checked.
+        PrepareSecuredFrame(txFrame, frameBuffer, frameLength, Mac::Frame::kVersion2015, srcAddr, noSrcAddr,
+                            Mac::kPanIdBroadcast, Mac::kPanIdBroadcast, Mac::Frame::kKeyIdMode2, kKeyIdMode2, 1002,
+                            kPayload, sizeof(kPayload), &testKey, &srcExt);
+        {
+            Mac::TxFrame::ParseInfo txParseInfo;
+
+            ASSERT_EQ(txParseInfo.ParseFrom(txFrame, Mac::Frame::kParseFully), kErrorNone);
+            ASSERT_FALSE(txParseInfo.mPanIds.IsSourcePresent());
+            ASSERT_FALSE(txParseInfo.mPanIds.IsDestinationPresent());
+        }
+        deliverFrame(frameBuffer, frameLength);
+        expectDeliveredUnmodified();
+
+        deliverFrame(frameBuffer, frameLength);
+        EXPECT_FALSE(sMacFilterFrameReceived); // Replayed
+
+        ASSERT_EQ(platform.mRadioSpinel.SetMacFilterPolicy(SPINEL_MAC_FILTER_POLICY_DROP_UNKNOWN_KEY), kErrorNone);
+
+        // Case 5m: A matching entry without a key accepts the frame regardless of entries with a key
+        Spinel::RadioSpinel::MacKeyTableEntry keys[2];
+
+        keys[0] = keyEntry;
+        memcpy(keys[0].mKeyMaterial.m8, otherKey.m8, sizeof(otMacKey));
+        keys[1]         = keyEntry;
+        keys[1].mHasKey = false;
+        ASSERT_EQ(platform.mRadioSpinel.SetMacKeyTable(keys, 2), kErrorNone);
+        prepare(srcAddr, 300, testKey, srcExt);
+        deliverFrame(frameBuffer, frameLength);
+        expectDeliveredUnmodified();
+
+        // Case 5q: The MIC is verified at Security Levels 6 and 7 (8-byte and 16-byte MICs)
+        keyEntry.mAllowedSecLevels = (1 << Mac::Frame::kSecurityEncMic32) | (1 << Mac::Frame::kSecurityEncMic64) |
+                                     (1 << Mac::Frame::kSecurityEncMic128);
+        ASSERT_EQ(platform.mRadioSpinel.SetMacKeyTable(&keyEntry, 1), kErrorNone);
+        ASSERT_EQ(platform.mRadioSpinel.SetMacFilterPolicy(SPINEL_MAC_FILTER_POLICY_DROP_UNKNOWN_KEY), kErrorNone);
+
+        for (Mac::Frame::SecurityLevel level : {Mac::Frame::kSecurityEncMic64, Mac::Frame::kSecurityEncMic128})
+        {
+            PrepareSecuredFrame(txFrame, frameBuffer, frameLength, Mac::Frame::kVersion2006, srcAddr, dstAddr, kPanId,
+                                kPanId, Mac::Frame::kKeyIdMode2, kKeyIdMode2, 400, kPayload, sizeof(kPayload), &testKey,
+                                &srcExt, level);
+            deliverFrame(frameBuffer, frameLength);
+            expectDeliveredUnmodified();
+
+            // Invalid MIC: dropped
+            frameBuffer[frameLength - 3] ^= 0xff;
+            deliverFrame(frameBuffer, frameLength);
+            EXPECT_FALSE(sMacFilterFrameReceived);
+
+            // Different key: dropped
+            PrepareSecuredFrame(txFrame, frameBuffer, frameLength, Mac::Frame::kVersion2006, srcAddr, dstAddr, kPanId,
+                                kPanId, Mac::Frame::kKeyIdMode2, kKeyIdMode2, 400, kPayload, sizeof(kPayload),
+                                &otherKey, &srcExt, level);
+            deliverFrame(frameBuffer, frameLength);
+            EXPECT_FALSE(sMacFilterFrameReceived);
+        }
+
+        // Case 5r: A matching entry without a key accepts the frame even if it follows an entry with a
+        // key that would drop it (replayed, or frame counter 0xffffffff), so the order of the entries
+        // does not matter
+        keyEntry.mAllowedSecLevels = (1 << Mac::Frame::kSecurityEncMic32);
+        keys[0]                    = keyEntry;
+        keys[1]                    = keyEntry;
+        keys[1].mHasKey            = false;
+        ASSERT_EQ(platform.mRadioSpinel.SetMacKeyTable(keys, 2), kErrorNone);
+
+        neighbors[0].Clear();
+        memcpy(neighbors[0].mExtAddress.m8, srcExt.m8, sizeof(otExtAddress));
+        neighbors[0].mKeyIndex     = 0;
+        neighbors[0].mFrameCounter = 500;
+        ASSERT_EQ(platform.mRadioSpinel.SetMacNeighborTable(neighbors, 1), kErrorNone);
+        ASSERT_EQ(platform.mRadioSpinel.SetMacFilterPolicy(SPINEL_MAC_FILTER_POLICY_DROP_UNKNOWN_KEY |
+                                                           SPINEL_MAC_FILTER_POLICY_DROP_UNKNOWN_NEIGHBOR |
+                                                           SPINEL_MAC_FILTER_POLICY_DROP_REPLAYED),
+                  kErrorNone);
+
+        prepare(srcAddr, 400, testKey, srcExt);
+        deliverFrame(frameBuffer, frameLength);
+        expectDeliveredUnmodified();
+
+        prepare(srcAddr, UINT32_MAX, testKey, srcExt);
+        deliverFrame(frameBuffer, frameLength);
+        expectDeliveredUnmodified();
+
+        // Without the entry without a key, both frames are dropped
+        ASSERT_EQ(platform.mRadioSpinel.SetMacKeyTable(keys, 1), kErrorNone);
+
+        prepare(srcAddr, 400, testKey, srcExt);
+        deliverFrame(frameBuffer, frameLength);
+        EXPECT_FALSE(sMacFilterFrameReceived);
+
+        prepare(srcAddr, UINT32_MAX, testKey, srcExt);
+        deliverFrame(frameBuffer, frameLength);
+        EXPECT_FALSE(sMacFilterFrameReceived);
     }
 #else
     // When MAX_ENTRIES == 0, the key table is disabled.

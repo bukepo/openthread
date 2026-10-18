@@ -61,6 +61,11 @@
 #error "OPENTHREAD_CONFIG_LINK_EXT_ENABLE requires OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT"
 #endif
 
+#if (OPENTHREAD_CONFIG_LINK_EXT_MAC_KEY_TABLE_MAX_ENTRIES > 0) && \
+    (OPENTHREAD_CONFIG_LINK_EXT_MAC_NEIGHBOR_TABLE_MAX_ENTRIES == 0)
+#error "OPENTHREAD_CONFIG_LINK_EXT_MAC_NEIGHBOR_TABLE_MAX_ENTRIES must be non-zero when the key table is enabled"
+#endif
+
 namespace ot {
 namespace Mac {
 
@@ -259,6 +264,8 @@ public:
     static constexpr uint8_t kMacFilterPolicyDropMalformed  = (1 << 0); ///< Drop frames which cannot be parsed.
     static constexpr uint8_t kMacFilterPolicyDropUnsecured  = (1 << 1); ///< Drop frames without security enabled.
     static constexpr uint8_t kMacFilterPolicyDropUnknownKey = (1 << 2); ///< Drop secured frames with an unknown key.
+    static constexpr uint8_t kMacFilterPolicyDropUnknownNeighbor = (1 << 3); ///< Drop frames from unknown neighbors.
+    static constexpr uint8_t kMacFilterPolicyDropReplayed        = (1 << 4); ///< Drop replayed secured frames.
 
     /**
      * Sets the MAC frame filter policy.
@@ -274,8 +281,17 @@ public:
      *    entry of the MAC key table (see `SetMacKeyTable()`). If no entry has the Key ID of the frame, a Key ID Mode 1
      *    frame with Security Level 5 using the key index of the previous, current, or next MAC key (see
      *    `otLinkRawSetMacKey()`) is also known.
+     * 4. A frame matching an entry without a key is delivered. For a matching entry with a key, the AES-CCM* MIC is
+     *    verified using the extended address of each neighbor of that entry matching the frame (see
+     *    `SetMacNeighborTable()`) for the nonce. When a neighbor verifies the MIC, the frame is checked for replay
+     *    against, and then updates, the neighbor's next expected frame counter. If no neighbor matches, a frame with an
+     *    extended source address is verified using that address. Entries may share a Key ID, so all matching entries
+     *    are checked. A frame whose MIC verification fails is dropped.
+     *    - `kMacFilterPolicyDropUnknownNeighbor`: No neighbor matches the frame.
+     *    - `kMacFilterPolicyDropReplayed`: The frame counter is lower than the next expected frame counter of the
+     *      neighbor which verified the MIC.
      *
-     * A policy of zero disables the filter.
+     * The MIC is verified on a copy of the frame. Frames are not decrypted. A policy of zero disables the filter.
      *
      * @param[in] aPolicy  The policy bitmask (`kMacFilterPolicy*` flags).
      *
@@ -294,7 +310,11 @@ public:
     uint8_t GetMacFilterPolicy(void) const { return mMacFilterPolicy; }
 
 #if (OPENTHREAD_CONFIG_LINK_EXT_MAC_KEY_TABLE_MAX_ENTRIES > 0)
-    static constexpr uint8_t kMaxMacKeyTableEntries = OPENTHREAD_CONFIG_LINK_EXT_MAC_KEY_TABLE_MAX_ENTRIES;
+    static constexpr uint8_t kMaxMacKeyTableEntries  = OPENTHREAD_CONFIG_LINK_EXT_MAC_KEY_TABLE_MAX_ENTRIES;
+    static constexpr uint8_t kMacKeyedSecurityLevels = (1 << Frame::kSecurityEncMic32) |
+                                                       (1 << Frame::kSecurityEncMic64) |
+                                                       (1 << Frame::kSecurityEncMic128); ///< Levels with a key.
+    static constexpr uint8_t kMaxMacNeighborTableEntries = OPENTHREAD_CONFIG_LINK_EXT_MAC_NEIGHBOR_TABLE_MAX_ENTRIES;
 
     /**
      * Represents an entry of the MAC key table.
@@ -318,6 +338,8 @@ public:
         uint8_t mKeyId[kMaxKeyIdLength]; ///< The Key ID (first `mKeyIdLength` bytes are used).
         uint8_t mKeyIdLength;            ///< The Key ID length, which determines the Key ID Mode.
         uint8_t mAllowedSecurityLevels;  ///< Allowed security levels (bit `i` allows level `i`), non-zero, bit 0 clear.
+        bool    mHasKey;                 ///< Whether `mKey` is set, in which case the MIC is verified.
+        Key     mKey;                    ///< The key (applicable if `mHasKey`).
 
         /**
          * Indicates whether the entry is valid.
@@ -349,15 +371,101 @@ public:
          */
         bool MatchesKeyId(const RxFrame::ParseInfo &aParseInfo) const;
 
+        /**
+         * Verifies the MIC of a secured frame using the key of the entry.
+         *
+         * The MIC is verified on a copy of the frame, which is left unmodified.
+         *
+         * @param[in] aParseInfo     The parse info of the frame.
+         * @param[in] aNonceExtAddr  The extended address used for the AES-CCM* nonce.
+         *
+         * @retval TRUE   The MIC is verified.
+         * @retval FALSE  The MIC verification failed.
+         */
+        bool VerifyMic(const RxFrame::ParseInfo &aParseInfo, const ExtAddress &aNonceExtAddr) const;
+
+        /**
+         * Indicates whether the entry has the same Key ID and key as another entry.
+         *
+         * @param[in] aOther  The other entry.
+         *
+         * @retval TRUE   The Key ID and the key (or the absence of a key) are equal.
+         * @retval FALSE  The Key ID or the key differs.
+         */
+        bool HasSameKey(const MacKeyTableEntry &aOther) const;
+
     private:
         Error GetKeyIdMode(Frame::KeyIdMode &aKeyIdMode) const;
+    };
+
+    /**
+     * Represents an entry of the MAC neighbor table.
+     *
+     * A frame matches a neighbor when its source address is the neighbor's extended address, or the neighbor's short
+     * address if set, or when it has no source address. For a frame with a short source address, if the neighbor's PAN
+     * ID is set and the frame's source PAN ID is known, the source PAN ID must also be equal to it. The PAN ID scopes
+     * the short address, which is only unique within a PAN. Extended addresses are assumed to be unique, so the PAN ID
+     * is not a security check.
+     */
+    class MacNeighborTableEntry
+    {
+    public:
+        ExtAddress   mExtAddress;    ///< The extended address, which is used for the AES-CCM* nonce.
+        uint32_t     mFrameCounter;  ///< The next expected frame counter.
+        PanId        mPanId;         ///< The PAN ID (`kPanIdBroadcast` if not set).
+        ShortAddress mShortAddress;  ///< The short address (`kShortAddrBroadcast` if not set), not `kShortAddrInvalid`.
+        uint8_t      mKeyTableIndex; ///< The index of the MAC key table entry, which MUST have a key.
+
+        /**
+         * Indicates whether the PAN ID is set.
+         *
+         * @retval TRUE   The PAN ID is set.
+         * @retval FALSE  The PAN ID is not set.
+         */
+        bool HasPanId(void) const { return mPanId != kPanIdBroadcast; }
+
+        /**
+         * Indicates whether the short address is set.
+         *
+         * @retval TRUE   The short address is set.
+         * @retval FALSE  The short address is not set.
+         */
+        bool HasShortAddress(void) const { return mShortAddress != kShortAddrBroadcast; }
+
+        /**
+         * Indicates whether the entry identifies the same neighbor as another entry.
+         *
+         * @param[in] aOther  The other entry.
+         *
+         * @retval TRUE   The extended address and key table index are equal.
+         * @retval FALSE  The extended address or key table index differs.
+         */
+        bool IsSameNeighbor(const MacNeighborTableEntry &aOther) const
+        {
+            return (mKeyTableIndex == aOther.mKeyTableIndex) && (mExtAddress == aOther.mExtAddress);
+        }
+
+        /**
+         * Indicates whether a secured frame matching a key table entry matches the neighbor.
+         *
+         * @param[in] aParseInfo      The parse info of the frame.
+         * @param[in] aKeyTableIndex  The index of the key table entry which the frame matches.
+         *
+         * @retval TRUE   The frame matches the neighbor.
+         * @retval FALSE  The frame does not match the neighbor.
+         */
+        bool Matches(const RxFrame::ParseInfo &aParseInfo, uint8_t aKeyTableIndex) const;
     };
 
     /**
      * Atomically replaces the MAC key table.
      *
      * A secured frame matches an entry if its Key ID Mode and Key ID equal those of the entry, and its security level
-     * is allowed by the entry (see `SetMacFilterPolicy()`).
+     * is allowed by the entry (see `SetMacFilterPolicy()`). An entry with a key MUST allow only Security Levels 5,
+     * 6, and 7 (`kMacKeyedSecurityLevels`), which are the levels supported for MIC verification.
+     *
+     * A neighbor (see `SetMacNeighborTable()`) is kept, with its frame counter, only if the entry at its key table
+     * index keeps the same Key ID and key. Other neighbors are removed.
      *
      * @param[in] aEntries     A pointer to an array of entries (can be `nullptr` if @p aNumEntries is zero).
      * @param[in] aNumEntries  The number of entries in @p aEntries.
@@ -365,8 +473,40 @@ public:
      * @retval kErrorNone         Successfully set the table.
      * @retval kErrorNoBufs       More than `kMaxMacKeyTableEntries` entries. The table is left unchanged.
      * @retval kErrorInvalidArgs  An entry is invalid. The table is left unchanged.
+     * @retval kErrorNotCapable   An entry with a key allows a security level other than 5, 6, or 7. The table is left
+     *                            unchanged.
      */
     Error SetMacKeyTable(const MacKeyTableEntry *aEntries, uint8_t aNumEntries);
+
+    /**
+     * Atomically replaces the MAC neighbor table.
+     *
+     * Each extended address and key table index pair MUST be unique. The next expected frame counter of a neighbor is
+     * updated when the neighbor verifies a frame. For an entry with the same extended address and key table index as a
+     * current entry, the frame counter is set to the larger of the two, so that it never moves backwards.
+     *
+     * @param[in] aEntries     A pointer to an array of entries (can be `nullptr` if @p aNumEntries is zero).
+     * @param[in] aNumEntries  The number of entries in @p aEntries.
+     *
+     * @retval kErrorNone         Successfully set the table.
+     * @retval kErrorNoBufs       More than `kMaxMacNeighborTableEntries` entries. The table is left unchanged.
+     * @retval kErrorInvalidArgs  An entry is invalid (e.g. its short address is `kShortAddrInvalid`), or two entries
+     *                            have the same extended address and key table index. The table is left unchanged.
+     */
+    Error SetMacNeighborTable(const MacNeighborTableEntry *aEntries, uint8_t aNumEntries);
+
+    /**
+     * Gets the MAC neighbor table.
+     *
+     * @param[out] aNumEntries  A reference to output the number of entries.
+     *
+     * @returns A pointer to the array of entries.
+     */
+    const MacNeighborTableEntry *GetMacNeighborTable(uint8_t &aNumEntries) const
+    {
+        aNumEntries = mNumMacNeighborTableEntries;
+        return mMacNeighborTable;
+    }
 
     /**
      * Gets the MAC key table.
@@ -402,11 +542,23 @@ private:
     void HandleTransmitDone(TxFrame &aFrame);
     bool FilterReceivedFrame(const RxFrame &aFrame);
 
+    static constexpr uint8_t kMacFilterPolicyKeyTable =
+        kMacFilterPolicyDropUnknownKey | kMacFilterPolicyDropUnknownNeighbor | kMacFilterPolicyDropReplayed;
     static constexpr uint8_t kMacFilterPolicyAll =
-        kMacFilterPolicyDropMalformed | kMacFilterPolicyDropUnsecured | kMacFilterPolicyDropUnknownKey;
+        kMacFilterPolicyDropMalformed | kMacFilterPolicyDropUnsecured | kMacFilterPolicyKeyTable;
 
 #if (OPENTHREAD_CONFIG_LINK_EXT_MAC_KEY_TABLE_MAX_ENTRIES > 0)
-    bool IsMacKeyKnown(const RxFrame::ParseInfo &aParseInfo) const;
+    enum MacKeyTableResult : uint8_t
+    {
+        kMacKeyTableNoMatch,         // The key is unknown.
+        kMacKeyTableAccepted,        // The frame is accepted.
+        kMacKeyTableUnknownNeighbor, // The sender is not in the neighbor table.
+        kMacKeyTableMicFailed,       // The MIC verification failed.
+        kMacKeyTableReplayed,        // The frame counter is lower than the neighbor's next expected one.
+    };
+
+    bool              IsMode1MacKeyIndex(uint8_t aKeyIndex) const;
+    MacKeyTableResult CheckMacKeyTable(const RxFrame::ParseInfo &aParseInfo);
 #endif
 
     void  CancelBurst(void);
@@ -532,8 +684,10 @@ private:
 
     uint8_t mMacFilterPolicy;
 #if (OPENTHREAD_CONFIG_LINK_EXT_MAC_KEY_TABLE_MAX_ENTRIES > 0)
-    uint8_t          mNumMacKeyTableEntries;
-    MacKeyTableEntry mMacKeyTable[kMaxMacKeyTableEntries];
+    uint8_t               mNumMacKeyTableEntries;
+    uint8_t               mNumMacNeighborTableEntries;
+    MacKeyTableEntry      mMacKeyTable[kMaxMacKeyTableEntries];
+    MacNeighborTableEntry mMacNeighborTable[kMaxMacNeighborTableEntries];
 #endif
 };
 
