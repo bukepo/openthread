@@ -231,9 +231,14 @@ void LinkRaw::InvokeReceiveDone(RxFrame *aFrame, Error aError)
 {
     LogDebg("ReceiveDone(%d bytes), error:%s", (aFrame != nullptr) ? aFrame->mLength : 0, ErrorToString(aError));
 
-    if (mReceiveDoneCallback && (aError == kErrorNone))
+    if (mReceiveDoneCallback && (aFrame != nullptr) && (aError == kErrorNone))
     {
-        mReceiveDoneCallback(&GetInstance(), aFrame, aError);
+#if OPENTHREAD_RADIO && OPENTHREAD_CONFIG_LINK_EXT_ENABLE
+        if (Get<LinkExt>().FilterReceivedFrame(*aFrame))
+#endif
+        {
+            mReceiveDoneCallback(&GetInstance(), aFrame, aError);
+        }
     }
 }
 
