@@ -82,7 +82,15 @@ otError otLinkRawSleep(otInstance *aInstance)
 
     VerifyOrExit(instance.Get<Mac::LinkRaw>().IsEnabled(), error = kErrorInvalidState);
 
-    error = instance.Get<Radio::Radio>().Sleep();
+#if OPENTHREAD_RADIO && OPENTHREAD_CONFIG_LINK_EXT_ENABLE
+    VerifyOrExit(!instance.Get<Mac::LinkExt>().ShouldDeferIdleState(/* aIsReceiving */ false));
+#endif
+
+    SuccessOrExit(error = instance.Get<Radio::Radio>().Sleep());
+
+#if OPENTHREAD_RADIO && OPENTHREAD_CONFIG_LINK_EXT_ENABLE
+    instance.Get<Mac::LinkExt>().HandleIdleStateApplied(/* aIsReceiving */ false);
+#endif
 
 exit:
     return error;

@@ -78,6 +78,14 @@ public:
     bool IsEnabled(void) const { return mReceiveDoneCallback != nullptr; }
 
     /**
+     * Indicates whether a transmission requested by `Transmit()` is not done yet.
+     *
+     * @retval TRUE   A transmission requested by `Transmit()` is not done yet.
+     * @retval FALSE  No transmission requested by `Transmit()` is pending.
+     */
+    bool IsTransmitPending(void) const { return mTransmitDoneCallback != nullptr; }
+
+    /**
      * Enables/disables the raw link-layer.
      *
      * @param[in]  aCallback  A pointer to a function called on receipt of a IEEE 802.15.4 frame, `nullptr` to disable

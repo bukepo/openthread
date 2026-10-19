@@ -408,6 +408,7 @@ protected:
         kResponseTypeGet = 0,    ///< Response entry is for a `VALUE_GET` command.
         kResponseTypeSet,        ///< Response entry is for a `VALUE_SET` command.
         kResponseTypeLastStatus, ///< Response entry is a `VALUE_IS(LAST_STATUS)`.
+        kResponseTypeBurstDone,  ///< Entry is the unsolicited `VALUE_IS(RCP_TX_BURST)` of the end of a burst.
     };
 
     /**
@@ -415,11 +416,11 @@ protected:
      */
     struct ResponseEntry
     {
-        uint8_t      mIid : 2;              ///< Spinel interface id.
-        uint8_t      mTid : 4;              ///< Spinel transaction id.
-        bool         mIsInUse : 1;          ///< `true` if this entry is in use, `false` otherwise.
-        ResponseType mType : 2;             ///< Response type.
-        uint32_t     mPropKeyOrStatus : 24; ///< 3 bytes for either property key or spinel status.
+        uint8_t  mIid : 2;              ///< Spinel interface id.
+        uint8_t  mTid : 4;              ///< Spinel transaction id.
+        bool     mIsInUse : 1;          ///< `true` if this entry is in use, `false` otherwise.
+        uint8_t  mType : 2;             ///< Response type (`ResponseType`).
+        uint32_t mPropKeyOrStatus : 24; ///< 3 bytes for either property key or spinel status.
     };
 
     struct HandlerEntry
@@ -503,6 +504,14 @@ protected:
                                     otRadioFrame *aAckFrame,
                                     otError       aError);
     void        LinkRawTransmitDone(uint8_t aIid, otRadioFrame *aFrame, otRadioFrame *aAckFrame, otError aError);
+
+#if OPENTHREAD_RADIO && OPENTHREAD_CONFIG_LINK_EXT_ENABLE
+    static void LinkExtBurstDone(void *aContext);
+    void        LinkExtBurstDone(uint8_t aIid);
+    bool        IsLinkExtBurstOngoing(void) const { return mInstance->Get<Mac::LinkExt>().IsBurstActive(); }
+    otError     EncodeLinkExtBurstConfig(Instance &aInstance);
+    otError     WriteLinkExtBurstDoneFrame(uint8_t aHeader);
+#endif
 
     static void LinkRawEnergyScanDone(otInstance *aInstance, int8_t aEnergyScanMaxRssi);
     void        LinkRawEnergyScanDone(uint8_t aIid, int8_t aEnergyScanMaxRssi);
