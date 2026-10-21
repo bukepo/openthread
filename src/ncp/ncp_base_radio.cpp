@@ -918,6 +918,10 @@ static_assert(SPINEL_MAC_FILTER_POLICY_DROP_UNSECURED == Mac::LinkExt::kMacFilte
               "SPINEL_MAC_FILTER_POLICY_DROP_UNSECURED does not match LinkExt");
 static_assert(SPINEL_MAC_FILTER_POLICY_DROP_UNKNOWN_KEY == Mac::LinkExt::kMacFilterPolicyDropUnknownKey,
               "SPINEL_MAC_FILTER_POLICY_DROP_UNKNOWN_KEY does not match LinkExt");
+static_assert(SPINEL_MAC_FILTER_POLICY_DROP_UNKNOWN_NEIGHBOR == Mac::LinkExt::kMacFilterPolicyDropUnknownNeighbor,
+              "SPINEL_MAC_FILTER_POLICY_DROP_UNKNOWN_NEIGHBOR does not match LinkExt");
+static_assert(SPINEL_MAC_FILTER_POLICY_DROP_REPLAYED == Mac::LinkExt::kMacFilterPolicyDropReplayed,
+              "SPINEL_MAC_FILTER_POLICY_DROP_REPLAYED does not match LinkExt");
 
 template <> otError NcpBase::HandlePropertyGet<SPINEL_PROP_RCP_MAC_FILTER_POLICY>(void)
 {
@@ -947,7 +951,8 @@ template <> otError NcpBase::HandlePropertyGet<SPINEL_PROP_RCP_MAC_KEY_TABLE>(vo
     {
         SuccessOrExit(error = mEncoder.OpenStruct());
         SuccessOrExit(error = mEncoder.WriteDataWithLen(entries[i].mKeyId, entries[i].mKeyIdLength));
-        SuccessOrExit(error = mEncoder.WriteDataWithLen(nullptr, 0)); // No key
+        SuccessOrExit(
+            error = mEncoder.WriteDataWithLen(entries[i].mKey.GetBytes(), entries[i].mHasKey ? Mac::Key::kSize : 0));
         SuccessOrExit(error = mEncoder.WriteUint8(entries[i].mAllowedSecurityLevels));
         SuccessOrExit(error = mEncoder.CloseStruct());
     }
@@ -982,10 +987,11 @@ template <> otError NcpBase::HandlePropertySet<SPINEL_PROP_RCP_MAC_KEY_TABLE>(vo
         memcpy(entry->mKeyId, keyId, keyIdLength);
         entry->mKeyIdLength = static_cast<uint8_t>(keyIdLength);
 
-        // Only filtering by Key ID is supported, so the key must be empty.
+        // An empty key filters by Key ID only.
         SuccessOrExit(error = mDecoder.ReadDataWithLen(key, keyLength));
-        VerifyOrExit(keyLength == 0 || keyLength == sizeof(otMacKey), error = OT_ERROR_INVALID_ARGS);
-        VerifyOrExit(keyLength == 0, error = OT_ERROR_NOT_CAPABLE);
+        VerifyOrExit(keyLength == 0 || keyLength == Mac::Key::kSize, error = OT_ERROR_INVALID_ARGS);
+        entry->mHasKey = (keyLength != 0);
+        memcpy(entry->mKey.m8, key, keyLength);
 
         SuccessOrExit(error = mDecoder.ReadUint8(entry->mAllowedSecurityLevels));
 
@@ -994,6 +1000,85 @@ template <> otError NcpBase::HandlePropertySet<SPINEL_PROP_RCP_MAC_KEY_TABLE>(vo
     }
 
     error = mInstance->Get<Mac::LinkExt>().SetMacKeyTable(entries, numEntries);
+
+exit:
+    return error;
+}
+
+template <> otError NcpBase::HandlePropertyGet<SPINEL_PROP_RCP_MAC_NEIGHBOR_TABLE>(void)
+{
+    otError                                    error = OT_ERROR_NONE;
+    uint8_t                                    numEntries;
+    const Mac::LinkExt::MacNeighborTableEntry *entries = mInstance->Get<Mac::LinkExt>().GetMacNeighborTable(numEntries);
+
+    for (uint8_t i = 0; i < numEntries; i++)
+    {
+        const Mac::LinkExt::MacNeighborTableEntry &entry = entries[i];
+
+        SuccessOrExit(error = mEncoder.OpenStruct());
+        SuccessOrExit(error = mEncoder.WriteEui64(entry.mExtAddress.m8));
+        SuccessOrExit(error = mEncoder.WriteUint8(entry.mKeyTableIndex));
+        SuccessOrExit(error = mEncoder.WriteUint32(entry.mFrameCounter));
+
+        // The PAN ID precedes the short address, so it is written when
+        // either is set.
+        if (entry.HasPanId() || entry.HasShortAddress())
+        {
+            SuccessOrExit(error = mEncoder.WriteUint16(entry.mPanId));
+        }
+
+        if (entry.HasShortAddress())
+        {
+            SuccessOrExit(error = mEncoder.WriteUint16(entry.mShortAddress));
+        }
+
+        SuccessOrExit(error = mEncoder.CloseStruct());
+    }
+
+exit:
+    return error;
+}
+
+template <> otError NcpBase::HandlePropertySet<SPINEL_PROP_RCP_MAC_NEIGHBOR_TABLE>(void)
+{
+    otError                             error = OT_ERROR_NONE;
+    Mac::LinkExt::MacNeighborTableEntry entries[Mac::LinkExt::kMaxMacNeighborTableEntries];
+    uint8_t                             numEntries = 0;
+
+    ClearAllBytes(entries);
+
+    while (!mDecoder.IsAllRead())
+    {
+        Mac::LinkExt::MacNeighborTableEntry *entry;
+        const otExtAddress                  *extAddress;
+
+        VerifyOrExit(numEntries < GetArrayLength(entries), error = OT_ERROR_NO_BUFS);
+        entry = &entries[numEntries];
+
+        SuccessOrExit(error = mDecoder.OpenStruct());
+        SuccessOrExit(error = mDecoder.ReadEui64(extAddress));
+        entry->mExtAddress.Set(extAddress->m8);
+        SuccessOrExit(error = mDecoder.ReadUint8(entry->mKeyTableIndex));
+        SuccessOrExit(error = mDecoder.ReadUint32(entry->mFrameCounter));
+
+        entry->mPanId        = Mac::kPanIdBroadcast;
+        entry->mShortAddress = Mac::kShortAddrBroadcast;
+
+        if (mDecoder.GetRemainingLengthInStruct() > 0)
+        {
+            SuccessOrExit(error = mDecoder.ReadUint16(entry->mPanId));
+        }
+
+        if (mDecoder.GetRemainingLengthInStruct() > 0)
+        {
+            SuccessOrExit(error = mDecoder.ReadUint16(entry->mShortAddress));
+        }
+
+        SuccessOrExit(error = mDecoder.CloseStruct());
+        numEntries++;
+    }
+
+    error = mInstance->Get<Mac::LinkExt>().SetMacNeighborTable(entries, numEntries);
 
 exit:
     return error;
