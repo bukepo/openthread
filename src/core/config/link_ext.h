@@ -48,11 +48,11 @@
  *
  * Define to 1 to enable the Link Extension service (e.g., burst transmission and periodic receive schedules).
  *
- * Only supported in RCP builds (`OPENTHREAD_RADIO`). Requires `OPENTHREAD_CONFIG_PLATFORM_USEC_TIMER_ENABLE` and
- * target time TX support (e.g. CSL transmitter or software TX timing).
+ * Only supported in RCP builds (`OPENTHREAD_RADIO`). Requires `OPENTHREAD_CONFIG_PLATFORM_USEC_TIMER_ENABLE`,
+ * `OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT`, and target time TX support (e.g., CSL transmitter or software TX timing).
  */
 #ifndef OPENTHREAD_CONFIG_LINK_EXT_ENABLE
-#define OPENTHREAD_CONFIG_LINK_EXT_ENABLE 0
+#define OPENTHREAD_CONFIG_LINK_EXT_ENABLE 1
 #endif
 
 /**

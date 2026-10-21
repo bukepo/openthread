@@ -99,13 +99,15 @@ build_all_features()
     reset_source
     CFLAGS="${cppflags[*]} ${CFLAGS}" CXXFLAGS="${cppflags[*]} ${CXXFLAGS}" \
         "$(dirname "$0")"/cmake-build simulation \
-        -DOT_THREAD_VERSION=1.1
+        -DOT_THREAD_VERSION=1.1 \
+        -DOT_LINK_EXT=OFF
 
     # Build Thread 1.1 with full features and no log
     reset_source
     CFLAGS="${cppflags[*]} ${CFLAGS}" CXXFLAGS="${cppflags[*]} ${CXXFLAGS}" \
         "$(dirname "$0")"/cmake-build simulation \
         -DOT_THREAD_VERSION=1.1 \
+        -DOT_LINK_EXT=OFF \
         -DOT_LOG_OUTPUT=NONE
 
     # Build Thread 1.1 with full features and full logs
@@ -113,12 +115,14 @@ build_all_features()
     CFLAGS="${cppflags[*]} ${CFLAGS}" CXXFLAGS="${cppflags[*]} ${CXXFLAGS}" \
         "$(dirname "$0")"/cmake-build simulation \
         -DOT_THREAD_VERSION=1.1 \
+        -DOT_LINK_EXT=OFF \
         -DOT_FULL_LOGS=ON
 
     # Build Thread 1.1 cli-radio
     reset_source
     "$(dirname "$0")"/cmake-build simulation \
         -DOT_THREAD_VERSION=1.1 \
+        -DOT_LINK_EXT=OFF \
         -DOT_DIAGNOSTIC=ON \
         -DOT_APP_CLI=ON \
         -DOT_APP_NCP=OFF \
@@ -131,6 +135,7 @@ build_all_features()
     CFLAGS="${cppflags[*]} ${CFLAGS}" CXXFLAGS="${cppflags[*]} ${CXXFLAGS}" \
         "$(dirname "$0")"/cmake-build simulation \
         -DOT_THREAD_VERSION=1.1 \
+        -DOT_LINK_EXT=OFF \
         -DOT_SIMULATION_VIRTUAL_TIME=ON \
         -DOT_ASSERT=OFF
 
@@ -139,6 +144,7 @@ build_all_features()
     CFLAGS="${cppflags[*]} ${CFLAGS}" CXXFLAGS="${cppflags[*]} ${CXXFLAGS}" \
         "$(dirname "$0")"/cmake-build simulation \
         -DOT_THREAD_VERSION=1.1 \
+        -DOT_LINK_EXT=OFF \
         -DOT_SIMULATION_VIRTUAL_TIME=ON \
         -DOT_OTNS=ON
 
@@ -180,6 +186,7 @@ build_all_features()
     reset_source
     "$(dirname "$0")"/cmake-build simulation \
         -DOT_THREAD_VERSION=1.1 \
+        -DOT_LINK_EXT=OFF \
         -DOT_VENDOR_EXTENSION=../../src/core/instance/extension_example.cpp
 
     # Build with Spinel Radio vendor hook

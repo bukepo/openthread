@@ -128,6 +128,10 @@ if (openthread_enable_core_config_args) {
       value = openthread_config_joiner_enable
     },
     {
+      macro = "OPENTHREAD_CONFIG_LINK_EXT_ENABLE"
+      value = openthread_config_link_ext_enable
+    },
+    {
       macro = "OPENTHREAD_CONFIG_LINK_RAW_ENABLE"
       value = openthread_config_link_raw_enable
     },

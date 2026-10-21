@@ -165,6 +165,9 @@ if (openthread_enable_core_config_args) {
     # Enable link raw service
     openthread_config_link_raw_enable = false
 
+    # Enable link extension service
+    openthread_config_link_ext_enable = false
+
     # Enable dynamic log level control
     openthread_config_log_level_dynamic_enable = false
 
