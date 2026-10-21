@@ -717,6 +717,52 @@ enum
     SPINEL_MAC_PROMISCUOUS_MODE_FULL    = 2, ///< All decoded MAC packets are passed up the stack.
 };
 
+/**
+ * MAC Filter Policy Bitmask.
+ *
+ * Bitmask flags used with `SPINEL_PROP_RCP_MAC_FILTER_POLICY` to configure
+ * hardware/software frame filtering on the RCP.
+ */
+typedef enum
+{
+    /**
+     * No filtering policy (permissive mode).
+     *
+     * In this mode, no extra filter checks are performed by the MAC filter;
+     * frames are passed up to the host according to the standard promiscuous/receive settings.
+     */
+    SPINEL_MAC_FILTER_POLICY_NONE = 0x00,
+
+    /**
+     * Drop malformed IEEE 802.15.4 frames.
+     *
+     * Frames that fail basic IEEE 802.15.4 header/length validation (e.g., truncated
+     * headers, invalid addressing mode combinations, or illegal frame versions) are
+     * discarded immediately by the RCP rather than delivered to the host.
+     */
+    SPINEL_MAC_FILTER_POLICY_DROP_MALFORMED = 0x01,
+
+    /**
+     * Drop unsecured IEEE 802.15.4 frames.
+     *
+     * Discards any received frame that does not have the Security Enabled bit set in its
+     * Frame Control Field (FCF). Frames that fail header parsing are only discarded if
+     * `SPINEL_MAC_FILTER_POLICY_DROP_MALFORMED` is also set; otherwise they are delivered to the
+     * host without further filter checks.
+     */
+    SPINEL_MAC_FILTER_POLICY_DROP_UNSECURED = 0x02,
+
+    /**
+     * Drop frames with unknown keys.
+     *
+     * Discards any secured frame whose key is unknown. A key is known if the frame matches an entry
+     * in the RCP MAC key table (`SPINEL_PROP_RCP_MAC_KEY_TABLE`). If no entry has the Key ID of the
+     * frame, a frame using Key ID Mode 1, Security Level 5, and the Key Index of the previous,
+     * current, or next key set by `SPINEL_PROP_RCP_MAC_KEY` is also known.
+     */
+    SPINEL_MAC_FILTER_POLICY_DROP_UNKNOWN_KEY = 0x04,
+} spinel_mac_filter_policy_t;
+
 enum
 {
     SPINEL_NCP_LOG_LEVEL_EMERG  = 0,
@@ -4931,6 +4977,60 @@ enum
      * `CMD_PROP_VALUE_GET` with `SPINEL_STATUS_PROP_NOT_FOUND`, which the host reports as `OT_ERROR_NOT_IMPLEMENTED`.
      */
     SPINEL_PROP_RCP_PERIODIC_RX_SCHEDULES = SPINEL_PROP_RCP_EXT__BEGIN + 0x11,
+
+    /// MAC Filter Policy
+    /** Format: `C`
+     *
+     * Configures the MAC receive filter policy bitmask on the RCP.
+     *
+     * Default value: `SPINEL_MAC_FILTER_POLICY_NONE` (`0x00`, permissive mode).
+     *
+     * Values are bitwise combinations of `spinel_mac_filter_policy_t`:
+     * - `SPINEL_MAC_FILTER_POLICY_NONE` (0x00): Permissive mode. No filter checks are
+     *   performed by the policy; received frames pass through to the host subject to standard
+     *   promiscuous and receive configurations.
+     * - `SPINEL_MAC_FILTER_POLICY_DROP_MALFORMED` (0x01): Discard frames that fail basic
+     *   IEEE 802.15.4 frame header or length parsing.
+     * - `SPINEL_MAC_FILTER_POLICY_DROP_UNSECURED` (0x02): Discard frames that do not have
+     *   the Security Enabled bit set in the Frame Control Field (FCF).
+     * - `SPINEL_MAC_FILTER_POLICY_DROP_UNKNOWN_KEY` (0x04): Discard secured frames whose key is
+     *   unknown: the frame matches no entry in `SPINEL_PROP_RCP_MAC_KEY_TABLE`, and, if no entry has
+     *   the Key ID of the frame, it does not use Key ID Mode 1, Security Level 5, and the Key Index
+     *   of the previous, current, or next key set by `SPINEL_PROP_RCP_MAC_KEY`.
+     *
+     * Bits 3..7 are reserved and MUST be set to 0; writing non-zero reserved bits will be rejected
+     * with `SPINEL_STATUS_INVALID_ARGUMENT`.
+     *
+     * Frames are delivered to the host unmodified.
+     */
+    SPINEL_PROP_RCP_MAC_FILTER_POLICY = SPINEL_PROP_RCP_EXT__BEGIN + 0x12,
+
+    /// MAC Key Table
+    /** Format: `A(t(ddC))`
+     *
+     * Sets or gets the MAC security key table on the RCP, which is used by
+     * `SPINEL_PROP_RCP_MAC_FILTER_POLICY` to filter received secured frames.
+     *
+     * Each entry is a struct containing:
+     * - `d`: Key ID, whose length determines the Key ID Mode: `0` bytes for Mode 0, `1` byte (Key
+     *   Index) for Mode 1, `5` bytes (Key Source followed by Key Index) for Mode 2, or `9` bytes for
+     *   Mode 3.
+     * - `d`: Key (empty, or a 16-byte AES-128 key). An empty key means the entry filters frames by
+     *   Key ID only. A 16-byte key requests MIC verification; an RCP that does not support it MUST
+     *   reject the entry by returning `SPINEL_STATUS_NOT_CAPABLE`.
+     * - `C`: Allowed security levels bitmask (`1 << SecLevel`, where bit `i` represents
+     *   IEEE 802.15.4 Security Level `i`, for `i` in 0..7).
+     *   The bitmask MUST be non-zero and bit 0 (`1 << 0`, Security Level 0: None) MUST NOT be set;
+     *   otherwise `SPINEL_STATUS_INVALID_ARGUMENT` MUST be returned.
+     *
+     * A received secured frame matches an entry when it uses the entry's Key ID Mode and Key ID, and
+     * its security level is allowed by the entry.
+     *
+     * If an RCP does not support a certain Key ID mode, it MUST reject entries with
+     * unsupported Key ID lengths by returning `SPINEL_STATUS_INVALID_ARGUMENT`. For
+     * example, OpenThread RCP implementations support Key ID Modes 0, 1, and 2.
+     */
+    SPINEL_PROP_RCP_MAC_KEY_TABLE = SPINEL_PROP_RCP_EXT__BEGIN + 0x13,
 
     SPINEL_PROP_RCP_EXT__END = 0x900,
 

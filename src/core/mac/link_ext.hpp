@@ -55,6 +55,12 @@
 #error "OPENTHREAD_CONFIG_LINK_EXT_ENABLE requires target time TX support (e.g. CSL transmitter or software TX timing)"
 #endif
 
+// A frame with Header IEs cannot be parsed without Header IE support,
+// and would be treated as malformed by the MAC frame filter.
+#if !OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT
+#error "OPENTHREAD_CONFIG_LINK_EXT_ENABLE requires OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT"
+#endif
+
 namespace ot {
 namespace Mac {
 
@@ -250,6 +256,132 @@ public:
     bool DeterminePeriodicRxWindow(const Radio::SyncedTime &aNow, SubMac::TimedRx &aTimedRx);
 #endif
 
+    static constexpr uint8_t kMacFilterPolicyDropMalformed  = (1 << 0); ///< Drop frames which cannot be parsed.
+    static constexpr uint8_t kMacFilterPolicyDropUnsecured  = (1 << 1); ///< Drop frames without security enabled.
+    static constexpr uint8_t kMacFilterPolicyDropUnknownKey = (1 << 2); ///< Drop secured frames with an unknown key.
+
+    /**
+     * Sets the MAC frame filter policy.
+     *
+     * Received frames are checked in the following order, and each check drops the frame only if its flag is set in
+     * @p aPolicy. A frame passing all checks is delivered to the raw link-layer receive callback unmodified.
+     *
+     * 1. `kMacFilterPolicyDropMalformed`: The frame cannot be parsed. A malformed frame which is not dropped is
+     *    delivered without further checks.
+     * 2. `kMacFilterPolicyDropUnsecured`: The frame does not have security enabled. An unsecured frame which is not
+     *    dropped is delivered without further checks.
+     * 3. `kMacFilterPolicyDropUnknownKey`: The key of the secured frame is unknown. A key is known if it matches an
+     *    entry of the MAC key table (see `SetMacKeyTable()`). If no entry has the Key ID of the frame, a Key ID Mode 1
+     *    frame with Security Level 5 using the key index of the previous, current, or next MAC key (see
+     *    `otLinkRawSetMacKey()`) is also known.
+     *
+     * A policy of zero disables the filter.
+     *
+     * @param[in] aPolicy  The policy bitmask (`kMacFilterPolicy*` flags).
+     *
+     * @retval kErrorNone            Successfully set the policy.
+     * @retval kErrorInvalidArgs     @p aPolicy contains an unknown flag.
+     * @retval kErrorNotImplemented  @p aPolicy requires the MAC key table, which is disabled
+     *                               (`OPENTHREAD_CONFIG_LINK_EXT_MAC_KEY_TABLE_MAX_ENTRIES` is zero).
+     */
+    Error SetMacFilterPolicy(uint8_t aPolicy);
+
+    /**
+     * Gets the MAC frame filter policy.
+     *
+     * @returns The policy bitmask (`kMacFilterPolicy*` flags).
+     */
+    uint8_t GetMacFilterPolicy(void) const { return mMacFilterPolicy; }
+
+#if (OPENTHREAD_CONFIG_LINK_EXT_MAC_KEY_TABLE_MAX_ENTRIES > 0)
+    static constexpr uint8_t kMaxMacKeyTableEntries = OPENTHREAD_CONFIG_LINK_EXT_MAC_KEY_TABLE_MAX_ENTRIES;
+
+    /**
+     * Represents an entry of the MAC key table.
+     *
+     * The Key ID Mode of the entry is determined by `mKeyIdLength`:
+     * - `kKeyIdLengthMode0`: Key ID Mode 0 (no Key ID).
+     * - `kKeyIdLengthMode1`: Key ID Mode 1 (`mKeyId` is the Key Index).
+     * - `kKeyIdLengthMode2`: Key ID Mode 2 (`mKeyId` is the Key Source followed by the Key Index).
+     */
+    class MacKeyTableEntry
+    {
+    public:
+        // Key ID lengths: Mode 0 has no Key ID, Mode 1 has a Key Index, and
+        // Mode 2 has a Key Source followed by a Key Index.
+        static constexpr uint8_t kKeyIndexSize     = sizeof(uint8_t);
+        static constexpr uint8_t kKeyIdLengthMode0 = Frame::kKeySourceSizeMode0;
+        static constexpr uint8_t kKeyIdLengthMode1 = Frame::kKeySourceSizeMode1 + kKeyIndexSize;
+        static constexpr uint8_t kKeyIdLengthMode2 = Frame::kKeySourceSizeMode2 + kKeyIndexSize;
+        static constexpr uint8_t kMaxKeyIdLength   = kKeyIdLengthMode2;
+
+        uint8_t mKeyId[kMaxKeyIdLength]; ///< The Key ID (first `mKeyIdLength` bytes are used).
+        uint8_t mKeyIdLength;            ///< The Key ID length, which determines the Key ID Mode.
+        uint8_t mAllowedSecurityLevels;  ///< Allowed security levels (bit `i` allows level `i`), non-zero, bit 0 clear.
+
+        /**
+         * Indicates whether the entry is valid.
+         *
+         * @retval TRUE   The entry is valid.
+         * @retval FALSE  The entry is invalid.
+         */
+        bool IsValid(void) const;
+
+        /**
+         * Indicates whether a secured frame matches the entry.
+         *
+         * @param[in] aParseInfo  The parse info of the frame.
+         *
+         * @retval TRUE   The frame matches the entry.
+         * @retval FALSE  The frame does not match the entry.
+         */
+        bool Matches(const RxFrame::ParseInfo &aParseInfo) const;
+
+        /**
+         * Indicates whether a secured frame uses the Key ID Mode and Key ID of the entry.
+         *
+         * Unlike `Matches()`, the security level of the frame is not checked.
+         *
+         * @param[in] aParseInfo  The parse info of the frame.
+         *
+         * @retval TRUE   The frame uses the Key ID Mode and Key ID of the entry.
+         * @retval FALSE  The frame does not use the Key ID Mode and Key ID of the entry.
+         */
+        bool MatchesKeyId(const RxFrame::ParseInfo &aParseInfo) const;
+
+    private:
+        Error GetKeyIdMode(Frame::KeyIdMode &aKeyIdMode) const;
+    };
+
+    /**
+     * Atomically replaces the MAC key table.
+     *
+     * A secured frame matches an entry if its Key ID Mode and Key ID equal those of the entry, and its security level
+     * is allowed by the entry (see `SetMacFilterPolicy()`).
+     *
+     * @param[in] aEntries     A pointer to an array of entries (can be `nullptr` if @p aNumEntries is zero).
+     * @param[in] aNumEntries  The number of entries in @p aEntries.
+     *
+     * @retval kErrorNone         Successfully set the table.
+     * @retval kErrorNoBufs       More than `kMaxMacKeyTableEntries` entries. The table is left unchanged.
+     * @retval kErrorInvalidArgs  An entry is invalid. The table is left unchanged.
+     */
+    Error SetMacKeyTable(const MacKeyTableEntry *aEntries, uint8_t aNumEntries);
+
+    /**
+     * Gets the MAC key table.
+     *
+     * @param[out] aNumEntries  A reference to output the number of entries.
+     *
+     * @returns A pointer to the array of entries.
+     */
+    const MacKeyTableEntry *GetMacKeyTable(uint8_t &aNumEntries) const
+    {
+        aNumEntries = mNumMacKeyTableEntries;
+        return mMacKeyTable;
+    }
+#endif
+
 private:
     static constexpr uint32_t kBurstTxAheadUs = OPENTHREAD_CONFIG_LINK_EXT_BURST_TX_AHEAD_US;
 
@@ -268,6 +400,14 @@ private:
     void Reset(void);
     void HandleLinkRawEnableChange(void);
     void HandleTransmitDone(TxFrame &aFrame);
+    bool FilterReceivedFrame(const RxFrame &aFrame);
+
+    static constexpr uint8_t kMacFilterPolicyAll =
+        kMacFilterPolicyDropMalformed | kMacFilterPolicyDropUnsecured | kMacFilterPolicyDropUnknownKey;
+
+#if (OPENTHREAD_CONFIG_LINK_EXT_MAC_KEY_TABLE_MAX_ENTRIES > 0)
+    bool IsMacKeyKnown(const RxFrame::ParseInfo &aParseInfo) const;
+#endif
 
     void  CancelBurst(void);
     void  FinishBurst(void);
@@ -388,6 +528,12 @@ private:
     PeriodicRxSchedule mPeriodicRxSchedules[kMaxPeriodicRxSchedules];
     SubMac::TimedRx    mPeriodicRxActiveWindow; // The window on the radio which has started.
     SubMac::TimedRx    mPeriodicRxNextWindow;   // The window provided to `SubMac` which has not started yet.
+#endif
+
+    uint8_t mMacFilterPolicy;
+#if (OPENTHREAD_CONFIG_LINK_EXT_MAC_KEY_TABLE_MAX_ENTRIES > 0)
+    uint8_t          mNumMacKeyTableEntries;
+    MacKeyTableEntry mMacKeyTable[kMaxMacKeyTableEntries];
 #endif
 };
 

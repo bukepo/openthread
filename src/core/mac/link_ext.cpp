@@ -57,6 +57,10 @@ LinkExt::LinkExt(Instance &aInstance)
 #if (OPENTHREAD_CONFIG_LINK_EXT_PERIODIC_RX_MAX_SCHEDULES > 0)
     , mNumPeriodicRxSchedules(0)
 #endif
+    , mMacFilterPolicy(0)
+#if (OPENTHREAD_CONFIG_LINK_EXT_MAC_KEY_TABLE_MAX_ENTRIES > 0)
+    , mNumMacKeyTableEntries(0)
+#endif
 {
 }
 
@@ -70,6 +74,12 @@ void LinkExt::Reset(void)
     mNumPeriodicRxSchedules = 0;
     mPeriodicRxActiveWindow.Clear();
     mPeriodicRxNextWindow.Clear();
+#endif
+
+    mMacFilterPolicy = 0;
+#if (OPENTHREAD_CONFIG_LINK_EXT_MAC_KEY_TABLE_MAX_ENTRIES > 0)
+    mNumMacKeyTableEntries = 0;
+    ClearAllBytes(mMacKeyTable);
 #endif
 }
 
@@ -890,6 +900,196 @@ Radio::Time64 LinkExt::GetNextEvent(const PeriodicRxSchedule &aSchedule, Radio::
 }
 
 #endif // (OPENTHREAD_CONFIG_LINK_EXT_PERIODIC_RX_MAX_SCHEDULES > 0)
+
+//---------------------------------------------------------------------------------------------------------------------
+// MAC frame filter
+
+Error LinkExt::SetMacFilterPolicy(uint8_t aPolicy)
+{
+    Error error = kErrorNone;
+
+    VerifyOrExit((aPolicy & ~kMacFilterPolicyAll) == 0, error = kErrorInvalidArgs);
+
+#if (OPENTHREAD_CONFIG_LINK_EXT_MAC_KEY_TABLE_MAX_ENTRIES == 0)
+    VerifyOrExit((aPolicy & kMacFilterPolicyDropUnknownKey) == 0, error = kErrorNotImplemented);
+#endif
+
+    mMacFilterPolicy = aPolicy;
+
+exit:
+    return error;
+}
+
+bool LinkExt::FilterReceivedFrame(const RxFrame &aFrame)
+{
+    bool               accept = true;
+    RxFrame::ParseInfo parseInfo;
+
+    VerifyOrExit(mMacFilterPolicy != 0);
+
+    // 1. Check if frame can be parsed
+    if (parseInfo.ParseFrom(aFrame, Frame::kParseFully) != kErrorNone)
+    {
+        ExitNow(accept = !(mMacFilterPolicy & kMacFilterPolicyDropMalformed));
+    }
+
+    // 2. Check if frame is unsecured
+    if (!parseInfo.mIsSecurityEnabled)
+    {
+        ExitNow(accept = !(mMacFilterPolicy & kMacFilterPolicyDropUnsecured));
+    }
+
+#if (OPENTHREAD_CONFIG_LINK_EXT_MAC_KEY_TABLE_MAX_ENTRIES > 0)
+    // 3. Check if the key is known
+    if ((mMacFilterPolicy & kMacFilterPolicyDropUnknownKey) && !IsMacKeyKnown(parseInfo))
+    {
+        ExitNow(accept = false);
+    }
+#endif
+
+exit:
+    return accept;
+}
+
+#if (OPENTHREAD_CONFIG_LINK_EXT_MAC_KEY_TABLE_MAX_ENTRIES > 0)
+
+Error LinkExt::SetMacKeyTable(const MacKeyTableEntry *aEntries, uint8_t aNumEntries)
+{
+    Error error = kErrorNone;
+
+    VerifyOrExit(aEntries != nullptr || aNumEntries == 0, error = kErrorInvalidArgs);
+    VerifyOrExit(aNumEntries <= kMaxMacKeyTableEntries, error = kErrorNoBufs);
+
+    for (uint8_t i = 0; i < aNumEntries; i++)
+    {
+        VerifyOrExit(aEntries[i].IsValid(), error = kErrorInvalidArgs);
+    }
+
+    for (uint8_t i = 0; i < aNumEntries; i++)
+    {
+        mMacKeyTable[i] = aEntries[i];
+    }
+
+    // Do not keep removed entries (e.g. keys) in memory.
+    for (uint8_t i = aNumEntries; i < kMaxMacKeyTableEntries; i++)
+    {
+        ClearAllBytes(mMacKeyTable[i]);
+    }
+
+    mNumMacKeyTableEntries = aNumEntries;
+
+exit:
+    return error;
+}
+
+bool LinkExt::IsMacKeyKnown(const RxFrame::ParseInfo &aParseInfo) const
+{
+    bool    known    = false;
+    bool    hasKeyId = false;
+    uint8_t keyIndex;
+
+    for (uint8_t i = 0; i < mNumMacKeyTableEntries; i++)
+    {
+        if (mMacKeyTable[i].Matches(aParseInfo))
+        {
+            ExitNow(known = true);
+        }
+
+        hasKeyId |= mMacKeyTable[i].MatchesKeyId(aParseInfo);
+    }
+
+    // If no entry has the Key ID of the frame, a Key ID Mode 1 frame
+    // using Security Level 5 (as Thread does) and the key index of the
+    // previous, current, or next MAC key (`SetMode1MacKeys()`) is known.
+    // An entry with the Key ID takes precedence, e.g. to restrict the
+    // allowed security levels.
+
+    VerifyOrExit(!hasKeyId);
+    VerifyOrExit(aParseInfo.mKeyIdMode == Frame::kKeyIdMode1);
+    VerifyOrExit(aParseInfo.mSecurityLevel == Frame::kSecurityEncMic32);
+
+    keyIndex = Get<SubMac>().GetMode1KeyIndex();
+
+    known = IsValueInRange(keyIndex, kMinKeyIndex, kMaxKeyIndex) &&
+            ((aParseInfo.mKeyIndex == keyIndex) || (aParseInfo.mKeyIndex == DeterminePrevKeyIndex(keyIndex)) ||
+             (aParseInfo.mKeyIndex == DetermineNextKeyIndex(keyIndex)));
+
+exit:
+    return known;
+}
+
+Error LinkExt::MacKeyTableEntry::GetKeyIdMode(Frame::KeyIdMode &aKeyIdMode) const
+{
+    Error error = kErrorNone;
+
+    switch (mKeyIdLength)
+    {
+    case kKeyIdLengthMode0:
+        aKeyIdMode = Frame::kKeyIdMode0;
+        break;
+    case kKeyIdLengthMode1:
+        aKeyIdMode = Frame::kKeyIdMode1;
+        break;
+    case kKeyIdLengthMode2:
+        aKeyIdMode = Frame::kKeyIdMode2;
+        break;
+    default:
+        error = kErrorInvalidArgs;
+        break;
+    }
+
+    return error;
+}
+
+bool LinkExt::MacKeyTableEntry::IsValid(void) const
+{
+    bool             isValid = false;
+    Frame::KeyIdMode keyIdMode;
+
+    SuccessOrExit(GetKeyIdMode(keyIdMode));
+    VerifyOrExit(mAllowedSecurityLevels != 0);
+    VerifyOrExit((mAllowedSecurityLevels & (1 << Frame::kSecurityNone)) == 0);
+    isValid = true;
+
+exit:
+    return isValid;
+}
+
+bool LinkExt::MacKeyTableEntry::Matches(const RxFrame::ParseInfo &aParseInfo) const
+{
+    return MatchesKeyId(aParseInfo) && ((mAllowedSecurityLevels & (1 << aParseInfo.mSecurityLevel)) != 0);
+}
+
+bool LinkExt::MacKeyTableEntry::MatchesKeyId(const RxFrame::ParseInfo &aParseInfo) const
+{
+    bool             matches = false;
+    Frame::KeyIdMode keyIdMode;
+
+    SuccessOrExit(GetKeyIdMode(keyIdMode));
+    VerifyOrExit(aParseInfo.mKeyIdMode == keyIdMode);
+
+    switch (keyIdMode)
+    {
+    case Frame::kKeyIdMode2:
+        VerifyOrExit(memcmp(mKeyId, aParseInfo.mKeySource.GetBytes(), Frame::kKeySourceSizeMode2) == 0);
+        VerifyOrExit(mKeyId[Frame::kKeySourceSizeMode2] == aParseInfo.mKeyIndex);
+        break;
+
+    case Frame::kKeyIdMode1:
+        VerifyOrExit(mKeyId[0] == aParseInfo.mKeyIndex);
+        break;
+
+    default:
+        break;
+    }
+
+    matches = true;
+
+exit:
+    return matches;
+}
+
+#endif // (OPENTHREAD_CONFIG_LINK_EXT_MAC_KEY_TABLE_MAX_ENTRIES > 0)
 
 } // namespace Mac
 } // namespace ot
