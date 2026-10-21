@@ -178,6 +178,7 @@ public:
 #endif
 
     uint8_t               GetReceiveChannel(void) const { return mChannel; }
+    virtual otRadioCaps   GetCaps() const { return OT_RADIO_CAPS_NONE; }
     virtual otRadioFrame *GetTransmitBuffer() { return &mTransmitFrame; }
     virtual otError       Transmit(otRadioFrame *aFrame);
     virtual otError       ReceiveAt(uint8_t aChannel, uint32_t aStart, uint32_t aDuration)

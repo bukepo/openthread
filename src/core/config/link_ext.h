@@ -46,7 +46,7 @@
 /**
  * @def OPENTHREAD_CONFIG_LINK_EXT_ENABLE
  *
- * Define to 1 to enable the Link Extension service (e.g., burst transmission).
+ * Define to 1 to enable the Link Extension service (e.g., burst transmission and periodic receive schedules).
  *
  * Only supported in RCP builds (`OPENTHREAD_RADIO`). Requires `OPENTHREAD_CONFIG_PLATFORM_USEC_TIMER_ENABLE` and
  * target time TX support (e.g. CSL transmitter or software TX timing).
@@ -62,6 +62,39 @@
  */
 #ifndef OPENTHREAD_CONFIG_LINK_EXT_BURST_TX_AHEAD_US
 #define OPENTHREAD_CONFIG_LINK_EXT_BURST_TX_AHEAD_US 1000
+#endif
+
+/**
+ * @def OPENTHREAD_CONFIG_LINK_EXT_PERIODIC_RX_MAX_SCHEDULES
+ *
+ * The maximum number of periodic receive schedules (see `LinkExt::SetPeriodicRxSchedules()`).
+ *
+ * Zero disables periodic receive schedules. Applicable only when `OPENTHREAD_CONFIG_LINK_EXT_ENABLE` is enabled.
+ */
+#ifndef OPENTHREAD_CONFIG_LINK_EXT_PERIODIC_RX_MAX_SCHEDULES
+#define OPENTHREAD_CONFIG_LINK_EXT_PERIODIC_RX_MAX_SCHEDULES 3
+#endif
+
+/**
+ * @def OPENTHREAD_CONFIG_LINK_EXT_PERIODIC_RX_CHANNEL_SWITCH_GUARD_US
+ *
+ * The guard time (in microseconds) used when arbitrating periodic receive schedules.
+ *
+ * `otPlatRadioReceiveAt()` enters Receive mode at the window start time, so the stack must account for the time the
+ * radio needs before it can receive. Each periodic receive window is therefore started this much earlier than its
+ * schedule's window start, so that the radio is listening on the window's channel no later than the window start.
+ * The guard time is taken from idle time or from a lower-priority window on a different channel, never from a
+ * higher-priority window. A truncated window shorter than this guard time plus the SHR duration (160 microseconds,
+ * the time needed to detect a frame) is dropped.
+ *
+ * The guard time should cover the platform's time from entering Receive mode until it can receive, including
+ * ramp-up, settling and channel switching (e.g., about 250 microseconds measured end to end on nRF52840). The
+ * default is the IEEE 802.15.4 turnaround time (`aTurnaroundTime`, 12 symbols).
+ *
+ * Applicable only when `OPENTHREAD_CONFIG_LINK_EXT_PERIODIC_RX_MAX_SCHEDULES` is non-zero.
+ */
+#ifndef OPENTHREAD_CONFIG_LINK_EXT_PERIODIC_RX_CHANNEL_SWITCH_GUARD_US
+#define OPENTHREAD_CONFIG_LINK_EXT_PERIODIC_RX_CHANNEL_SWITCH_GUARD_US 192
 #endif
 
 /**

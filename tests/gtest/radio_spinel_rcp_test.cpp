@@ -26,6 +26,8 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -2713,3 +2715,1065 @@ TEST(RadioSpinelTransmit, shouldRejectBurstDuringEnergyScan)
     EXPECT_EQ(CountRcpFrames(frames, /* aTid */ 0, SPINEL_PROP_MAC_ENERGY_SCAN_RESULT), 1);
 }
 #endif // OPENTHREAD_CONFIG_LINK_EXT_ENABLE
+
+#if OPENTHREAD_CONFIG_LINK_EXT_ENABLE && (OPENTHREAD_CONFIG_LINK_EXT_PERIODIC_RX_MAX_SCHEDULES > 0)
+static_assert(OPENTHREAD_CONFIG_LINK_EXT_PERIODIC_RX_MAX_SCHEDULES == 3,
+              "The periodic RX tests assume the default number of schedules");
+
+namespace {
+
+using PeriodicRxSchedule = Spinel::RadioSpinel::PeriodicRxSchedule;
+
+constexpr uint32_t kShrDurationUs   = 160; // SHR duration, part of the minimum kept window fragment.
+constexpr uint8_t  kMinNumSchedules = 3;   // Recommended minimum (and default) number of schedules.
+constexpr uint32_t kGuardUs         = OPENTHREAD_CONFIG_LINK_EXT_PERIODIC_RX_CHANNEL_SWITCH_GUARD_US;
+
+bool operator==(const PeriodicRxSchedule &aLhs, const PeriodicRxSchedule &aRhs)
+{
+    return aLhs.mPhaseUs == aRhs.mPhaseUs && aLhs.mPeriodUs == aRhs.mPeriodUs && aLhs.mDurationUs == aRhs.mDurationUs &&
+           aLhs.mChannel == aRhs.mChannel;
+}
+
+/**
+ * Records every `otPlatRadioReceiveAt()` call made by the RCP.
+ *
+ * `aStart` is interpreted as the lower 32 bits of the absolute radio time, as specified by `otPlatRadioReceiveAt()`.
+ */
+class PeriodicRxPlatform : public FakeCoprocessorPlatform
+{
+public:
+    struct Window
+    {
+        uint64_t mCalledAt;
+        uint64_t mStart;
+        uint32_t mDuration;
+        uint8_t  mChannel;
+    };
+
+    otRadioCaps GetCaps() const override { return OT_RADIO_CAPS_RECEIVE_TIMING; }
+
+    otError ReceiveAt(uint8_t aChannel, uint32_t aStart, uint32_t aDuration) override
+    {
+        uint64_t start = mNow + static_cast<int32_t>(aStart - static_cast<uint32_t>(mNow));
+
+        if (aDuration == 0)
+        {
+            mNumCancels++;
+        }
+        else
+        {
+            mWindows.push_back({mNow, start, aDuration, aChannel});
+        }
+
+        mReceiveAtChannel = aChannel;
+        mReceiveAtStart   = start;
+        mReceiveAtEnd     = start + aDuration;
+
+        return OT_ERROR_NONE;
+    }
+
+    void SetNow(uint64_t aNow) { mNow = aNow; }
+
+    // Returns the windows whose start is before `aBefore`. The last window is
+    // scheduled ahead of its start, so it may be beyond the simulated time.
+    std::vector<Window> GetWindowsBefore(uint64_t aBefore) const
+    {
+        std::vector<Window> windows;
+
+        for (const Window &window : mWindows)
+        {
+            if (window.mStart < aBefore)
+            {
+                windows.push_back(window);
+            }
+        }
+
+        return windows;
+    }
+
+    std::vector<Window> mWindows;
+    uint32_t            mNumCancels = 0;
+};
+
+} // namespace
+
+TEST(RadioSpinelPeriodicRx, shouldGetTheSchedulesThatWereSet)
+{
+    const PeriodicRxSchedule kSchedules[] = {
+        {1000, 500000, 1600, 11},
+        {0, 1000000, 65535, 15},
+        {0xffffff, 0x7fffffff, 160, 26}, // The longest period (`Timer::kMaxDelay`) and the shortest duration (SHR).
+    };
+
+    PeriodicRxPlatform platform;
+    PeriodicRxSchedule schedules[kMinNumSchedules];
+    uint8_t            numSchedules = kMinNumSchedules;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+
+    numSchedules = kMinNumSchedules;
+    ASSERT_EQ(platform.mRadioSpinel.GetPeriodicRxSchedules(schedules, numSchedules), kErrorNone);
+    EXPECT_EQ(numSchedules, 0);
+
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 3), kErrorNone);
+
+    numSchedules = kMinNumSchedules;
+    ASSERT_EQ(platform.mRadioSpinel.GetPeriodicRxSchedules(schedules, numSchedules), kErrorNone);
+    ASSERT_EQ(numSchedules, 3);
+
+    for (uint8_t i = 0; i < numSchedules; i++)
+    {
+        EXPECT_TRUE(schedules[i] == kSchedules[i]) << "index " << static_cast<int>(i);
+    }
+
+    // A `nullptr` array gets the number of schedules.
+    numSchedules = 0;
+    ASSERT_EQ(platform.mRadioSpinel.GetPeriodicRxSchedules(nullptr, numSchedules), kErrorNone);
+    EXPECT_EQ(numSchedules, 3);
+
+    // A too small array gets the schedules which fit and the number of schedules.
+    for (PeriodicRxSchedule &schedule : schedules)
+    {
+        memset(&schedule, 0, sizeof(schedule));
+    }
+
+    numSchedules = 2;
+    ASSERT_EQ(platform.mRadioSpinel.GetPeriodicRxSchedules(schedules, numSchedules), kErrorNoBufs);
+    EXPECT_EQ(numSchedules, 3);
+    EXPECT_TRUE(schedules[0] == kSchedules[0]);
+    EXPECT_TRUE(schedules[1] == kSchedules[1]);
+    EXPECT_EQ(schedules[2].mPeriodUs, 0u);
+
+    // An empty table disables periodic RX.
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(nullptr, 0), kErrorNone);
+
+    numSchedules = kMinNumSchedules;
+    ASSERT_EQ(platform.mRadioSpinel.GetPeriodicRxSchedules(schedules, numSchedules), kErrorNone);
+    EXPECT_EQ(numSchedules, 0);
+}
+
+TEST(RadioSpinelPeriodicRx, shouldRejectInvalidSchedulesAndKeepThePreviousOnes)
+{
+    const PeriodicRxSchedule kValid[]      = {{1000, 500000, 1600, 11}};
+    const PeriodicRxSchedule kInvalid[][1] = {
+        {{1000, 500000, 1600, 10}},   // Channel not in the supported channel mask (11-26).
+        {{1000, 500000, 1600, 27}},   // Channel not in the supported channel mask (11-26).
+        {{0, 0, 1600, 11}},           // Zero period.
+        {{500000, 500000, 1600, 11}}, // Phase not less than period.
+        {{1000, 500000, 0, 11}},      // Zero duration.
+        {{1000, 500000, 159, 11}},    // Duration shorter than the SHR duration.
+        {{0, 1000, 1001, 11}},        // Duration longer than period.
+        {{0, 0x80000000, 1600, 11}},  // Period longer than `Timer::kMaxDelay` (2^31 - 1).
+    };
+    const PeriodicRxSchedule kTooMany[] = {
+        {0, 500000, 160, 11},
+        {0, 500000, 160, 12},
+        {0, 500000, 160, 13},
+        {0, 500000, 160, 14},
+    };
+
+    PeriodicRxPlatform platform;
+    PeriodicRxSchedule schedules[kMinNumSchedules];
+    uint8_t            numSchedules;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kValid, 1), kErrorNone);
+
+    for (const auto &invalid : kInvalid)
+    {
+        EXPECT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(invalid, 1), kErrorInvalidArgs);
+    }
+
+    // More schedules than the RCP supports (`OPENTHREAD_CONFIG_LINK_EXT_PERIODIC_RX_MAX_SCHEDULES`).
+    EXPECT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kTooMany, 4), kErrorNoBufs);
+
+    numSchedules = kMinNumSchedules;
+    ASSERT_EQ(platform.mRadioSpinel.GetPeriodicRxSchedules(schedules, numSchedules), kErrorNone);
+    ASSERT_EQ(numSchedules, 1);
+    EXPECT_TRUE(schedules[0] == kValid[0]);
+
+    // The shortest valid duration is the SHR duration.
+    EXPECT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kTooMany, 1), kErrorNone);
+}
+
+TEST(RadioSpinelPeriodicRx, shouldRejectSchedulesWhenTheRadioCannotReceiveAtATime)
+{
+    // `FakeCoprocessorPlatform` doesn't report `OT_RADIO_CAPS_RECEIVE_TIMING`.
+    const PeriodicRxSchedule kSchedules[] = {{0, 50000, 1600, 15}};
+
+    FakeCoprocessorPlatform platform;
+    PeriodicRxSchedule      schedules[3];
+    uint8_t                 numSchedules = 3;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+
+    EXPECT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 1), kErrorNotImplemented);
+    EXPECT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(nullptr, 0), kErrorNone);
+
+    ASSERT_EQ(platform.mRadioSpinel.GetPeriodicRxSchedules(schedules, numSchedules), kErrorNone);
+    EXPECT_EQ(numSchedules, 0);
+}
+
+TEST(RadioSpinelPeriodicRx, shouldStartWindowsTheGuardTimeBeforeRadioTimeModuloPeriodEqualsPhase)
+{
+    // A window starts when the radio time modulo the period equals the phase.
+    // It is scheduled the guard time earlier, so that the radio is ready to
+    // receive at the window start.
+    constexpr uint32_t kPhaseUs    = 3000;
+    constexpr uint32_t kPeriodUs   = 100000;
+    constexpr uint16_t kDurationUs = 1250;
+    constexpr uint8_t  kChannel    = 15;
+
+    const PeriodicRxSchedule kSchedules[] = {{kPhaseUs, kPeriodUs, kDurationUs, kChannel}};
+
+    PeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 1), kErrorNone);
+
+    platform.GoInMs(1000);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(platform.GetNow());
+
+    ASSERT_GE(windows.size(), 9u);
+
+    for (size_t i = 0; i < windows.size(); i++)
+    {
+        EXPECT_EQ(windows[i].mStart % kPeriodUs, kPhaseUs - kGuardUs);
+        EXPECT_EQ(windows[i].mDuration, kDurationUs + kGuardUs);
+        EXPECT_EQ(windows[i].mChannel, kChannel);
+        EXPECT_LE(windows[i].mCalledAt, windows[i].mStart);
+
+        if (i > 0)
+        {
+            EXPECT_EQ(windows[i].mStart - windows[i - 1].mStart, kPeriodUs);
+        }
+    }
+}
+
+TEST(RadioSpinelPeriodicRx, shouldUseFull64BitRadioTimeAcross32BitWrap)
+{
+    constexpr uint32_t kPhaseUs  = 12345;
+    constexpr uint32_t kPeriodUs = 30000;
+    constexpr uint64_t kWrap     = (1ULL << 32);
+
+    const PeriodicRxSchedule kSchedules[] = {{kPhaseUs, kPeriodUs, 800, 20}};
+
+    PeriodicRxPlatform platform;
+
+    platform.SetNow(kWrap - 100000);
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 1), kErrorNone);
+
+    platform.GoInMs(300);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(platform.GetNow());
+    bool                                    crossed = false;
+
+    ASSERT_GE(windows.size(), 8u);
+
+    for (size_t i = 0; i < windows.size(); i++)
+    {
+        // `kWrap` is not a multiple of `kPeriodUs`, so this only holds if the
+        // modulo is evaluated on the 64-bit time.
+        EXPECT_EQ(windows[i].mStart % kPeriodUs, kPhaseUs - kGuardUs);
+
+        if (i > 0)
+        {
+            EXPECT_EQ(windows[i].mStart - windows[i - 1].mStart, kPeriodUs);
+        }
+
+        crossed |= (windows[i].mStart >= kWrap);
+    }
+
+    EXPECT_TRUE(crossed);
+}
+
+TEST(RadioSpinelPeriodicRx, shouldKeepSchedulingWindowsAcrossReceiveAndSleep)
+{
+    // Timed RX windows only take effect while the radio is in the Sleep
+    // state, which is enforced by the radio platform per the contract of
+    // `otPlatRadioReceiveAt()`. The RCP keeps scheduling windows (without
+    // drift) while the radio is in Receive state.
+
+    constexpr uint32_t kPhaseUs  = 10000;
+    constexpr uint32_t kPeriodUs = 50000;
+
+    const PeriodicRxSchedule kSchedules[] = {{kPhaseUs, kPeriodUs, 1600, 11}};
+
+    PeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 1), kErrorNone);
+
+    platform.GoInMs(200);
+    ASSERT_EQ(platform.mRadioSpinel.Receive(11), kErrorNone);
+    platform.GoInMs(500);
+    ASSERT_EQ(platform.mRadioSpinel.Sleep(), kErrorNone);
+    platform.GoInMs(500);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(platform.GetNow());
+
+    ASSERT_GE(windows.size(), 23u);
+    EXPECT_EQ(platform.mNumCancels, 0u);
+
+    for (size_t i = 0; i < windows.size(); i++)
+    {
+        EXPECT_EQ(windows[i].mStart % kPeriodUs, kPhaseUs - kGuardUs);
+        EXPECT_EQ(windows[i].mDuration, 1600u + kGuardUs);
+
+        if (i > 0)
+        {
+            EXPECT_EQ(windows[i].mStart - windows[i - 1].mStart, kPeriodUs);
+        }
+    }
+}
+
+TEST(RadioSpinelPeriodicRx, shouldStopSchedulingWindowsWhenSchedulesAreCleared)
+{
+    const PeriodicRxSchedule kSchedules[] = {{0, 50000, 1600, 15}};
+
+    PeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 1), kErrorNone);
+    platform.GoInMs(200);
+
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(nullptr, 0), kErrorNone);
+
+    // A window already scheduled on the radio is not cancelled (it may
+    // still occur once), but no further windows are scheduled.
+    platform.mWindows.clear();
+    platform.GoInMs(500);
+    EXPECT_TRUE(platform.mWindows.empty());
+}
+
+TEST(RadioSpinelPeriodicRx, shouldKeepTheRemainderOfAWindowPreemptedAtItsStart)
+{
+    // Schedule 0 on channel 11 at [0, 1600) every 10 ms.
+    // Schedule 1 on channel 12 at 1000 + 25000k (1600 us): occurrences
+    // alternate between overlapping schedule 0 (1000 mod 10000), which
+    // keeps the remainder [1600, 2600) starting when schedule 0 ends, and
+    // not (6000 mod 10000), which start the guard time early. The test
+    // starts between windows, so that the first windows are full ones.
+    const PeriodicRxSchedule kSchedules[] = {
+        {0, 10000, 1600, 11},
+        {1000, 25000, 1600, 12},
+    };
+
+    PeriodicRxPlatform platform;
+    size_t             numChannel11 = 0;
+    size_t             numFull      = 0;
+    size_t             numPartial   = 0;
+
+    platform.SetNow(5000);
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 2), kErrorNone);
+
+    platform.GoInMs(500);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(platform.GetNow());
+
+    for (size_t i = 0; i < windows.size(); i++)
+    {
+        const PeriodicRxPlatform::Window &window = windows[i];
+
+        if (window.mChannel == 11)
+        {
+            numChannel11++;
+            EXPECT_EQ(window.mStart % 10000, 10000 - kGuardUs);
+            EXPECT_EQ(window.mDuration, 1600u + kGuardUs);
+        }
+        else if (window.mStart % 10000 == 6000 - kGuardUs)
+        {
+            numFull++;
+            EXPECT_EQ(window.mChannel, 12);
+            EXPECT_EQ((window.mStart + kGuardUs) % 25000, 1000u);
+            EXPECT_EQ(window.mDuration, 1600u + kGuardUs);
+        }
+        else
+        {
+            numPartial++;
+            EXPECT_EQ(window.mChannel, 12);
+            EXPECT_EQ(window.mStart % 10000, 1600u);
+            EXPECT_EQ((window.mStart - 600) % 25000, 1000u);
+            EXPECT_EQ(window.mDuration, 1000u);
+        }
+
+        if (i > 0)
+        {
+            EXPECT_GE(window.mStart, windows[i - 1].mStart + windows[i - 1].mDuration);
+        }
+    }
+
+    EXPECT_GE(numChannel11, 45u);
+    EXPECT_GE(numFull, 9u);
+    EXPECT_GE(numPartial, 9u);
+}
+
+TEST(RadioSpinelPeriodicRx, shouldSplitAPreemptedWindowAndTakeTheGuardTimeFromIt)
+{
+    // Schedule 1 on channel 12 at [4000, 8000) is preempted by schedule 0
+    // on channel 11 at [5000, 6600). Schedule 0 starts the guard time
+    // early, which is taken from schedule 1. Schedule 1 also starts the
+    // guard time early (from idle), and its remainder starts when schedule
+    // 0 ends (the guard time is never taken from a higher-priority window):
+    //
+    //   channel 12: [4000 - guard, 5000 - guard)
+    //   channel 11: [5000 - guard, 6600)
+    //   channel 12: [6600, 8000)
+    static_assert(1000 >= kGuardUs + kShrDurationUs, "the leading fragment must be kept");
+
+    const PeriodicRxSchedule kSchedules[] = {
+        {5000, 10000, 1600, 11},
+        {4000, 10000, 4000, 12},
+    };
+
+    PeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 2), kErrorNone);
+
+    platform.GoInMs(200);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(platform.GetNow());
+
+    ASSERT_GE(windows.size(), 3 * 19u);
+
+    for (const PeriodicRxPlatform::Window &window : windows)
+    {
+        switch (window.mStart % 10000)
+        {
+        case 4000 - kGuardUs:
+            EXPECT_EQ(window.mChannel, 12);
+            EXPECT_EQ(window.mDuration, 1000u);
+            break;
+        case 5000 - kGuardUs:
+            EXPECT_EQ(window.mChannel, 11);
+            EXPECT_EQ(window.mDuration, 1600 + kGuardUs);
+            break;
+        case 6600:
+            EXPECT_EQ(window.mChannel, 12);
+            EXPECT_EQ(window.mDuration, 1400u);
+            break;
+        default:
+            ADD_FAILURE() << "unexpected window start " << window.mStart;
+            break;
+        }
+    }
+}
+
+TEST(RadioSpinelPeriodicRx, shouldDropAPartialWindowShorterThanTheMinimum)
+{
+    // Schedule 1 on channel 12 at [kPhase1, kPhase1 + 4000) is preempted by
+    // schedule 0 on channel 11 at [5000, 6600). The part before the
+    // preemption (including its own guard, guard + 80 us) is shorter than
+    // guard + 160 us and is dropped:
+    //
+    //   channel 11: [5000 - guard, 6600)
+    //   channel 12: [6600, kPhase1 + 4000)
+    constexpr uint32_t kPhase1 = 5000 - kGuardUs - kShrDurationUs / 2;
+
+    static_assert(kPhase1 + 4000 > 6600, "the trailing fragment must exist");
+
+    const PeriodicRxSchedule kSchedules[] = {
+        {5000, 10000, 1600, 11},
+        {kPhase1, 10000, 4000, 12},
+    };
+
+    PeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 2), kErrorNone);
+
+    platform.GoInMs(200);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(platform.GetNow());
+
+    ASSERT_GE(windows.size(), 2 * 19u);
+
+    for (const PeriodicRxPlatform::Window &window : windows)
+    {
+        switch (window.mStart % 10000)
+        {
+        case 5000 - kGuardUs:
+            EXPECT_EQ(window.mChannel, 11);
+            EXPECT_EQ(window.mDuration, 1600 + kGuardUs);
+            break;
+        case 6600:
+            EXPECT_EQ(window.mChannel, 12);
+            EXPECT_EQ(window.mDuration, kPhase1 + 4000 - 6600);
+            break;
+        default:
+            ADD_FAILURE() << "unexpected window start " << window.mStart;
+            break;
+        }
+    }
+}
+
+TEST(RadioSpinelPeriodicRx, shouldMergeOverlappingWindowsOnTheSameChannel)
+{
+    // [0, 1600) and [1000, 2600) on the same channel merge into [0, 2600),
+    // which starts the guard time early.
+    const PeriodicRxSchedule kSchedules[] = {
+        {0, 10000, 1600, 11},
+        {1000, 10000, 1600, 11},
+    };
+
+    PeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 2), kErrorNone);
+
+    platform.GoInMs(200);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(platform.GetNow());
+
+    ASSERT_GE(windows.size(), 18u);
+
+    // The first window may be a partial one if the schedules were set in the
+    // middle of a period.
+    for (size_t i = 1; i < windows.size(); i++)
+    {
+        EXPECT_EQ(windows[i].mStart % 10000, 10000 - kGuardUs);
+        EXPECT_EQ(windows[i].mDuration, 2600u + kGuardUs);
+        EXPECT_EQ(windows[i].mChannel, 11);
+    }
+}
+
+TEST(RadioSpinelPeriodicRx, shouldSplitContinuousCoverageIntoBackToBackWindows)
+{
+    // Schedule 0 covers channel 11 continuously (duration == period). With a
+    // long-period schedule on the same channel, merging used to walk every
+    // event up to the long period. Merging is now bounded, and the continuous
+    // coverage is split into back-to-back windows on the same channel.
+    const PeriodicRxSchedule kSchedules[] = {
+        {0, 160, 160, 11},
+        {0, 2000000000UL, 160, 11},
+    };
+
+    PeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 2), kErrorNone);
+
+    platform.GoInMs(100);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(platform.GetNow());
+
+    ASSERT_GE(windows.size(), 2u);
+
+    for (size_t i = 0; i < windows.size(); i++)
+    {
+        EXPECT_EQ(windows[i].mChannel, 11);
+        EXPECT_LT(windows[i].mDuration, 100000u);
+
+        if (i > 0)
+        {
+            EXPECT_EQ(windows[i].mStart, windows[i - 1].mStart + windows[i - 1].mDuration);
+        }
+    }
+}
+
+namespace {
+
+// Advances time while the radio is called, as on real hardware.
+class SlowPeriodicRxPlatform : public PeriodicRxPlatform
+{
+public:
+    otError ReceiveAt(uint8_t aChannel, uint32_t aStart, uint32_t aDuration) override
+    {
+        otError error = PeriodicRxPlatform::ReceiveAt(aChannel, aStart, aDuration);
+
+        // Stop advancing time after too many calls, so that a
+        // regression fails the checks below instead of hanging.
+        if (mWindows.size() < kMaxWindows)
+        {
+            mNow += kRadioCallUs;
+        }
+
+        return error;
+    }
+
+    static constexpr size_t   kMaxWindows  = 1000;
+    static constexpr uint32_t kRadioCallUs = 5;
+};
+
+} // namespace
+
+TEST(RadioSpinelPeriodicRx, shouldNotRescheduleRepeatedlyWhenTimeAdvancesDuringContinuousCoverage)
+{
+    // Schedule 0 covers channel 15 continuously (duration == period), so
+    // merged windows are capped at the period. Time advances while the
+    // radio is called, as on real hardware, so the listen scheduler never
+    // evaluates exactly at a window start. The windows must still be
+    // provided once per cap, not re-provided on every evaluation.
+
+    constexpr uint32_t       kPeriodUs      = 10000;
+    const PeriodicRxSchedule kSchedules[]   = {{0, kPeriodUs, kPeriodUs, 15}};
+    constexpr uint32_t       kTestTimeMs    = 30;
+    constexpr size_t         kMaxNumWindows = kTestTimeMs * 1000 / kPeriodUs + 2;
+
+    SlowPeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 1), kErrorNone);
+
+    platform.GoInMs(kTestTimeMs);
+
+    EXPECT_LE(platform.mWindows.size(), kMaxNumWindows);
+
+    for (size_t i = 0; i < platform.mWindows.size(); i++)
+    {
+        EXPECT_EQ(platform.mWindows[i].mChannel, 15);
+
+        if (i > 0)
+        {
+            EXPECT_EQ(platform.mWindows[i].mStart,
+                      platform.mWindows[i - 1].mStart + platform.mWindows[i - 1].mDuration);
+        }
+    }
+}
+
+// Checks that the windows scheduled on the radio are the periodic windows (started the guard time early), each
+// scheduled once.
+static void ExpectEachWindowOnce(const std::vector<PeriodicRxPlatform::Window> &aWindows,
+                                 uint32_t                                       aPhaseUs,
+                                 uint32_t                                       aPeriodUs)
+{
+    for (size_t i = 0; i < aWindows.size(); i++)
+    {
+        EXPECT_EQ(aWindows[i].mStart % aPeriodUs, aPhaseUs - kGuardUs);
+
+        if (i > 0)
+        {
+            EXPECT_EQ(aWindows[i].mStart - aWindows[i - 1].mStart, aPeriodUs);
+        }
+    }
+}
+
+TEST(RadioSpinelPeriodicRx, shouldScheduleWindowsSetBeforeTheRadioIsEnabled)
+{
+    constexpr uint32_t kPhaseUs  = 10000;
+    constexpr uint32_t kPeriodUs = 50000;
+
+    const PeriodicRxSchedule kSchedules[] = {{kPhaseUs, kPeriodUs, 1600, 11}};
+
+    PeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 1), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    platform.GoInMs(500);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(platform.GetNow());
+
+    ASSERT_GE(windows.size(), 9u);
+    ExpectEachWindowOnce(windows, kPhaseUs, kPeriodUs);
+}
+
+TEST(RadioSpinelPeriodicRx, shouldScheduleEachWindowOnceAfterTheRadioIsReEnabled)
+{
+    // Enabling the radio schedules the first window. It must not be
+    // scheduled again when the scheduler is evaluated at its start.
+
+    constexpr uint32_t kPhaseUs  = 10000;
+    constexpr uint32_t kPeriodUs = 50000;
+
+    const PeriodicRxSchedule kSchedules[] = {{kPhaseUs, kPeriodUs, 1600, 11}};
+
+    PeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 1), kErrorNone);
+    platform.GoInMs(120);
+
+    ASSERT_EQ(platform.mRadioSpinel.Disable(), kErrorNone);
+    platform.GoInMs(10);
+    platform.mWindows.clear();
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    platform.GoInMs(500);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(platform.GetNow());
+
+    ASSERT_GE(windows.size(), 9u);
+    ExpectEachWindowOnce(windows, kPhaseUs, kPeriodUs);
+}
+
+TEST(RadioSpinelPeriodicRx, shouldTakeTheWholeGuardWhenThePreemptedWindowEndsWithinIt)
+{
+    // Schedule 0 on channel 11 at [5000, 6600) every 20 ms.
+    // Schedule 1 on channel 12 at [3000, 4980) every 20 ms (started the
+    // guard time early) ends within the guard of schedule 0. Schedule 0
+    // takes the whole guard, so the radio switches to channel 11 at
+    // 5000 - kGuardUs.
+    constexpr uint32_t kPeriodUs = 20000;
+
+    const PeriodicRxSchedule kSchedules[] = {{5000, kPeriodUs, 1600, 11}, {3000, kPeriodUs, 1980, 12}};
+
+    PeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 2), kErrorNone);
+    platform.GoInUs(kPeriodUs);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(kPeriodUs);
+
+    ASSERT_EQ(windows.size(), 2u);
+    EXPECT_EQ(windows[0].mChannel, 12);
+    EXPECT_EQ(windows[0].mStart, 3000u - kGuardUs);
+    EXPECT_EQ(windows[0].mStart + windows[0].mDuration, 5000u - kGuardUs);
+    EXPECT_EQ(windows[1].mChannel, 11);
+    EXPECT_EQ(windows[1].mStart, 5000u - kGuardUs);
+    EXPECT_EQ(windows[1].mStart + windows[1].mDuration, 6600u);
+}
+
+TEST(RadioSpinelPeriodicRx, shouldTakeTheGuardWhenAWindowStartsWithinIt)
+{
+    // Schedule 0 on channel 11 at [5000, 6600) every 20 ms.
+    // Schedule 1 on channel 12 at [4980, 8000) every 20 ms starts within the
+    // guard of schedule 0 while no window is active. Schedule 0 takes the
+    // whole guard. The part of schedule 1 before it (from its own guard
+    // start) is shorter than the minimum fragment and dropped.
+    constexpr uint32_t kPeriodUs = 20000;
+
+    static_assert(5000 - 4980 < kGuardUs + kShrDurationUs,
+                  "the part of schedule 1 before the guard of schedule 0 must be dropped");
+
+    const PeriodicRxSchedule kSchedules[] = {{5000, kPeriodUs, 1600, 11}, {4980, kPeriodUs, 3020, 12}};
+
+    PeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 2), kErrorNone);
+    platform.GoInUs(kPeriodUs);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(kPeriodUs);
+
+    ASSERT_EQ(windows.size(), 2u);
+    EXPECT_EQ(windows[0].mChannel, 11);
+    EXPECT_EQ(windows[0].mStart, 5000u - kGuardUs);
+    EXPECT_EQ(windows[0].mStart + windows[0].mDuration, 6600u);
+    EXPECT_EQ(windows[1].mChannel, 12);
+    EXPECT_EQ(windows[1].mStart, 6600u);
+    EXPECT_EQ(windows[1].mStart + windows[1].mDuration, 8000u);
+}
+
+TEST(RadioSpinelPeriodicRx, shouldNotScheduleTheRestOfAnActiveWindowAgainWhenSchedulesAreUpdated)
+{
+    // Updating the schedules while a window is active does not change it,
+    // so the radio is not asked to receive the rest of it again, and the
+    // following window is scheduled once.
+    constexpr uint32_t kPhaseUs  = 10000;
+    constexpr uint32_t kPeriodUs = 50000;
+
+    const PeriodicRxSchedule kSchedules[] = {{kPhaseUs, kPeriodUs, 10000, 11}};
+
+    PeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 1), kErrorNone);
+    platform.GoInUs(2 * kPeriodUs + kPhaseUs + 9000 - platform.GetNow());
+    platform.mWindows.clear();
+
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 1), kErrorNone);
+    platform.GoInUs(2 * kPeriodUs);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(platform.GetNow());
+
+    ASSERT_GE(windows.size(), 2u);
+
+    for (const PeriodicRxPlatform::Window &window : windows)
+    {
+        EXPECT_EQ(window.mStart % kPeriodUs, kPhaseUs - kGuardUs);
+        EXPECT_EQ(window.mDuration, 10000u + kGuardUs);
+    }
+
+    ExpectEachWindowOnce(windows, kPhaseUs, kPeriodUs);
+}
+
+TEST(RadioSpinelPeriodicRx, shouldNotEndAWindowAtADroppedFragment)
+{
+    // Schedule 0 on channel 11 at [4100, 6000), schedule 1 on channel 12 at
+    // [4000, 4500), schedule 2 on channel 11 at [0, 10000), all every 20 ms.
+    // Schedule 1 owns [4000 - kGuardUs, 4100 - kGuardUs), which is shorter
+    // than the minimum fragment and dropped, so channel 11 continues
+    // through it. The window of the next period starts the guard time
+    // before it, so only the windows starting before then are checked.
+    constexpr uint32_t kPeriodUs = 20000;
+
+    const PeriodicRxSchedule kSchedules[] = {
+        {4100, kPeriodUs, 1900, 11}, {4000, kPeriodUs, 500, 12}, {0, kPeriodUs, 10000, 11}};
+
+    PeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 3), kErrorNone);
+    platform.GoInUs(kPeriodUs);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(kPeriodUs - kGuardUs);
+
+    ASSERT_EQ(windows.size(), 1u);
+    EXPECT_EQ(windows[0].mChannel, 11);
+    EXPECT_EQ(windows[0].mStart, 0u);
+    EXPECT_EQ(windows[0].mStart + windows[0].mDuration, 10000u);
+}
+
+TEST(RadioSpinelPeriodicRx, shouldKeepTheShortRemainderOfASplitWindow)
+{
+    // Schedule 1 covers channel 11 continuously, interrupted by schedule 0
+    // on channel 12 at [0, 1000) every 29800 + kGuardUs (its guard starts at
+    // 29800). The channel 11 coverage [1000, 29800) is split into
+    // back-to-back windows after `kPeriodicRxMaxMergeEvents` events. The
+    // last one, [29700, 29800), is shorter than the minimum fragment, but it
+    // continues the previous window, so it is kept.
+    const PeriodicRxSchedule kSchedules[] = {{0, 29800 + kGuardUs, 1000, 12}, {0, 300, 300, 11}};
+
+    PeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 2), kErrorNone);
+    platform.GoInUs(30000);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(29800);
+
+    ASSERT_GE(windows.size(), 3u);
+    EXPECT_EQ(windows[0].mChannel, 12);
+    EXPECT_EQ(windows[0].mStart + windows[0].mDuration, 1000u);
+
+    for (size_t i = 1; i < windows.size(); i++)
+    {
+        EXPECT_EQ(windows[i].mChannel, 11);
+        EXPECT_EQ(windows[i].mStart, windows[i - 1].mStart + windows[i - 1].mDuration);
+    }
+
+    EXPECT_EQ(windows.back().mStart + windows.back().mDuration, 29800u);
+    EXPECT_LT(windows.back().mDuration, 200u);
+}
+
+TEST(RadioSpinelPeriodicRx, shouldDropTheShortRemainderOfAWindowTheRadioWasNotReceivingIn)
+{
+    // Schedule 0 on channel 11 at [0, 10000) every 20 ms is set when less
+    // than the minimum fragment of a window is left. The radio was not
+    // receiving on channel 11 before, so the remainder does not continue a
+    // window and is dropped: the first window is the one of the next period
+    // (started the guard time early).
+    constexpr uint32_t kPeriodUs   = 20000;
+    constexpr uint32_t kDurationUs = 10000;
+    constexpr uint32_t kSetAtUs    = kPeriodUs + kDurationUs - kShrDurationUs / 2;
+
+    const PeriodicRxSchedule kSchedules[] = {{0, kPeriodUs, kDurationUs, 11}};
+
+    PeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_LT(platform.GetNow(), kSetAtUs);
+    platform.GoInUs(kSetAtUs - platform.GetNow());
+    platform.mWindows.clear();
+
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 1), kErrorNone);
+    platform.GoInUs(2 * kPeriodUs);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(platform.GetNow());
+
+    ASSERT_GE(windows.size(), 1u);
+    EXPECT_EQ(windows[0].mStart, 2 * kPeriodUs - kGuardUs);
+    EXPECT_EQ(windows[0].mDuration, kDurationUs + kGuardUs);
+    EXPECT_EQ(windows[0].mChannel, 11);
+}
+
+TEST(RadioSpinelPeriodicRx, shouldDropAShortWindowPreemptedNearItsStart)
+{
+    // Schedule 1 on channel 12 at [4200, 4400) every 20 ms is shorter than
+    // the minimum fragment. It is preempted by schedule 0 on channel 11 at
+    // [4280 + guard, ...) (its guard starts at 4280), so only guard + 80 us
+    // of it (from its own guard start) are left, i.e. 80 us once the radio is
+    // ready. That is shorter than the full window (duration plus guard) and
+    // than the minimum fragment, so it is dropped.
+    constexpr uint32_t kPeriodUs = 20000;
+
+    const PeriodicRxSchedule kSchedules[] = {{4280 + kGuardUs, kPeriodUs, 1600, 11}, {4200, kPeriodUs, 200, 12}};
+
+    static_assert(200 < kGuardUs + kShrDurationUs, "schedule 1 must be shorter than the minimum fragment");
+
+    PeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 2), kErrorNone);
+    platform.GoInUs(kPeriodUs);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(kPeriodUs);
+
+    ASSERT_EQ(windows.size(), 1u);
+    EXPECT_EQ(windows[0].mChannel, 11);
+    EXPECT_EQ(windows[0].mStart, 4280u);
+    EXPECT_EQ(windows[0].mDuration, 1600u + kGuardUs);
+}
+
+TEST(RadioSpinelPeriodicRx, shouldDropAShortWindowFollowingAHigherPriorityWindow)
+{
+    // Schedule 1 on channel 12 at [6600, 6800) every 20 ms starts when
+    // schedule 0 on channel 11 at [5000, 6600) ends, so it gets no guard
+    // time. Without the guard, the radio is ready only for 200 - guard us of
+    // it, which is shorter than the SHR duration, so it is dropped.
+    constexpr uint32_t kPeriodUs = 20000;
+
+    const PeriodicRxSchedule kSchedules[] = {{5000, kPeriodUs, 1600, 11}, {6600, kPeriodUs, 200, 12}};
+
+    static_assert(200 < kGuardUs + kShrDurationUs, "schedule 1 must be shorter than the minimum fragment");
+
+    PeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 2), kErrorNone);
+    platform.GoInUs(kPeriodUs);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(kPeriodUs);
+
+    ASSERT_EQ(windows.size(), 1u);
+    EXPECT_EQ(windows[0].mChannel, 11);
+    EXPECT_EQ(windows[0].mStart, 5000u - kGuardUs);
+    EXPECT_EQ(windows[0].mStart + windows[0].mDuration, 6600u);
+}
+
+TEST(RadioSpinelPeriodicRx, shouldKeepAShortWindowWithItsGuard)
+{
+    // Schedule 0 on channel 12 at [4200, 4400) every 20 ms is shorter than
+    // the minimum fragment, but it is not truncated (it starts the guard
+    // time early, from idle), so it is kept.
+    constexpr uint32_t kPeriodUs = 20000;
+
+    const PeriodicRxSchedule kSchedules[] = {{4200, kPeriodUs, 200, 12}};
+
+    PeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 1), kErrorNone);
+    platform.GoInUs(kPeriodUs);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(kPeriodUs);
+
+    ASSERT_EQ(windows.size(), 1u);
+    EXPECT_EQ(windows[0].mChannel, 12);
+    EXPECT_EQ(windows[0].mStart, 4200u - kGuardUs);
+    EXPECT_EQ(windows[0].mDuration, 200u + kGuardUs);
+}
+
+TEST(RadioSpinelPeriodicRx, shouldNotLetALowerPriorityGuardTakeAHigherPriorityGuardOnTheSameChannel)
+{
+    // Schedule 2 on channel 11 at [1000, 10000) covers the guards of
+    // schedule 0 on channel 11 at [5000, 6000) and schedule 1 on channel 12
+    // at [5100, 6100), all every 20 ms. Within both guards, schedule 0 (on
+    // the channel of schedule 2) owns the radio, not schedule 1. The
+    // schedules are set within both guards, so the first window starts then
+    // on channel 11 and continues until schedule 2 ends (schedule 1 only
+    // gets fragments shorter than the minimum, which are dropped).
+    constexpr uint32_t kPeriodUs = 20000;
+    constexpr uint32_t kSetAtUs  = 4950;
+
+    static_assert((kSetAtUs >= 5000 - kGuardUs) && (kSetAtUs >= 5100 - kGuardUs), "must be within both guards");
+
+    const PeriodicRxSchedule kSchedules[] = {
+        {5000, kPeriodUs, 1000, 11}, {5100, kPeriodUs, 1000, 12}, {1000, kPeriodUs, 9000, 11}};
+
+    PeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_LT(platform.GetNow(), kSetAtUs);
+    platform.GoInUs(kSetAtUs - platform.GetNow());
+    platform.mWindows.clear();
+
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 3), kErrorNone);
+    platform.GoInUs(kPeriodUs);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(kPeriodUs);
+
+    ASSERT_EQ(windows.size(), 1u);
+    EXPECT_EQ(windows[0].mChannel, 11);
+    EXPECT_LT(windows[0].mStart, 5000u);
+    EXPECT_EQ(windows[0].mStart + windows[0].mDuration, 10000u);
+}
+
+TEST(RadioSpinelPeriodicRx, shouldStartALowerPriorityWindowWhenAHigherPriorityWindowEnds)
+{
+    // Schedule 0 on channel 11 at [20000, 28000) every 100 ms preempts
+    // schedule 1 on channel 15 at [16000, 32000) every 100 ms. The guard time
+    // before schedule 0 is taken from schedule 1, and none is taken from
+    // schedule 0 when the radio returns to schedule 1:
+    //
+    //   channel 15: [16000 - guard, 20000 - guard)
+    //   channel 11: [20000 - guard, 28000)
+    //   channel 15: [28000, 32000)
+    constexpr uint32_t kPeriodUs = 100000;
+
+    const PeriodicRxSchedule kSchedules[] = {{20000, kPeriodUs, 8000, 11}, {16000, kPeriodUs, 16000, 15}};
+
+    PeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 2), kErrorNone);
+    platform.GoInUs(kPeriodUs);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(kPeriodUs);
+
+    ASSERT_EQ(windows.size(), 3u);
+    EXPECT_EQ(windows[0].mChannel, 15);
+    EXPECT_EQ(windows[0].mStart, 16000u - kGuardUs);
+    EXPECT_EQ(windows[0].mStart + windows[0].mDuration, 20000u - kGuardUs);
+    EXPECT_EQ(windows[1].mChannel, 11);
+    EXPECT_EQ(windows[1].mStart, 20000u - kGuardUs);
+    EXPECT_EQ(windows[1].mStart + windows[1].mDuration, 28000u);
+    EXPECT_EQ(windows[2].mChannel, 15);
+    EXPECT_EQ(windows[2].mStart, 28000u);
+    EXPECT_EQ(windows[2].mStart + windows[2].mDuration, 32000u);
+}
+
+TEST(RadioSpinelPeriodicRx, shouldNotTakeTheGuardFromAHigherPriorityWindow)
+{
+    // Schedule 0 on channel 11 at [5000, 6600) every 20 ms. Schedule 1 on
+    // channel 12 at [6700, 8000) every 20 ms starts less than the guard time
+    // after schedule 0 ends. Its guard is not taken from schedule 0, so it
+    // starts when schedule 0 ends.
+    constexpr uint32_t kPeriodUs = 20000;
+
+    static_assert(6700 - 6600 < kGuardUs, "schedule 1 must start within the guard time after schedule 0");
+
+    const PeriodicRxSchedule kSchedules[] = {{5000, kPeriodUs, 1600, 11}, {6700, kPeriodUs, 1300, 12}};
+
+    PeriodicRxPlatform platform;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+    ASSERT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 2), kErrorNone);
+    platform.GoInUs(kPeriodUs);
+
+    std::vector<PeriodicRxPlatform::Window> windows = platform.GetWindowsBefore(kPeriodUs);
+
+    ASSERT_EQ(windows.size(), 2u);
+    EXPECT_EQ(windows[0].mChannel, 11);
+    EXPECT_EQ(windows[0].mStart, 5000u - kGuardUs);
+    EXPECT_EQ(windows[0].mStart + windows[0].mDuration, 6600u);
+    EXPECT_EQ(windows[1].mChannel, 12);
+    EXPECT_EQ(windows[1].mStart, 6600u);
+    EXPECT_EQ(windows[1].mStart + windows[1].mDuration, 8000u);
+}
+
+#else // OPENTHREAD_CONFIG_LINK_EXT_ENABLE && (OPENTHREAD_CONFIG_LINK_EXT_PERIODIC_RX_MAX_SCHEDULES > 0)
+
+TEST(RadioSpinelPeriodicRx, shouldReportNotImplementedByAnRcpWithoutPeriodicRx)
+{
+    const Spinel::RadioSpinel::PeriodicRxSchedule kSchedules[] = {{0, 50000, 1600, 11}};
+
+    FakeCoprocessorPlatform                 platform;
+    Spinel::RadioSpinel::PeriodicRxSchedule schedules[3];
+    uint8_t                                 numSchedules = 3;
+
+    ASSERT_EQ(platform.mRadioSpinel.Enable(FakePlatform::CurrentInstance()), kErrorNone);
+
+    EXPECT_EQ(platform.mRadioSpinel.GetPeriodicRxSchedules(schedules, numSchedules), kErrorNotImplemented);
+    EXPECT_EQ(numSchedules, 0);
+    EXPECT_EQ(platform.mRadioSpinel.SetPeriodicRxSchedules(kSchedules, 1), kErrorNotImplemented);
+}
+
+#endif // OPENTHREAD_CONFIG_LINK_EXT_ENABLE && (OPENTHREAD_CONFIG_LINK_EXT_PERIODIC_RX_MAX_SCHEDULES > 0)
