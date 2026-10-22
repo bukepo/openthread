@@ -4931,7 +4931,7 @@ enum
      * and energy scans are rejected with `SPINEL_STATUS_INVALID_STATE` during a
      * burst.
      */
-    SPINEL_PROP_RCP_TX_BURST = SPINEL_PROP_RCP_EXT__BEGIN + 0x10,
+    SPINEL_PROP_RCP_TX_BURST = SPINEL_PROP_RCP_EXT__BEGIN + 0xf0,
 
     /// RCP Periodic RX Schedules
     /** Format: `A(t(LLSC))`
@@ -4993,7 +4993,7 @@ enum
      * Only `CMD_PROP_VALUE_SET` and `CMD_PROP_VALUE_GET` are supported. An RCP not supporting periodic RX responds to
      * `CMD_PROP_VALUE_GET` with `SPINEL_STATUS_PROP_NOT_FOUND`, which the host reports as `OT_ERROR_NOT_IMPLEMENTED`.
      */
-    SPINEL_PROP_RCP_PERIODIC_RX_SCHEDULES = SPINEL_PROP_RCP_EXT__BEGIN + 0x11,
+    SPINEL_PROP_RCP_PERIODIC_RX_SCHEDULES = SPINEL_PROP_RCP_EXT__BEGIN + 0xf1,
 
     /// MAC Filter Policy
     /** Format: `C`
@@ -5045,7 +5045,7 @@ enum
      * The RCP only verifies the MIC; it does not decrypt frames, and frames are delivered to the
      * host unmodified.
      */
-    SPINEL_PROP_RCP_MAC_FILTER_POLICY = SPINEL_PROP_RCP_EXT__BEGIN + 0x12,
+    SPINEL_PROP_RCP_MAC_FILTER_POLICY = SPINEL_PROP_RCP_EXT__BEGIN + 0xf2,
 
     /// MAC Key Table
     /** Format: `A(t(ddC))`
@@ -5074,7 +5074,7 @@ enum
      * unsupported Key ID lengths by returning `SPINEL_STATUS_INVALID_ARGUMENT`. For
      * example, OpenThread RCP implementations support Key ID Modes 0, 1, and 2.
      */
-    SPINEL_PROP_RCP_MAC_KEY_TABLE = SPINEL_PROP_RCP_EXT__BEGIN + 0x13,
+    SPINEL_PROP_RCP_MAC_KEY_TABLE = SPINEL_PROP_RCP_EXT__BEGIN + 0xf3,
 
     /// MAC Neighbor Table
     /** Format: `A(t(ECL[S[S]]))`
@@ -5113,7 +5113,7 @@ enum
      * counter, only if the key table entry at its index keeps the same Key ID and key; other
      * neighbors are removed.
      */
-    SPINEL_PROP_RCP_MAC_NEIGHBOR_TABLE = SPINEL_PROP_RCP_EXT__BEGIN + 0x14,
+    SPINEL_PROP_RCP_MAC_NEIGHBOR_TABLE = SPINEL_PROP_RCP_EXT__BEGIN + 0xf4,
 
     SPINEL_PROP_RCP_EXT__END = 0x900,
 
